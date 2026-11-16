@@ -1027,6 +1027,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (!padMeshesMap.has(pad.id)) {
           const padMesh = createPlacementPadMesh(pad.ring);
           padMesh.position.set(pad.x, 0, pad.z);
+          if (pad.rotationY) padMesh.rotation.y = pad.rotationY;
           padMesh.userData = { kind: 'pad', padId: pad.id };
           padMesh.traverse((c) => {
             c.userData = { kind: 'pad', padId: pad.id };
@@ -1044,6 +1045,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (pad.building) {
           const bldMesh = createBuildingModel(pad.building.type, pad.building.upgradePath);
           bldMesh.position.set(pad.x, 0.14, pad.z);
+          if (pad.rotationY) bldMesh.rotation.y = pad.rotationY;
           bldMesh.userData = { kind: 'pad', padId: pad.id };
           scene.add(bldMesh);
           buildingMeshesMap.set(pad.id, bldMesh);

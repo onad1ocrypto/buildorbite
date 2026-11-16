@@ -55,6 +55,7 @@ export interface PlacementPad {
   x: number;
   z: number;
   ring: 'inner' | 'outer';
+  rotationY?: number;
   label: string;
   building: {
     type: BuildingType;

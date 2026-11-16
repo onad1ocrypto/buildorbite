@@ -452,17 +452,56 @@ export const ZOMBIE_CATALOG: Record<ZombieArchetype, ZombieSpec> = {
 };
 
 export function createInitialPads(): PlacementPad[] {
-  // 8 well-spaced pads in two rings around the central Fort at (0, 0)
-  return [
-    { id: 1, x: -5.5, z: -4.2, ring: 'inner', label: 'NW Inner Pad', building: null },
-    { id: 2, x: 5.5, z: -4.2, ring: 'inner', label: 'NE Inner Pad', building: null },
-    { id: 3, x: -5.5, z: 4.2, ring: 'inner', label: 'SW Inner Pad', building: null },
-    { id: 4, x: 5.5, z: 4.2, ring: 'inner', label: 'SE Inner Pad', building: null },
-    { id: 5, x: 0, z: -8.2, ring: 'outer', label: 'North Trail Pad', building: null },
-    { id: 6, x: 8.8, z: 0, ring: 'outer', label: 'East Trail Pad', building: null },
-    { id: 7, x: 0, z: 8.2, ring: 'outer', label: 'South Trail Pad', building: null },
-    { id: 8, x: -8.8, z: 0, ring: 'outer', label: 'West Trail Pad', building: null },
+  // Fort layout: a closed palisade ring around the central Fort at (0, 0),
+  // weapon pads INSIDE the ring, and trap pads OUTSIDE along the trails.
+  const pads: PlacementPad[] = [];
+  let id = 1;
+
+  // --- Palisade ring: segments oriented tangentially so the walls connect ---
+  const ringRadius = 6.2;
+  const ringSegments = 18;
+  const gateAngle = -Math.PI / 2; // north gate
+  const seg = (Math.PI * 2) / ringSegments;
+  for (let i = 0; i < ringSegments; i++) {
+    const a = gateAngle + (i / ringSegments) * Math.PI * 2;
+    const rel = Math.atan2(Math.sin(a - gateAngle), Math.cos(a - gateAngle));
+    if (Math.abs(rel) < seg * 0.55) continue; // leave the gate open
+    const x = Math.cos(a) * ringRadius;
+    const z = Math.sin(a) * ringRadius;
+    pads.push({
+      id: id++,
+      x: +x.toFixed(2),
+      z: +z.toFixed(2),
+      ring: 'outer',
+      rotationY: -a - Math.PI / 2,
+      label: `Wall ${i + 1}`,
+      building: null,
+    });
+  }
+
+  // --- Inner weapon pads (towers / catapult / campfire / tent) ---
+  const inner: Array<{ x: number; z: number; label: string }> = [
+    { x: -3.1, z: -3.1, label: 'NW Inner' },
+    { x: 3.1, z: -3.1, label: 'NE Inner' },
+    { x: -3.1, z: 3.1, label: 'SW Inner' },
+    { x: 3.1, z: 3.1, label: 'SE Inner' },
   ];
+  inner.forEach((p) =>
+    pads.push({ id: id++, x: p.x, z: p.z, ring: 'inner', rotationY: 0, label: p.label, building: null })
+  );
+
+  // --- Outer trap pads along the N/S/E/W trails ---
+  const outer: Array<{ x: number; z: number; label: string }> = [
+    { x: 0, z: -9.6, label: 'North Trap' },
+    { x: 9.6, z: 0, label: 'East Trap' },
+    { x: 0, z: 9.6, label: 'South Trap' },
+    { x: -9.6, z: 0, label: 'West Trap' },
+  ];
+  outer.forEach((p) =>
+    pads.push({ id: id++, x: p.x, z: p.z, ring: 'outer', rotationY: 0, label: p.label, building: null })
+  );
+
+  return pads;
 }
 
 export function canAfford(

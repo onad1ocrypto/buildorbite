@@ -53,10 +53,11 @@ function makeZombie(overrides: Partial<ZombieEntity>): ZombieEntity {
   };
 }
 
-test('createInitialPads returns 8 placement pads around the fort', () => {
+test('createInitialPads returns a closed palisade ring plus inner and outer pads', () => {
   const pads = createInitialPads();
-  assert.equal(pads.length, 8);
+  assert.equal(pads.length, 25);
   assert.equal(pads.every((p) => p.building === null), true);
+  assert.equal(pads.some((p) => p.rotationY !== undefined), true);
 });
 
 test('buildStructureOnPad deducts resources and sets building state', () => {
