@@ -1,0 +1,139 @@
+import { useEffect, useRef, useState } from 'react';
+import { GameCanvas, GameControllerApi } from './components/GameCanvas';
+import { HudOverlay } from './components/HudOverlay';
+import { Modals } from './components/Modals';
+import { TitleScreen } from './components/TitleScreen';
+import { soundFX } from './game/audio';
+import { loadDailyStateFromStorage } from './game/dailySystem';
+import {
+  createInitialPads,
+  DAY_DURATION_SECONDS,
+  FORT_MAX_HP,
+  INITIAL_RESOURCES,
+  LANTERN_FLARE_COOLDOWN,
+  MAX_DAYS,
+} from './game/rules';
+import { BuildingType, HudSnapshot } from './game/types';
+
+export default function App() {
+  const controllerRef = useRef<GameControllerApi | null>(null);
+  const [muted, setMuted] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+
+  const [hud, setHud] = useState<HudSnapshot>(() => {
+    const autostart =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('autostart') === '1';
+    const initialDaily = loadDailyStateFromStorage();
+    return {
+      screen: autostart ? 'playing' : 'title',
+      phase: 'day',
+      dayNumber: 1,
+      maxDays: MAX_DAYS,
+      phaseTimeRemaining: DAY_DURATION_SECONDS,
+      fortHp: FORT_MAX_HP,
+      fortMaxHp: FORT_MAX_HP,
+      fortGhostHp: FORT_MAX_HP,
+      resources: { ...INITIAL_RESOURCES, tickets: initialDaily.tickets },
+      score: 0,
+      bestScore: 0,
+      zombiesRemaining: 0,
+      totalWaveZombies: 0,
+      zombiesDefeated: 0,
+      flareCooldown: 0,
+      flareMaxCooldown: LANTERN_FLARE_COOLDOWN,
+      selectedPadId: null,
+      pads: createInitialPads(),
+      bossActive: false,
+      bossName: 'Baron Blight',
+      bossHp: 0,
+      bossMaxHp: 560,
+      bossSpeech: null,
+      statusBanner: null,
+      runOutcome: null,
+      elapsedRunSeconds: 0,
+      cameraZoom: 1.0,
+      dockCollapsed: false,
+      daily: initialDaily,
+      lastRunSummary: null,
+    };
+  });
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (e.code === 'KeyM') {
+        const nextMuted = soundFX.toggleMute();
+        setMuted(nextMuted);
+      } else if (e.code === 'Escape' && showGuide) {
+        setShowGuide(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showGuide]);
+
+  const handleToggleMute = () => {
+    const nextMuted = soundFX.toggleMute();
+    setMuted(nextMuted);
+  };
+
+  return (
+    <main className="relative w-screen h-screen overflow-hidden bg-[#0b1016] select-none">
+      {/* 3D WebGL Viewport */}
+      <GameCanvas onHudUpdate={setHud} controllerRef={controllerRef} />
+
+      {/* Title Screen Overlay */}
+      {hud.screen === 'title' && !showGuide && (
+        <TitleScreen
+          onStartGame={() => controllerRef.current?.startGame()}
+          onOpenGuide={() => setShowGuide(true)}
+          bestScore={hud.bestScore}
+          daily={hud.daily}
+          onEquipLantern={(id) => controllerRef.current?.equipLantern(id)}
+          onEquipTitle={(t) => controllerRef.current?.equipTitle(t)}
+          onRefillTicketWithCoins={() =>
+            controllerRef.current?.refillTicketWithCoins()
+          }
+        />
+      )}
+
+      {/* Low-Occlusion World-Matched HUD Overlay */}
+      <HudOverlay
+        hud={hud}
+        muted={muted}
+        onSelectPad={(padId) => controllerRef.current?.selectPad(padId)}
+        onBuildOnPad={(type: BuildingType) =>
+          controllerRef.current?.buildOnSelectedPad(type)
+        }
+        onUpgradeOnPad={(pathId: 'pathA' | 'pathB') =>
+          controllerRef.current?.upgradeSelectedPad(pathId)
+        }
+        onRepairPad={() => controllerRef.current?.repairSelectedPad()}
+        onDemolishPad={() => controllerRef.current?.demolishSelectedPad()}
+        onTriggerFlare={() => controllerRef.current?.triggerLanternFlare()}
+        onStartNightEarly={() => controllerRef.current?.startNightEarly()}
+        onToggleMute={handleToggleMute}
+        onTogglePause={() => controllerRef.current?.togglePause()}
+        onOpenGuide={() => setShowGuide(true)}
+        onToggleDock={() => controllerRef.current?.toggleDock()}
+        onAdjustZoom={(delta) => controllerRef.current?.adjustZoom(delta)}
+      />
+
+      {/* Pause, Unified End Screen Result Card, and Schema/Guide Modals */}
+      <Modals
+        hud={hud}
+        showGuide={showGuide}
+        onCloseGuide={() => setShowGuide(false)}
+        onResume={() => controllerRef.current?.togglePause()}
+        onRestart={() => controllerRef.current?.restartGame()}
+        onReturnTitle={() => controllerRef.current?.returnToTitle()}
+        onOpenGuide={() => setShowGuide(true)}
+        onFinishRunEarly={() => controllerRef.current?.finishRunEarly()}
+        onRefillTicketWithCoins={() =>
+          controllerRef.current?.refillTicketWithCoins()
+        }
+      />
+    </main>
+  );
+}

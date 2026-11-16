@@ -1,0 +1,6 @@
+{
+  "name": "Build or Bite",
+  "description": "A 3D dark-comedy tower-defense and base-builder game set in a spooky forest clearing. Gather by day, fortify your camp, and defend against polite-yet-terrifying zombies by night.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
