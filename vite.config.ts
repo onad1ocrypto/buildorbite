@@ -34,6 +34,8 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // Allow the sandbox preview host (and any local host) to load the dev server.
+      allowedHosts: true as true,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

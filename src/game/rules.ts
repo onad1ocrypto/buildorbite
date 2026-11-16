@@ -452,32 +452,38 @@ export const ZOMBIE_CATALOG: Record<ZombieArchetype, ZombieSpec> = {
 };
 
 export function createInitialPads(): PlacementPad[] {
-  // Fort layout: a closed palisade ring around the central Fort at (0, 0),
-  // weapon pads INSIDE the ring, and trap pads OUTSIDE along the trails.
+  // Fort layout: a BOX-shaped palisade (long wall segments) that completely
+  // encloses the central Fort at (0, 0), with a gate on the north side.
+  // Weapon pads sit INSIDE the walls; trap pads sit OUTSIDE along the trails.
   const pads: PlacementPad[] = [];
   let id = 1;
 
-  // --- Palisade ring: segments oriented tangentially so the walls connect ---
-  const ringRadius = 6.2;
-  const ringSegments = 18;
-  const gateAngle = -Math.PI / 2; // north gate
-  const seg = (Math.PI * 2) / ringSegments;
-  for (let i = 0; i < ringSegments; i++) {
-    const a = gateAngle + (i / ringSegments) * Math.PI * 2;
-    const rel = Math.atan2(Math.sin(a - gateAngle), Math.cos(a - gateAngle));
-    if (Math.abs(rel) < seg * 0.55) continue; // leave the gate open
-    const x = Math.cos(a) * ringRadius;
-    const z = Math.sin(a) * ringRadius;
-    pads.push({
-      id: id++,
-      x: +x.toFixed(2),
-      z: +z.toFixed(2),
-      ring: 'outer',
-      rotationY: -a - Math.PI / 2,
-      label: `Wall ${i + 1}`,
-      building: null,
-    });
-  }
+  // --- Box-shaped palisade: long wall segments forming a closed rectangle ---
+  const hx = 8.5; // half-width  (x)
+  const hz = 6.5; // half-depth  (z)
+  const sides = [
+    { x0: -hx, z0: -hz, x1: hx, z1: -hz, count: 5, rot: 0 }, // north (gate here)
+    { x0: -hx, z0: hz, x1: hx, z1: hz, count: 5, rot: 0 }, // south
+    { x0: -hx, z0: -hz, x1: -hx, z1: hz, count: 4, rot: Math.PI / 2 }, // west
+    { x0: hx, z0: -hz, x1: hx, z1: hz, count: 4, rot: Math.PI / 2 }, // east
+  ];
+  sides.forEach((s, si) => {
+    for (let i = 0; i < s.count; i++) {
+      const t = (i + 0.5) / s.count;
+      const x = s.x0 + (s.x1 - s.x0) * t;
+      const z = s.z0 + (s.z1 - s.z0) * t;
+      if (si === 0 && Math.abs(x) < 1.8) continue; // gate opening (north centre)
+      pads.push({
+        id: id++,
+        x: +x.toFixed(2),
+        z: +z.toFixed(2),
+        ring: 'outer',
+        rotationY: s.rot,
+        label: `Wall ${id}`,
+        building: null,
+      });
+    }
+  });
 
   // --- Inner weapon pads (towers / catapult / campfire / tent) ---
   const inner: Array<{ x: number; z: number; label: string }> = [

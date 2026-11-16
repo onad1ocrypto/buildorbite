@@ -997,18 +997,18 @@ export function createBuildingModel(
   });
 
   if (type === 'palisade') {
-    // 7 sharpened timber stakes + crossbar + iron spikes
+    // Long palisade wall segment: 9 sharpened stakes + crossbar + iron spikes
     const logGeo = new THREE.CylinderGeometry(0.16, 0.2, 1.55, 6);
     const tipGeo = new THREE.ConeGeometry(0.17, 0.38, 6);
-    for (let i = -2; i <= 2; i++) {
+    for (let i = -4; i <= 4; i++) {
       const log = new THREE.Mesh(logGeo, woodMat);
-      log.position.set(i * 0.36, 0.78, (i % 2) * 0.08);
+      log.position.set(i * 0.33, 0.78, (i % 2) * 0.08);
       log.castShadow = true;
       const tip = new THREE.Mesh(tipGeo, upgradePath ? metalMat : woodMat);
-      tip.position.set(i * 0.36, 1.72, (i % 2) * 0.08);
+      tip.position.set(i * 0.33, 1.72, (i % 2) * 0.08);
       group.add(log, tip);
     }
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.22, 0.45), stoneMat);
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.22, 0.45), stoneMat);
     beam.position.set(0, 0.65, 0);
     group.add(beam);
   } else if (type === 'watchtower') {
