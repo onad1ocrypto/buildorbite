@@ -4,7 +4,8 @@ import {
   getTimeUntilNextUTCReset,
   LANTERN_COSMETICS,
 } from '../game/dailySystem';
-import { DailyPersistenceState } from '../game/types';
+import { HERO_RUE_PORTRAIT_URL, ZOMBIE_CATALOG } from '../game/rules';
+import { DailyPersistenceState, ZombieArchetype } from '../game/types';
 
 interface TitleScreenProps {
   onStartGame: () => void;
@@ -15,6 +16,15 @@ interface TitleScreenProps {
   onEquipTitle: (title: string) => void;
   onRefillTicketWithCoins: () => void;
 }
+
+const CANONICAL_CAST: ZombieArchetype[] = [
+  'shamble',
+  'grinner',
+  'grumble',
+  'gawp',
+  'brine',
+  'baron',
+];
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
@@ -43,8 +53,13 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       <div className="w-full max-w-[1320px] mx-auto my-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-center pointer-events-auto">
         {/* Left 7 Columns: Title Emblem, Player Rank, Description, Primary CTA & Lantern Cosmetics */}
         <div className="lg:col-span-7 flex flex-col items-start">
-          {/* Player Profile Strip (Level, Title, Streak, Coins, Daily Tickets) */}
-          <div className="flex flex-wrap items-center gap-3 mb-3 text-xs text-[#cbd5e1]">
+          {/* Player Profile Strip (Ranger Rue Portrait, Level, Title, Streak, Coins, Daily Tickets) */}
+          <div className="flex flex-wrap items-center gap-2.5 mb-3 text-xs text-[#cbd5e1]">
+            <img
+              src={HERO_RUE_PORTRAIT_URL}
+              alt="Ranger Rue"
+              className="w-7 h-7 rounded-lg object-cover border border-[#f59e0b]"
+            />
             <span className="font-mono-tabular font-bold text-[#fbbf24]">
               LVL {daily.level}
             </span>
@@ -243,6 +258,63 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 ))}
               </div>
             )}
+
+            {/* Canonical Concept Art Cast Strip */}
+            <div className="mt-3 pt-2.5 border-t border-[#1e293b]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
+                  Canonical Character Cast (3D Models &amp; Portraits)
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenGuide}
+                  className="text-[11px] text-[#fbbf24] hover:underline cursor-pointer"
+                >
+                  Inspect Bestiary →
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={onOpenGuide}
+                  title="Ranger Rue — Hero Scout (Lantern, Wooden Mallet, Pinched Hat & Rolled Mat)"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#131b26] hover:bg-[#1e293b] border border-[#f59e0b]/60 shrink-0 cursor-pointer transition-colors"
+                >
+                  <img
+                    src={HERO_RUE_PORTRAIT_URL}
+                    alt="Ranger Rue"
+                    className="w-5 h-5 rounded object-cover"
+                  />
+                  <span className="text-[11px] font-semibold text-[#fef3c7]">Rue</span>
+                </button>
+                {CANONICAL_CAST.map((arch) => {
+                  const spec = ZOMBIE_CATALOG[arch];
+                  return (
+                    <button
+                      key={arch}
+                      type="button"
+                      onClick={onOpenGuide}
+                      title={`${spec.name} (${spec.subtitle}): ${spec.specialTrait}`}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#131b26] hover:bg-[#1e293b] border border-[#334155] shrink-0 cursor-pointer transition-colors"
+                    >
+                      {spec.portraitUrl && (
+                        <img
+                          src={spec.portraitUrl}
+                          alt={spec.name}
+                          className="w-5 h-5 rounded object-cover"
+                        />
+                      )}
+                      <span
+                        className="text-[11px] font-semibold"
+                        style={{ color: spec.badgeColor }}
+                      >
+                        {spec.name.replace('The ', '').replace('Old ', '')}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 

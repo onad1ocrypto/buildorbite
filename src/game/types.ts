@@ -81,6 +81,7 @@ export interface ZombieSpec {
   type: ZombieArchetype;
   name: string;
   subtitle: string;
+  portraitUrl?: string;
   maxHp: number;
   armorHp?: number;
   speed: number;

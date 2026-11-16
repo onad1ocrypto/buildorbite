@@ -3,8 +3,12 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { soundFX } from '../game/audio';
 import {
+  createBarkTexture,
   createBuildingModel,
   createCentralFortModel,
+  createDirtRoadTexture,
+  createGrassTerrainTexture,
+  createPineFoliageTexture,
   createPlacementPadMesh,
   createProceduralBumpTexture,
   createRangerRueModel,
@@ -164,6 +168,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
     const bumpTex = createProceduralBumpTexture(maxAnisotropy);
     const pajamaTex = createStripedPajamaTexture(maxAnisotropy);
+    const outerGrassTex = createGrassTerrainTexture(maxAnisotropy, true);
+    const clearingGrassTex = createGrassTerrainTexture(maxAnisotropy, false);
+    const dirtRoadTex = createDirtRoadTexture(maxAnisotropy);
+    const barkTex = createBarkTexture(maxAnisotropy);
+    const foliageTex = createPineFoliageTexture(maxAnisotropy);
 
     // Fixed ~45° Isometric / Top-Down 3/4 Camera (NOT a follow camera; keeps whole fort readable)
     const camera = new THREE.PerspectiveCamera(
@@ -208,15 +217,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const rueLanternLight = new THREE.PointLight(0xff8c1a, 2.5, 13, 1.7);
     scene.add(rueLanternLight);
 
-    // 2. Outdoor Forest Terrain, Clearing, Trails & Instanced Forest Perimeter
+    // 2. Realistic Outdoor Forest Floor, Meadow Clearing, Dirt & Cobblestone Roads, 3D Grass & Multi-Tiered Woodland
     const outerGround = new THREE.Mesh(
-      new THREE.CircleGeometry(85, 48),
+      new THREE.CircleGeometry(85, 56),
       new THREE.MeshStandardMaterial({
-        color: 0x16261c,
-        roughness: 0.94,
-        metalness: 0.04,
+        color: 0xd4e4a8,
+        map: outerGrassTex,
+        roughness: 0.92,
+        metalness: 0.03,
         bumpMap: bumpTex,
-        bumpScale: 0.08,
+        bumpScale: 0.11,
       })
     );
     outerGround.rotation.x = -Math.PI / 2;
@@ -224,13 +234,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     scene.add(outerGround);
 
     const clearingDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(18.5, 40),
+      new THREE.CircleGeometry(18.8, 56),
       new THREE.MeshStandardMaterial({
-        color: 0x243b27,
-        roughness: 0.88,
-        metalness: 0.05,
+        color: 0xeef6c4,
+        map: clearingGrassTex,
+        roughness: 0.86,
+        metalness: 0.04,
         bumpMap: bumpTex,
-        bumpScale: 0.05,
+        bumpScale: 0.07,
       })
     );
     clearingDisc.rotation.x = -Math.PI / 2;
@@ -238,89 +249,572 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     clearingDisc.receiveShadow = true;
     scene.add(clearingDisc);
 
-    // 4 Dirt Trails (North, South, East, West)
+    // Mossy Stone Clearing Perimeter Border Ring
+    const clearingBorderRing = new THREE.Mesh(
+      new THREE.RingGeometry(18.3, 19.1, 56),
+      new THREE.MeshStandardMaterial({
+        color: 0x3b4d38,
+        roughness: 0.94,
+        metalness: 0.04,
+        bumpMap: bumpTex,
+        bumpScale: 0.09,
+      })
+    );
+    clearingBorderRing.rotation.x = -Math.PI / 2;
+    clearingBorderRing.position.y = 0.024;
+    clearingBorderRing.receiveShadow = true;
+    scene.add(clearingBorderRing);
+
+    // 4 Realistic Dirt & Pebble Roads (North, South, East, West) with feathered edges and wagon wheel ruts
     const trailMat = new THREE.MeshStandardMaterial({
-      color: 0x3d2e22,
+      color: 0xd6c2a8,
+      map: dirtRoadTex,
+      transparent: true,
       roughness: 0.92,
       metalness: 0.04,
+      bumpMap: bumpTex,
+      bumpScale: 0.08,
+      depthWrite: false,
     });
-    const nsTrail = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 46), trailMat);
+    const nsTrail = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 48), trailMat);
     nsTrail.rotation.x = -Math.PI / 2;
     nsTrail.position.y = 0.032;
     nsTrail.receiveShadow = true;
-    const ewTrail = new THREE.Mesh(new THREE.PlaneGeometry(46, 3.1), trailMat);
+
+    const ewTrail = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 48), trailMat);
     ewTrail.rotation.x = -Math.PI / 2;
+    ewTrail.rotation.z = Math.PI / 2;
     ewTrail.position.y = 0.035;
     ewTrail.receiveShadow = true;
     scene.add(nsTrail, ewTrail);
 
-    // Instanced Forest Pine Trees (> 20 repeated items -> InstancedMesh)
-    const treeCount = 88;
+    // Instanced 3D Roadside Cobblestones & Stepping Stones along all 4 roads
+    const roadStoneCount = 152;
+    const roadStoneInst = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.26, 0.34, 0.08, 7),
+      new THREE.MeshStandardMaterial({
+        color: 0x8d8273,
+        roughness: 0.94,
+        metalness: 0.03,
+        envMapIntensity: 0.18,
+        bumpMap: bumpTex,
+        bumpScale: 0.06,
+      }),
+      roadStoneCount
+    );
+    roadStoneInst.receiveShadow = true;
+    let stoneIdx = 0;
+    const dirs = [
+      { dx: 0, dz: 1 },
+      { dx: 0, dz: -1 },
+      { dx: 1, dz: 0 },
+      { dx: -1, dz: 0 },
+    ];
+    for (let dIdx = 0; dIdx < dirs.length; dIdx++) {
+      const dir = dirs[dIdx];
+      for (let step = 0; step < 38 && stoneIdx < roadStoneCount; step++) {
+        const dist = 3.6 + step * 0.48 + ((step * 13) % 5) * 0.04;
+        // Alternate between left/right curb stones and center stepping stones
+        const laneMode = step % 3;
+        const lateral =
+          laneMode === 0
+            ? -1.28 + ((step * 7) % 5) * 0.05
+            : laneMode === 1
+            ? 1.28 - ((step * 11) % 5) * 0.05
+            : ((step * 17) % 9 - 4) * 0.16;
+
+        const sx = dir.dx !== 0 ? dir.dx * dist : lateral;
+        const sz = dir.dz !== 0 ? dir.dz * dist : lateral;
+        const sScale = 0.72 + ((step * 19 + dIdx * 7) % 45) / 100;
+
+        _dummyObj.position.set(sx, 0.034, sz);
+        _dummyObj.rotation.set(0, ((step * 23 + dIdx) % 12) * 0.52, 0);
+        _dummyObj.scale.set(
+          sScale * (1 + ((step * 3) % 3) * 0.12),
+          0.55 + (step % 3) * 0.14,
+          sScale * (1 + ((step * 5) % 3) * 0.1)
+        );
+        _dummyObj.updateMatrix();
+        roadStoneInst.setMatrixAt(stoneIdx, _dummyObj.matrix);
+
+        const greyTone = 0.36 + ((step * 11 + dIdx * 5) % 18) / 100;
+        _color.setHSL(0.08 + (step % 3) * 0.02, 0.12, greyTone);
+        roadStoneInst.setColorAt(stoneIdx, _color);
+        stoneIdx++;
+      }
+    }
+    roadStoneInst.instanceMatrix.needsUpdate = true;
+    if (roadStoneInst.instanceColor) roadStoneInst.instanceColor.needsUpdate = true;
+    roadStoneInst.computeBoundingSphere();
+    scene.add(roadStoneInst);
+
+    // Instanced 3D Grass Blade Clusters across the clearing and forest margin (warm olive-chartreuse meadow tones)
+    const grassCount = 420;
+    const grassBladeGeo = new THREE.ConeGeometry(0.15, 0.44, 4);
+    grassBladeGeo.translate(0, 0.21, 0);
+    const grassTuftInst = new THREE.InstancedMesh(
+      grassBladeGeo,
+      new THREE.MeshStandardMaterial({
+        color: 0x769c36,
+        roughness: 0.88,
+        metalness: 0.02,
+        envMapIntensity: 0.12,
+      }),
+      grassCount
+    );
+    const grassWindData: {
+      gx: number;
+      gz: number;
+      rotY: number;
+      tiltX: number;
+      tiltZ: number;
+      sx: number;
+      sy: number;
+      sz: number;
+    }[] = [];
+    let grassIdx = 0;
+    for (let i = 0; i < 900 && grassIdx < grassCount; i++) {
+      // Golden-angle spiral distribution for natural organic clumping
+      const rNorm = Math.sqrt(((i * 73) % 900) / 900);
+      const radius = 3.85 + rNorm * 18.5;
+      const angle = i * 2.39996 + ((i % 5) * 0.08);
+      const gx = Math.cos(angle) * radius;
+      const gz = Math.sin(angle) * radius;
+
+      // Keep off the 4 dirt roads
+      if (Math.abs(gx) < 1.9 || Math.abs(gz) < 1.9) continue;
+
+      const bladeScale = 0.65 + ((i * 29) % 60) / 100;
+      const tiltX = (((i * 13) % 11) - 5) * 0.05;
+      const tiltZ = (((i * 17) % 11) - 5) * 0.05;
+      const rotY = (i * 1.7) % (Math.PI * 2);
+      const sx = bladeScale * 1.1;
+      const sy = bladeScale * (0.8 + (i % 4) * 0.16);
+      const sz = bladeScale * 0.7;
+
+      _dummyObj.position.set(gx, 0.015, gz);
+      _dummyObj.rotation.set(tiltX, rotY, tiltZ);
+      _dummyObj.scale.set(sx, sy, sz);
+      _dummyObj.updateMatrix();
+      grassTuftInst.setMatrixAt(grassIdx, _dummyObj.matrix);
+
+      // Warm golden-olive / lime-meadow grass hues (0.21-0.25) so grass clearly contrasts with deep evergreen trees
+      const hue = 0.21 + ((i * 7) % 8) * 0.005;
+      const sat = 0.56 + ((i * 11) % 16) * 0.01;
+      const light = radius > 16.5 ? 0.28 + ((i * 5) % 10) * 0.01 : 0.36 + ((i * 9) % 14) * 0.01;
+      _color.setHSL(hue, sat, light);
+      grassTuftInst.setColorAt(grassIdx, _color);
+      grassWindData.push({ gx, gz, rotY, tiltX, tiltZ, sx, sy, sz });
+      grassIdx++;
+    }
+    grassTuftInst.count = grassIdx;
+    grassTuftInst.instanceMatrix.needsUpdate = true;
+    if (grassTuftInst.instanceColor) grassTuftInst.instanceColor.needsUpdate = true;
+    grassTuftInst.computeBoundingSphere();
+    scene.add(grassTuftInst);
+
+    // Instanced Multi-Tiered Realistic Woodland Pine & Spruce Trees (deep evergreen-teal leaf contrast + wind sway)
+    const treeCount = 128;
     const trunkInst = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.24, 0.36, 1.8, 6),
-      new THREE.MeshStandardMaterial({ color: 0x4a2f18, roughness: 0.88, flatShading: true }),
+      new THREE.CylinderGeometry(0.22, 0.44, 2.3, 8),
+      new THREE.MeshStandardMaterial({
+        color: 0x7c5338,
+        map: barkTex,
+        roughness: 0.92,
+        envMapIntensity: 0.18,
+        bumpMap: bumpTex,
+        bumpScale: 0.08,
+      }),
       treeCount
     );
     const tier1Inst = new THREE.InstancedMesh(
-      new THREE.ConeGeometry(1.55, 2.6, 6),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.78, flatShading: true }),
+      new THREE.ConeGeometry(1.78, 2.55, 9),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: foliageTex,
+        roughness: 0.82,
+        envMapIntensity: 0.22,
+        bumpMap: bumpTex,
+        bumpScale: 0.05,
+      }),
       treeCount
     );
     const tier2Inst = new THREE.InstancedMesh(
-      new THREE.ConeGeometry(1.18, 2.2, 6),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.72, flatShading: true }),
+      new THREE.ConeGeometry(1.4, 2.25, 9),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: foliageTex,
+        roughness: 0.78,
+        envMapIntensity: 0.24,
+        bumpMap: bumpTex,
+        bumpScale: 0.05,
+      }),
+      treeCount
+    );
+    const tier3Inst = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(0.96, 1.9, 9),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: foliageTex,
+        roughness: 0.74,
+        envMapIntensity: 0.26,
+        bumpMap: bumpTex,
+        bumpScale: 0.04,
+      }),
       treeCount
     );
     trunkInst.castShadow = !isSoftwareGl;
     tier1Inst.castShadow = !isSoftwareGl;
     tier2Inst.castShadow = !isSoftwareGl;
+    tier3Inst.castShadow = !isSoftwareGl;
+    tier1Inst.receiveShadow = true;
+    tier2Inst.receiveShadow = true;
+    tier3Inst.receiveShadow = true;
+
+    const treeWindData: {
+      tx: number;
+      tz: number;
+      scale: number;
+      leanX: number;
+      leanZ: number;
+      rotY1: number;
+      rotY2: number;
+      rotY3: number;
+      phase: number;
+    }[] = [];
 
     let treeIdx = 0;
-    for (let i = 0; i < 120 && treeIdx < treeCount; i++) {
-      const angle = (i / 120) * Math.PI * 2 + (i % 3) * 0.09;
-      // Leave narrow gaps on N/S/E/W trails so zombies emerge naturally along trails
+    for (let i = 0; i < 185 && treeIdx < treeCount; i++) {
+      const angle = (i / 185) * Math.PI * 2 + (i % 4) * 0.055;
+      // Leave clear road corridors on N/S/E/W trails so roads and zombies remain unobstructed
       const cosA = Math.abs(Math.cos(angle));
       const sinA = Math.abs(Math.sin(angle));
-      if (cosA < 0.11 || sinA < 0.11) continue;
+      if (cosA < 0.12 || sinA < 0.12) continue;
 
-      const radius = 19.2 + ((i * 37) % 14);
+      const ringBand = i % 3;
+      const radius = 16.4 + ringBand * 2.85 + ((i * 37) % 10) * 0.55;
       const tx = Math.cos(angle) * radius;
       const tz = Math.sin(angle) * radius;
-      const scale = 0.85 + ((i * 19) % 35) / 100;
+      const scale = 0.84 + ((i * 19) % 44) / 100;
+      const leanX = (((i * 7) % 5) - 2) * 0.018;
+      const leanZ = (((i * 11) % 5) - 2) * 0.018;
+      const rotY1 = (i * 1.7) % (Math.PI * 2);
+      const rotY2 = (i * 2.3) % (Math.PI * 2);
+      const rotY3 = (i * 2.9) % (Math.PI * 2);
 
-      _dummyObj.position.set(tx, 0.9 * scale, tz);
-      _dummyObj.rotation.set(0, (i * 1.1) % Math.PI, 0);
+      _dummyObj.position.set(tx, 1.1 * scale, tz);
+      _dummyObj.rotation.set(leanX, (i * 1.1) % (Math.PI * 2), leanZ);
       _dummyObj.scale.setScalar(scale);
       _dummyObj.updateMatrix();
       trunkInst.setMatrixAt(treeIdx, _dummyObj.matrix);
 
-      _dummyObj.position.set(tx, 2.3 * scale, tz);
+      _dummyObj.position.set(tx, 2.35 * scale, tz);
+      _dummyObj.rotation.set(leanX, rotY1, leanZ);
       _dummyObj.updateMatrix();
       tier1Inst.setMatrixAt(treeIdx, _dummyObj.matrix);
 
       _dummyObj.position.set(tx, 3.65 * scale, tz);
+      _dummyObj.rotation.set(leanX, rotY2, leanZ);
       _dummyObj.updateMatrix();
       tier2Inst.setMatrixAt(treeIdx, _dummyObj.matrix);
 
-      const shade = 0.18 + ((i * 13) % 12) / 100;
-      _color.setHSL(0.38, 0.45, shade);
+      _dummyObj.position.set(tx, 4.8 * scale, tz);
+      _dummyObj.rotation.set(leanX, rotY3, leanZ);
+      _dummyObj.updateMatrix();
+      tier3Inst.setMatrixAt(treeIdx, _dummyObj.matrix);
+
+      // Deep cool evergreen-teal / blue-spruce hues (0.43-0.48) that contrast richly with the warm olive meadow grass
+      const isBlueSpruce = i % 5 === 0;
+      const hue = isBlueSpruce ? 0.47 + ((i * 3) % 4) * 0.006 : 0.42 + ((i * 5) % 6) * 0.007;
+      const sat = isBlueSpruce ? 0.62 : 0.68 + ((i * 9) % 12) * 0.01;
+      const shade = 0.16 + ((i * 13) % 10) / 100;
+      _color.setHSL(hue, sat, shade);
       tier1Inst.setColorAt(treeIdx, _color);
-      _color.setHSL(0.39, 0.48, shade + 0.04);
+      _color.setHSL(hue - 0.01, sat + 0.04, shade + 0.055);
       tier2Inst.setColorAt(treeIdx, _color);
+      _color.setHSL(hue - 0.015, sat + 0.06, shade + 0.115);
+      tier3Inst.setColorAt(treeIdx, _color);
+
+      treeWindData.push({
+        tx,
+        tz,
+        scale,
+        leanX,
+        leanZ,
+        rotY1,
+        rotY2,
+        rotY3,
+        phase: (i * 0.83) % (Math.PI * 2),
+      });
 
       treeIdx++;
     }
+    trunkInst.count = treeIdx;
+    tier1Inst.count = treeIdx;
+    tier2Inst.count = treeIdx;
+    tier3Inst.count = treeIdx;
     trunkInst.instanceMatrix.needsUpdate = true;
     tier1Inst.instanceMatrix.needsUpdate = true;
     tier2Inst.instanceMatrix.needsUpdate = true;
+    tier3Inst.instanceMatrix.needsUpdate = true;
     if (tier1Inst.instanceColor) tier1Inst.instanceColor.needsUpdate = true;
     if (tier2Inst.instanceColor) tier2Inst.instanceColor.needsUpdate = true;
+    if (tier3Inst.instanceColor) tier3Inst.instanceColor.needsUpdate = true;
     trunkInst.computeBoundingSphere();
     tier1Inst.computeBoundingSphere();
     tier2Inst.computeBoundingSphere();
-    scene.add(trunkInst, tier1Inst, tier2Inst);
+    tier3Inst.computeBoundingSphere();
+    scene.add(trunkInst, tier1Inst, tier2Inst, tier3Inst);
 
-    // Central Ranger Fort at (0, 0)
+    // 2B. Fallen Trees / Mossy Hollow Logs (Pohon Tumbang) + Broken Root Stumps in the forest & clearing margin
+    const fallenLogCount = 24;
+    const fallenLogGeo = new THREE.CylinderGeometry(0.26, 0.35, 3.4, 8);
+    fallenLogGeo.rotateZ(Math.PI / 2);
+    const fallenLogInst = new THREE.InstancedMesh(
+      fallenLogGeo,
+      new THREE.MeshStandardMaterial({
+        color: 0x6e472b,
+        map: barkTex,
+        roughness: 0.92,
+        envMapIntensity: 0.15,
+        bumpMap: bumpTex,
+        bumpScale: 0.09,
+      }),
+      fallenLogCount
+    );
+    const fallenMossGeo = new THREE.BoxGeometry(2.55, 0.14, 0.36);
+    const fallenMossInst = new THREE.InstancedMesh(
+      fallenMossGeo,
+      new THREE.MeshStandardMaterial({
+        color: 0x4d8a32,
+        roughness: 0.88,
+        envMapIntensity: 0.14,
+      }),
+      fallenLogCount
+    );
+    const fallenBranchGeo = new THREE.CylinderGeometry(0.07, 0.13, 1.05, 6);
+    const fallenBranchInst = new THREE.InstancedMesh(
+      fallenBranchGeo,
+      new THREE.MeshStandardMaterial({
+        color: 0x5c3a21,
+        map: barkTex,
+        roughness: 0.9,
+      }),
+      fallenLogCount
+    );
+    fallenLogInst.castShadow = !isSoftwareGl;
+    fallenLogInst.receiveShadow = true;
+    fallenMossInst.receiveShadow = true;
+
+    const fallenLogPositions: { x: number; z: number; yaw: number; scale: number }[] = [];
+    let fLogIdx = 0;
+    for (let i = 0; i < 56 && fLogIdx < fallenLogCount; i++) {
+      const angle = (i / 56) * Math.PI * 2 + 0.21;
+      // Avoid N/S/E/W roads so fallen trees never block trails
+      if (Math.abs(Math.cos(angle)) < 0.2 || Math.abs(Math.sin(angle)) < 0.2) continue;
+
+      const radius = 13.8 + (i % 3) * 2.1 + ((i * 19) % 7) * 0.25;
+      const lx = Math.cos(angle) * radius;
+      const lz = Math.sin(angle) * radius;
+      const lScale = 0.78 + ((i * 13) % 36) / 100;
+      const yaw = angle + Math.PI / 2 + (((i * 7) % 5) - 2) * 0.28;
+
+      _dummyObj.position.set(lx, 0.25 * lScale, lz);
+      _dummyObj.rotation.set(0.03, yaw, -0.04);
+      _dummyObj.scale.setScalar(lScale);
+      _dummyObj.updateMatrix();
+      fallenLogInst.setMatrixAt(fLogIdx, _dummyObj.matrix);
+
+      // Lush moss blanket growing along the top spine of each fallen tree
+      _dummyObj.position.set(lx, 0.51 * lScale, lz);
+      _dummyObj.rotation.set(0.03, yaw, -0.04);
+      _dummyObj.scale.setScalar(lScale);
+      _dummyObj.updateMatrix();
+      fallenMossInst.setMatrixAt(fLogIdx, _dummyObj.matrix);
+
+      // Broken deadwood branch sticking up from the fallen trunk
+      _dummyObj.position.set(
+        lx + Math.cos(yaw) * 0.65 * lScale,
+        0.66 * lScale,
+        lz - Math.sin(yaw) * 0.65 * lScale
+      );
+      _dummyObj.rotation.set(0.35, yaw + 0.4, -0.28);
+      _dummyObj.scale.setScalar(lScale);
+      _dummyObj.updateMatrix();
+      fallenBranchInst.setMatrixAt(fLogIdx, _dummyObj.matrix);
+
+      fallenLogPositions.push({ x: lx, z: lz, yaw, scale: lScale });
+      fLogIdx++;
+    }
+    fallenLogInst.count = fLogIdx;
+    fallenMossInst.count = fLogIdx;
+    fallenBranchInst.count = fLogIdx;
+    fallenLogInst.instanceMatrix.needsUpdate = true;
+    fallenMossInst.instanceMatrix.needsUpdate = true;
+    fallenBranchInst.instanceMatrix.needsUpdate = true;
+    fallenLogInst.computeBoundingSphere();
+    fallenMossInst.computeBoundingSphere();
+    fallenBranchInst.computeBoundingSphere();
+    scene.add(fallenLogInst, fallenMossInst, fallenBranchInst);
+
+    // 2C. Lush Forest Ferns (Pakis Hutan) clustered around fallen logs and the woodland border (sways in wind)
+    const fernCount = 120;
+    const fernBladeGeo = new THREE.ConeGeometry(0.28, 1.18, 4);
+    fernBladeGeo.translate(0, 0.55, 0);
+    const fernInst = new THREE.InstancedMesh(
+      fernBladeGeo,
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.78,
+        metalness: 0.04,
+        envMapIntensity: 0.18,
+      }),
+      fernCount
+    );
+    fernInst.castShadow = !isSoftwareGl;
+    const fernWindData: {
+      fx: number;
+      fz: number;
+      rotY: number;
+      tiltX: number;
+      scale: number;
+      phase: number;
+    }[] = [];
+    let fernIdx = 0;
+    for (let i = 0; i < fallenLogPositions.length && fernIdx < fernCount; i++) {
+      const log = fallenLogPositions[i];
+      // Place a 5-frond rosette fern cluster beside each fallen tree
+      for (let frond = 0; frond < 5 && fernIdx < fernCount; frond++) {
+        const frondYaw = (frond / 5) * Math.PI * 2 + (i % 3) * 0.3;
+        const offsetDist = 0.65 + (i % 2) * 0.25;
+        const fx = log.x + Math.cos(log.yaw + 1.3) * offsetDist;
+        const fz = log.z + Math.sin(log.yaw + 1.3) * offsetDist;
+        const fScale = 0.68 + ((i * 11 + frond * 7) % 35) / 100;
+        const tiltX = 0.58 + (frond % 2) * 0.14;
+
+        _dummyObj.position.set(fx, 0.05, fz);
+        _dummyObj.rotation.set(tiltX, frondYaw, 0);
+        _dummyObj.scale.set(fScale * 1.15, fScale, fScale * 0.32);
+        _dummyObj.updateMatrix();
+        fernInst.setMatrixAt(fernIdx, _dummyObj.matrix);
+
+        // Rich emerald-jade fern leaf tone
+        _color.setHSL(0.36 + (frond % 3) * 0.01, 0.66, 0.26 + (frond % 3) * 0.03);
+        fernInst.setColorAt(fernIdx, _color);
+
+        fernWindData.push({
+          fx,
+          fz,
+          rotY: frondYaw,
+          tiltX,
+          scale: fScale,
+          phase: i * 0.7 + frond * 0.5,
+        });
+        fernIdx++;
+      }
+    }
+    fernInst.count = fernIdx;
+    fernInst.instanceMatrix.needsUpdate = true;
+    if (fernInst.instanceColor) fernInst.instanceColor.needsUpdate = true;
+    fernInst.computeBoundingSphere();
+    scene.add(fernInst);
+
+    // 2D. Woodland Toadstool Mushroom Clusters & Wildflowers beside fallen logs and trees
+    const mushroomCount = 56;
+    const mushStemInst = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.06, 0.09, 0.28, 7),
+      new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.82 }),
+      mushroomCount
+    );
+    const mushCapInst = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(0.24, 0.22, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.65 }),
+      mushroomCount
+    );
+    let mIdx = 0;
+    for (let i = 0; i < fallenLogPositions.length && mIdx < mushroomCount; i++) {
+      const log = fallenLogPositions[i];
+      for (let c = 0; c < 2 && mIdx < mushroomCount; c++) {
+        const mx = log.x - Math.cos(log.yaw + 0.8) * (0.55 + c * 0.35);
+        const mz = log.z - Math.sin(log.yaw + 0.8) * (0.55 + c * 0.35);
+        const mScale = 0.75 + ((i * 7 + c * 13) % 45) / 100;
+
+        _dummyObj.position.set(mx, 0.14 * mScale, mz);
+        _dummyObj.rotation.set(0, i + c, 0);
+        _dummyObj.scale.setScalar(mScale);
+        _dummyObj.updateMatrix();
+        mushStemInst.setMatrixAt(mIdx, _dummyObj.matrix);
+
+        _dummyObj.position.set(mx, 0.31 * mScale, mz);
+        _dummyObj.updateMatrix();
+        mushCapInst.setMatrixAt(mIdx, _dummyObj.matrix);
+
+        // Red-orange amanita caps & golden chanterelle caps
+        if ((i + c) % 3 === 0) {
+          _color.setHex(0xf59e0b);
+        } else {
+          _color.setHex(0xdc2626);
+        }
+        mushCapInst.setColorAt(mIdx, _color);
+        mIdx++;
+      }
+    }
+    mushStemInst.count = mIdx;
+    mushCapInst.count = mIdx;
+    mushStemInst.instanceMatrix.needsUpdate = true;
+    mushCapInst.instanceMatrix.needsUpdate = true;
+    if (mushCapInst.instanceColor) mushCapInst.instanceColor.needsUpdate = true;
+    mushStemInst.computeBoundingSphere();
+    mushCapInst.computeBoundingSphere();
+    scene.add(mushStemInst, mushCapInst);
+
+    // Instanced Forest Edge Boulders & Undergrowth Shrubs for natural woodland border transitions
+    const boulderCount = 44;
+    const boulderInst = new THREE.InstancedMesh(
+      new THREE.DodecahedronGeometry(0.62, 1),
+      new THREE.MeshStandardMaterial({
+        color: 0x6b7864,
+        roughness: 0.92,
+        metalness: 0.04,
+        envMapIntensity: 0.16,
+        bumpMap: bumpTex,
+        bumpScale: 0.09,
+      }),
+      boulderCount
+    );
+    boulderInst.castShadow = !isSoftwareGl;
+    boulderInst.receiveShadow = true;
+    let bIdx = 0;
+    for (let i = 0; i < 72 && bIdx < boulderCount; i++) {
+      const angle = (i / 72) * Math.PI * 2 + 0.04;
+      if (Math.abs(Math.cos(angle)) < 0.14 || Math.abs(Math.sin(angle)) < 0.14) continue;
+      const radius = 15.6 + ((i * 23) % 10) * 0.42;
+      const bx = Math.cos(angle) * radius;
+      const bz = Math.sin(angle) * radius;
+      const bScale = 0.52 + ((i * 17) % 50) / 100;
+
+      _dummyObj.position.set(bx, 0.2 * bScale, bz);
+      _dummyObj.rotation.set((i * 0.7) % 3, (i * 1.3) % 6, (i * 0.5) % 3);
+      _dummyObj.scale.set(bScale * 1.25, bScale * 0.75, bScale);
+      _dummyObj.updateMatrix();
+      boulderInst.setMatrixAt(bIdx, _dummyObj.matrix);
+
+      // Alternate between mossy forest boulders and dense woodland berry shrubs
+      if (i % 2 === 0) {
+        _color.setHSL(0.28, 0.16, 0.34 + ((i * 7) % 10) / 100);
+      } else {
+        _color.setHSL(0.43, 0.55, 0.22 + ((i * 9) % 10) / 100);
+      }
+      boulderInst.setColorAt(bIdx, _color);
+      bIdx++;
+    }
+    boulderInst.count = bIdx;
+    boulderInst.instanceMatrix.needsUpdate = true;
+    if (boulderInst.instanceColor) boulderInst.instanceColor.needsUpdate = true;
+    boulderInst.computeBoundingSphere();
+    scene.add(boulderInst);
+
+    // Central Woodland Timber & Cobblestone House (Rumah) at (0, 0)
     const fortGroup = createCentralFortModel();
     scene.add(fortGroup);
 
@@ -1303,8 +1797,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       frameId = window.setTimeout(poll, 5);
     }
 
+    let windTime = 0;
+
     function stepSimulation(rawDt: number) {
       const dt = Math.min(rawDt, 0.05);
+      windTime += dt;
 
       // Update status banner & ghost HP bar
       if (statusBannerTimer > 0) {
@@ -1328,6 +1825,100 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       hemiLight.intensity = THREE.MathUtils.lerp(0.85, 0.42, nightBlend);
       rueLanternLight.intensity = THREE.MathUtils.lerp(1.8, 3.4, nightBlend);
       fortWarmLight.intensity = THREE.MathUtils.lerp(1.5, 2.8, nightBlend);
+
+      // Real-Time Forest Wind Sway Animation for Tree Leaves (tier1-3), Ferns, and Grass Tufts
+      const windSpeed = phase === 'night' ? 2.6 : 1.95;
+      const windPower = phase === 'night' ? 1.35 : 1.0;
+      for (let i = 0; i < treeWindData.length; i++) {
+        const t = treeWindData[i];
+        const gust1 =
+          (Math.sin(windTime * windSpeed + t.tx * 0.16 + t.tz * 0.12 + t.phase) +
+            0.45 * Math.sin(windTime * (windSpeed * 1.65) + t.tx * 0.28 - t.tz * 0.19)) *
+          windPower;
+        const gustZ =
+          Math.cos(windTime * (windSpeed * 0.85) + t.tz * 0.18 + t.phase) * 0.65 * windPower;
+
+        // Tier 1 (lower pine canopy)
+        _dummyObj.position.set(
+          t.tx + gust1 * 0.08 * t.scale,
+          2.35 * t.scale,
+          t.tz + gustZ * 0.05 * t.scale
+        );
+        _dummyObj.rotation.set(
+          t.leanX + gustZ * 0.04,
+          t.rotY1 + gust1 * 0.035,
+          t.leanZ - gust1 * 0.045
+        );
+        _dummyObj.scale.setScalar(t.scale);
+        _dummyObj.updateMatrix();
+        tier1Inst.setMatrixAt(i, _dummyObj.matrix);
+
+        // Tier 2 (middle pine canopy - delayed phase & wider sway)
+        const gust2 =
+          (Math.sin(windTime * windSpeed - 0.35 + t.tx * 0.16 + t.tz * 0.12 + t.phase) +
+            0.5 * Math.sin(windTime * (windSpeed * 1.65) - 0.35 + t.tx * 0.28 - t.tz * 0.19)) *
+          windPower;
+        _dummyObj.position.set(
+          t.tx + gust2 * 0.18 * t.scale,
+          3.65 * t.scale,
+          t.tz + gustZ * 0.11 * t.scale
+        );
+        _dummyObj.rotation.set(
+          t.leanX + gustZ * 0.075,
+          t.rotY2 + gust2 * 0.06,
+          t.leanZ - gust2 * 0.085
+        );
+        _dummyObj.updateMatrix();
+        tier2Inst.setMatrixAt(i, _dummyObj.matrix);
+
+        // Tier 3 (upper crown - largest wind bend & rustle)
+        const gust3 =
+          (Math.sin(windTime * windSpeed - 0.7 + t.tx * 0.16 + t.tz * 0.12 + t.phase) +
+            0.55 * Math.sin(windTime * (windSpeed * 1.65) - 0.7 + t.tx * 0.28 - t.tz * 0.19)) *
+          windPower;
+        _dummyObj.position.set(
+          t.tx + gust3 * 0.3 * t.scale,
+          4.8 * t.scale,
+          t.tz + gustZ * 0.18 * t.scale
+        );
+        _dummyObj.rotation.set(
+          t.leanX + gustZ * 0.11,
+          t.rotY3 + gust3 * 0.09,
+          t.leanZ - gust3 * 0.13
+        );
+        _dummyObj.updateMatrix();
+        tier3Inst.setMatrixAt(i, _dummyObj.matrix);
+      }
+      tier1Inst.instanceMatrix.needsUpdate = true;
+      tier2Inst.instanceMatrix.needsUpdate = true;
+      tier3Inst.instanceMatrix.needsUpdate = true;
+
+      // Sway forest fern fronds in the wind
+      for (let i = 0; i < fernWindData.length; i++) {
+        const f = fernWindData[i];
+        const fGust =
+          Math.sin(windTime * (windSpeed * 1.35) + f.fx * 0.25 + f.fz * 0.2 + f.phase) *
+          windPower;
+        _dummyObj.position.set(f.fx, 0.05, f.fz);
+        _dummyObj.rotation.set(f.tiltX + fGust * 0.14, f.rotY + fGust * 0.06, fGust * 0.08);
+        _dummyObj.scale.set(f.scale * 1.15, f.scale, f.scale * 0.32);
+        _dummyObj.updateMatrix();
+        fernInst.setMatrixAt(i, _dummyObj.matrix);
+      }
+      fernInst.instanceMatrix.needsUpdate = true;
+
+      // Sway 3D meadow grass tufts gently in the breeze
+      for (let i = 0; i < grassWindData.length; i++) {
+        const g = grassWindData[i];
+        const gWave =
+          Math.sin(windTime * (windSpeed * 1.2) + g.gx * 0.22 + g.gz * 0.18) * 0.11 * windPower;
+        _dummyObj.position.set(g.gx, 0.015, g.gz);
+        _dummyObj.rotation.set(g.tiltX + gWave * 0.5, g.rotY, g.tiltZ - gWave);
+        _dummyObj.scale.set(g.sx, g.sy, g.sz);
+        _dummyObj.updateMatrix();
+        grassTuftInst.setMatrixAt(i, _dummyObj.matrix);
+      }
+      grassTuftInst.instanceMatrix.needsUpdate = true;
 
       // Title Screen Ambient Camera Pan & Idling
       if (screenState === 'title') {

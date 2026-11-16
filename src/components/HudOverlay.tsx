@@ -1,5 +1,11 @@
 import React from 'react';
-import { BUILDING_CATALOG, canAfford, getWaveThreatArchetypes, ZOMBIE_CATALOG } from '../game/rules';
+import {
+  BUILDING_CATALOG,
+  canAfford,
+  getWaveThreatArchetypes,
+  HERO_RUE_PORTRAIT_URL,
+  ZOMBIE_CATALOG,
+} from '../game/rules';
 import { BuildingType, HudSnapshot } from '../game/types';
 
 interface HudOverlayProps {
@@ -340,9 +346,16 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   onOpenGuide();
                 }}
                 title={`${spec.name}: ${spec.specialTrait} Counter: ${spec.tacticalCounter}`}
-                className="px-2 py-0.5 rounded bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] font-mono-tabular font-semibold cursor-pointer transition-colors flex items-center gap-1"
+                className="px-2 py-0.5 rounded bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] font-mono-tabular font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
                 style={{ color: spec.badgeColor }}
               >
+                {spec.portraitUrl && (
+                  <img
+                    src={spec.portraitUrl}
+                    alt={spec.name}
+                    className="w-4 h-4 rounded-full object-cover border border-[#475569] shrink-0"
+                  />
+                )}
                 <span>{spec.name}</span>
                 {arch === 'swift_stumbler' && (
                   <span className="text-[9px] text-[#fdba74] opacity-90">FAST</span>
@@ -366,20 +379,29 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
       <div className="w-full flex flex-col items-center pointer-events-none mt-1 mb-auto">
         {hud.bossActive && (
           <div
-            className="mb-2 px-5 py-2 rounded-xl border border-[#a855f7] text-center max-w-md"
-            style={{ backgroundColor: 'rgba(27, 12, 46, 0.92)' }}
+            className="mb-2 px-4 py-2 rounded-xl border border-[#eab308] text-left max-w-md flex items-center gap-3"
+            style={{ backgroundColor: 'rgba(27, 12, 46, 0.94)' }}
           >
-            <div className="text-xs font-bold uppercase tracking-widest text-[#e9d5ff]">
-              BOSS · {hud.bossName}
-            </div>
-            {hud.bossSpeech && (
-              <div className="text-xs italic text-[#fef08a] my-0.5">“{hud.bossSpeech}”</div>
-            )}
-            <div className="w-56 h-2.5 rounded bg-[#090d16] border border-[#581c87] overflow-hidden mt-1 mx-auto">
-              <div
-                className="h-full bg-[#c084fc] transition-all duration-150"
-                style={{ width: `${Math.max(0, (hud.bossHp / Math.max(1, hud.bossMaxHp)) * 100)}%` }}
+            {ZOMBIE_CATALOG.baron.portraitUrl && (
+              <img
+                src={ZOMBIE_CATALOG.baron.portraitUrl}
+                alt="Baron Blight"
+                className="w-11 h-11 rounded-lg object-cover border border-[#eab308] shrink-0"
               />
+            )}
+            <div>
+              <div className="text-xs font-bold uppercase tracking-widest text-[#fde047]">
+                BOSS · {hud.bossName}
+              </div>
+              {hud.bossSpeech && (
+                <div className="text-xs italic text-[#fef08a] my-0.5">“{hud.bossSpeech}”</div>
+              )}
+              <div className="w-52 h-2.5 rounded bg-[#090d16] border border-[#581c87] overflow-hidden mt-1">
+                <div
+                  className="h-full bg-[#eab308] transition-all duration-150"
+                  style={{ width: `${Math.max(0, (hud.bossHp / Math.max(1, hud.bossMaxHp)) * 100)}%` }}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -479,16 +501,23 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           >
             <div className="flex flex-col md:flex-row items-stretch gap-3">
               {/* Left Column: Ranger Rue Lantern Flare Skill */}
-              <div className="flex md:flex-col justify-between items-center md:items-stretch md:w-44 shrink-0 p-2.5 rounded-lg bg-[#0b1016] border border-[#1e293b]">
-                <div className="text-left">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#f59e0b]">
-                    RUE SKILL · [SPACE]
-                  </div>
-                  <div className="text-sm font-display font-bold text-[#fef3c7]">
-                    Lantern Flare
-                  </div>
-                  <div className="text-[11px] text-[#94a3b8] leading-snug">
-                    AoE Knockback + Slow
+              <div className="flex md:flex-col justify-between items-center md:items-stretch md:w-48 shrink-0 p-2.5 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+                <div className="flex items-center gap-2.5 text-left">
+                  <img
+                    src={HERO_RUE_PORTRAIT_URL}
+                    alt="Ranger Rue"
+                    className="w-10 h-10 rounded-lg object-cover border border-[#f59e0b] shrink-0"
+                  />
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#f59e0b]">
+                      RUE SKILL · [SPACE]
+                    </div>
+                    <div className="text-sm font-display font-bold text-[#fef3c7] leading-tight">
+                      Lantern Flare
+                    </div>
+                    <div className="text-[10px] text-[#94a3b8] leading-snug">
+                      AoE Knockback + Slow
+                    </div>
                   </div>
                 </div>
 

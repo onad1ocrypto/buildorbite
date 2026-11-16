@@ -1,6 +1,6 @@
 import React from 'react';
 import { getLevelForXp, getTimeUntilNextUTCReset } from '../game/dailySystem';
-import { ZOMBIE_CATALOG } from '../game/rules';
+import { HERO_RUE_PORTRAIT_URL, ZOMBIE_CATALOG } from '../game/rules';
 import { HudSnapshot, ZombieArchetype } from '../game/types';
 
 interface ModalsProps {
@@ -373,54 +373,93 @@ export const Modals: React.FC<ModalsProps> = ({
               </button>
             </div>
 
-            {/* Zombie Bestiary & Tactical Counter Section */}
+            {/* Hero & Zombie Bestiary with Canonical Concept Art */}
             <div className="mb-6">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#f59e0b] mb-2.5">
-                1. Zombie Bestiary &amp; Late-Game Tactical Counters
+                1. Hero &amp; Zombie Bestiary (Canonical Character Art &amp; Counters)
               </h3>
+
+              {/* Hero Reference Card: Ranger Rue */}
+              <div className="p-3.5 rounded-xl bg-[#0b1016] border border-[#f59e0b]/50 flex flex-col sm:flex-row items-center gap-3.5 mb-3">
+                <img
+                  src={HERO_RUE_PORTRAIT_URL}
+                  alt="Ranger Rue Concept Art"
+                  className="w-16 h-16 rounded-xl object-cover border border-[#f59e0b] shrink-0 bg-[#070b12]"
+                />
+                <div className="flex-1 text-left">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-0.5">
+                    <span className="font-display font-bold text-sm text-[#fbbf24]">
+                      Ranger Rue <span className="text-xs font-normal text-[#cbd5e1]">· Player Hero (Field Craft &amp; Fort Defense)</span>
+                    </span>
+                    <span className="text-[10px] font-mono-tabular text-[#fef3c7] bg-[#161f2c] px-2 py-0.5 rounded border border-[#334155]">
+                      Skill: Lantern Flare [Space]
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#e2dacb] leading-snug mb-1">
+                    <strong className="text-[#fef3c7]">Reference Applied:</strong> Short stocky scout silhouette, spiky ginger hair under a pinched-crown ranger hat with silver shield badge, forest-green coat + 3-buckle brown leather vest, hip pocket compass, backpack with rolled cream sleeping mat, warm brass lantern (right hand), and faceted wooden mallet (left hand).
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 {(
                   [
+                    'shamble',
+                    'grinner',
+                    'grumble',
+                    'gawp',
+                    'brine',
+                    'baron',
                     'swift_stumbler',
                     'armored_undead',
                     'bone_howler',
-                    'baron',
-                    'gawp',
-                    'brine',
-                    'grumble',
-                    'grinner',
-                    'shamble',
                   ] as ZombieArchetype[]
                 ).map((arch) => {
                   const z = ZOMBIE_CATALOG[arch];
                   return (
                     <div
                       key={arch}
-                      className="p-3 rounded-lg bg-[#0b1016] border border-[#1e293b] flex flex-col justify-between"
+                      className="p-3 rounded-lg bg-[#0b1016] border border-[#1e293b] flex items-start gap-3"
                     >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span
-                            className="font-display font-bold text-sm"
-                            style={{ color: z.badgeColor }}
-                          >
-                            {z.name}{' '}
-                            <span className="text-[11px] font-normal text-[#94a3b8]">
-                              · {z.subtitle}
-                            </span>
-                          </span>
-                          <span className="text-[10px] font-mono-tabular text-[#cbd5e1] bg-[#161f2c] px-1.5 py-0.5 rounded border border-[#334155]">
-                            {z.maxHp} HP
-                            {z.armorHp ? ` + ${z.armorHp} ARMOR` : ''} · {z.speed.toFixed(2)} SPD
-                          </span>
+                      {z.portraitUrl ? (
+                        <img
+                          src={z.portraitUrl}
+                          alt={z.name}
+                          className="w-14 h-14 rounded-lg object-cover border border-[#334155] shrink-0 bg-[#070b12]"
+                        />
+                      ) : (
+                        <div
+                          className="w-14 h-14 rounded-lg border border-[#334155] shrink-0 bg-[#131b26] flex items-center justify-center font-display font-bold text-xs text-center px-1"
+                          style={{ color: z.badgeColor }}
+                        >
+                          {z.name.split(' ')[0]}
                         </div>
-                        <p className="text-xs text-[#e2dacb] leading-snug mb-1">
-                          <strong className="text-[#fef3c7]">Behavior:</strong> {z.specialTrait}
+                      )}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span
+                              className="font-display font-bold text-sm truncate"
+                              style={{ color: z.badgeColor }}
+                            >
+                              {z.name}{' '}
+                              <span className="text-[11px] font-normal text-[#94a3b8]">
+                                · {z.subtitle}
+                              </span>
+                            </span>
+                            <span className="text-[10px] font-mono-tabular text-[#cbd5e1] bg-[#161f2c] px-1.5 py-0.5 rounded border border-[#334155] shrink-0">
+                              {z.maxHp} HP
+                              {z.armorHp ? ` + ${z.armorHp}A` : ''}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#e2dacb] leading-snug mb-1">
+                            <strong className="text-[#fef3c7]">Behavior:</strong> {z.specialTrait}
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-[#4ade80] leading-snug">
+                          <strong>Counter:</strong> {z.tacticalCounter}
                         </p>
                       </div>
-                      <p className="text-[11px] text-[#4ade80] leading-snug">
-                        <strong>Counter:</strong> {z.tacticalCounter}
-                      </p>
                     </div>
                   );
                 })}
