@@ -2,6 +2,8 @@ import React from 'react';
 import {
   BUILDING_CATALOG,
   canAfford,
+  FENCE_BUILD_COST,
+  FENCE_UPGRADE_COST,
   getWaveThreatArchetypes,
   HERO_RUE_PORTRAIT_URL,
   ZOMBIE_CATALOG,
@@ -12,6 +14,8 @@ interface HudOverlayProps {
   hud: HudSnapshot;
   muted: boolean;
   onSelectPad: (padId: number | null) => void;
+  onSelectFence: (fenceId: number | null) => void;
+  onBuildNextFence: () => void;
   onBuildOnPad: (type: BuildingType) => void;
   onUpgradeOnPad: (pathId: 'pathA' | 'pathB') => void;
   onRepairPad: () => void;
@@ -38,6 +42,8 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   hud,
   muted,
   onSelectPad,
+  onSelectFence,
+  onBuildNextFence,
   onBuildOnPad,
   onUpgradeOnPad,
   onRepairPad,
@@ -53,6 +59,29 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   if (hud.screen === 'title') return null;
 
   const selectedPad = hud.pads.find((p) => p.id === hud.selectedPadId) ?? null;
+  const isNight = hud.phase === 'night';
+  const isConstructing =
+    hud.heroAnimState === 'construction' && hud.pendingConstruction !== null;
+  const constructionPct = hud.pendingConstruction
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            (1 -
+              hud.pendingConstruction.remainingTime /
+                Math.max(0.01, hud.pendingConstruction.totalTime)) *
+              100
+          )
+        )
+      )
+    : 0;
+  const builtFenceCount = hud.fenceSegments.filter((f) => f.level > 0 && f.hp > 0).length;
+  const upgradedFenceCount = hud.fenceSegments.filter((f) => f.level === 2 && f.hp > 0).length;
+  const canBuildFence =
+    !isNight && !isConstructing && canAfford(hud.resources, FENCE_BUILD_COST);
+  const canUpgradeFence =
+    !isNight && !isConstructing && canAfford(hud.resources, FENCE_UPGRADE_COST);
   const fortHpPct = Math.max(0, Math.min(100, (hud.fortHp / hud.fortMaxHp) * 100));
   const fortGhostPct = Math.max(fortHpPct, Math.min(100, (hud.fortGhostHp / hud.fortMaxHp) * 100));
   const isCriticalHp = fortHpPct <= 30;
@@ -178,6 +207,18 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   ).length
                 }
                 /{hud.daily.tasks.length}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[#94a3b8]">
+                FENCE
+              </div>
+              <div
+                className="text-lg font-mono-tabular font-extrabold text-[#4ade80] leading-tight"
+                data-testid="hud-fence-count"
+              >
+                {builtFenceCount}/{hud.fenceSegments.length}
+                {upgradedFenceCount > 0 ? ` (${upgradedFenceCount}★)` : ''}
               </div>
             </div>
             <div>
@@ -406,8 +447,27 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           </div>
         )}
 
-        {hud.statusBanner && (
+        {isConstructing && hud.pendingConstruction && (
           <div
+            data-testid="hud-construction-state"
+            className="mb-1.5 px-4 py-1.5 rounded-lg border border-[#fbbf24] text-xs font-mono-tabular font-bold text-[#fef3c7] flex items-center gap-3 shadow-lg"
+            style={{ backgroundColor: 'rgba(20, 83, 45, 0.94)' }}
+          >
+            <span>
+              🔨 Ranger Rue Constructing: {hud.pendingConstruction.label} ({constructionPct}%)
+            </span>
+            <div className="w-24 h-2 rounded bg-[#090d16] border border-[#4ade80] overflow-hidden">
+              <div
+                className="h-full bg-[#fbbf24] transition-all duration-75"
+                style={{ width: `${constructionPct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {!isConstructing && hud.statusBanner && (
+          <div
+            data-testid="hud-status-banner"
             className="px-4 py-1.5 rounded-lg border border-[#475569] text-xs font-semibold text-[#fef3c7]"
             style={{ backgroundColor: 'rgba(15, 23, 42, 0.9)' }}
           >
@@ -434,7 +494,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
 
           {!hud.dockCollapsed && (
             <div className="flex items-center gap-1 bg-[#131b26] border border-[#334155] rounded-lg px-2 py-0.5">
-              <span className="text-[10px] uppercase tracking-wider text-[#94a3b8] mr-1">Pads:</span>
+              <span className="text-[10px] uppercase tracking-wider text-[#94a3b8] mr-1">
+                Weapon Pads:
+              </span>
               {hud.pads.map((p) => {
                 const isSelected = p.id === hud.selectedPadId;
                 const hasBld = p.building !== null;
@@ -460,6 +522,46 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 );
               })}
             </div>
+          )}
+
+          {!hud.dockCollapsed && (
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-disabled={
+                isNight ||
+                isConstructing ||
+                (builtFenceCount < hud.fenceSegments.length ? !canBuildFence : !canUpgradeFence)
+              }
+              data-night-locked={isNight ? 'true' : 'false'}
+              data-constructing={isConstructing ? 'true' : 'false'}
+              data-testid="btn-build-fence"
+              onClick={(e) => {
+                e.currentTarget.blur();
+                onBuildNextFence();
+              }}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-mono-tabular font-bold transition-colors whitespace-nowrap ${
+                isNight
+                  ? 'bg-[#0b1016] border-[#1e293b] text-[#64748b] opacity-55 cursor-not-allowed'
+                  : isConstructing
+                  ? 'bg-[#78350f] border-[#fbbf24] text-[#fef3c7] cursor-wait'
+                  : builtFenceCount < hud.fenceSegments.length
+                  ? canBuildFence
+                    ? 'bg-[#14532d] hover:bg-[#166534] border-[#4ade80] text-[#fef3c7] cursor-pointer'
+                    : 'bg-[#131b26] border-[#334155] text-[#94a3b8] cursor-pointer'
+                  : canUpgradeFence
+                  ? 'bg-[#1e3a8a] hover:bg-[#1d4ed8] border-[#38bdf8] text-[#fef3c7] cursor-pointer'
+                  : 'bg-[#131b26] border-[#334155] text-[#94a3b8] cursor-pointer'
+              }`}
+            >
+              {isNight
+                ? `🔒 Fence Build Locked at Night [F] (${builtFenceCount}/12)`
+                : isConstructing
+                ? `🔨 Constructing ${hud.pendingConstruction?.label}... (${constructionPct}%)`
+                : builtFenceCount < hud.fenceSegments.length
+                ? `🔨 Build Square Fence [F] (${builtFenceCount}/12 · 15W 5S)`
+                : `🛡️ Upgrade Spiked Fence [F] (20W 15S)`}
+            </button>
           )}
 
           {!hud.dockCollapsed && (
@@ -546,30 +648,41 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 {!selectedPad ? (
                   <div className="h-full flex flex-col justify-center">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-semibold text-[#e2dacb]">
-                        Click a Building below (or press 1–6) to build on the next open Pad, or select P1–P8:
+                      <span
+                        className={`text-xs font-semibold ${
+                          isNight ? 'text-[#38bdf8]' : 'text-[#e2dacb]'
+                        }`}
+                      >
+                        {isNight
+                          ? '🔒 Night Phase: Construction & upgrades locked — fight with Rue & cast Lantern Flare [Space]!'
+                          : 'Click a Building below (or press 1–6) to build on the next open Pad, or select P1–P8:'}
                       </span>
                       <span className="text-[11px] text-[#94a3b8] hidden sm:inline">
-                        Click trees, rocks, or bushes to gather
+                        {isNight
+                          ? 'Existing defenses fire automatically'
+                          : 'Click trees, rocks, or bushes to gather'}
                       </span>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                       {BUILDING_LIST.map((bType) => {
                         const spec = BUILDING_CATALOG[bType];
-                        const affordable = canAfford(hud.resources, spec.cost);
+                        const affordable = !isNight && canAfford(hud.resources, spec.cost);
                         return (
                           <button
                             key={bType}
                             type="button"
                             tabIndex={-1}
+                            aria-disabled={!affordable}
+                            data-night-locked={isNight ? 'true' : 'false'}
+                            data-testid={`btn-build-${bType}`}
                             onClick={(e) => {
                               e.currentTarget.blur();
                               onBuildOnPad(bType);
                             }}
-                            className={`p-2 rounded-lg border text-left transition-colors cursor-pointer ${
+                            className={`p-2 rounded-lg border text-left transition-colors ${
                               affordable
-                                ? 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155]'
-                                : 'bg-[#0b1016] border-[#1e293b] opacity-65'
+                                ? 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] cursor-pointer'
+                                : 'bg-[#0b1016] border-[#1e293b] opacity-55 cursor-not-allowed'
                             }`}
                           >
                             <div className="flex items-center justify-between text-[11px] font-bold text-[#fef3c7] truncate">
@@ -577,8 +690,11 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               <span className="font-mono-tabular text-[#f59e0b]">[{spec.keybind}]</span>
                             </div>
                             <div className="text-[10px] font-mono-tabular text-[#94a3b8] mt-1">
-                              {spec.cost.wood}W · {spec.cost.stone}S
-                              {spec.cost.food > 0 ? ` · ${spec.cost.food}F` : ''}
+                              {isNight
+                                ? 'Locked at Night'
+                                : `${spec.cost.wood}W · ${spec.cost.stone}S${
+                                    spec.cost.food > 0 ? ` · ${spec.cost.food}F` : ''
+                                  }`}
                             </div>
                           </button>
                         );
@@ -589,7 +705,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs font-bold text-[#fef3c7]">
-                        Build on Pad #{selectedPad.id} ({selectedPad.label})
+                        {isNight
+                          ? `Pad #${selectedPad.id} (${selectedPad.label}) — 🔒 Construction Locked at Night`
+                          : `Build on Pad #${selectedPad.id} (${selectedPad.label})`}
                       </span>
                       <button
                         type="button"
@@ -603,13 +721,14 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
                       {BUILDING_LIST.map((bType) => {
                         const spec = BUILDING_CATALOG[bType];
-                        const affordable = canAfford(hud.resources, spec.cost);
+                        const affordable = !isNight && canAfford(hud.resources, spec.cost);
                         return (
                           <button
                             key={bType}
                             type="button"
                             tabIndex={-1}
-                            disabled={!affordable}
+                            aria-disabled={!affordable}
+                            data-night-locked={isNight ? 'true' : 'false'}
                             onClick={(e) => {
                               e.currentTarget.blur();
                               onBuildOnPad(bType);
@@ -628,8 +747,11 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               {spec.role.split('·')[1] ?? spec.role}
                             </div>
                             <div className="text-[10px] font-mono-tabular text-[#fbbf24] mt-1">
-                              {spec.cost.wood}W · {spec.cost.stone}S
-                              {spec.cost.food > 0 ? ` · ${spec.cost.food}F` : ''}
+                              {isNight
+                                ? 'Locked at Night'
+                                : `${spec.cost.wood}W · ${spec.cost.stone}S${
+                                    spec.cost.food > 0 ? ` · ${spec.cost.food}F` : ''
+                                  }`}
                             </div>
                           </button>
                         );
@@ -644,8 +766,10 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                       const spec = BUILDING_CATALOG[bld.type];
                       const pathA = spec.paths.pathA;
                       const pathB = spec.paths.pathB;
-                      const canPathA = bld.upgradePath === null && canAfford(hud.resources, pathA.cost);
-                      const canPathB = bld.upgradePath === null && canAfford(hud.resources, pathB.cost);
+                      const canPathA =
+                        !isNight && bld.upgradePath === null && canAfford(hud.resources, pathA.cost);
+                      const canPathB =
+                        !isNight && bld.upgradePath === null && canAfford(hud.resources, pathB.cost);
                       return (
                         <div>
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -667,24 +791,36 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               <button
                                 type="button"
                                 tabIndex={-1}
+                                aria-disabled={isNight}
+                                data-night-locked={isNight ? 'true' : 'false'}
                                 onClick={(e) => {
                                   e.currentTarget.blur();
                                   onRepairPad();
                                 }}
-                                className="px-2.5 py-1 rounded bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] text-[11px] font-mono-tabular text-[#4ade80] cursor-pointer"
+                                className={`px-2.5 py-1 rounded border text-[11px] font-mono-tabular transition-colors ${
+                                  isNight
+                                    ? 'bg-[#0b1016] border-[#1e293b] text-[#64748b] opacity-55 cursor-not-allowed'
+                                    : 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#4ade80] cursor-pointer'
+                                }`}
                               >
-                                Repair [R] (10W 5S)
+                                {isNight ? '🔒 Repair [R]' : 'Repair [R] (10W 5S)'}
                               </button>
                               <button
                                 type="button"
                                 tabIndex={-1}
+                                aria-disabled={isNight}
+                                data-night-locked={isNight ? 'true' : 'false'}
                                 onClick={(e) => {
                                   e.currentTarget.blur();
                                   onDemolishPad();
                                 }}
-                                className="px-2.5 py-1 rounded bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] text-[11px] text-[#f87171] cursor-pointer"
+                                className={`px-2.5 py-1 rounded border text-[11px] transition-colors ${
+                                  isNight
+                                    ? 'bg-[#0b1016] border-[#1e293b] text-[#64748b] opacity-55 cursor-not-allowed'
+                                    : 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#f87171] cursor-pointer'
+                                }`}
                               >
-                                Salvage [X]
+                                {isNight ? '🔒 Salvage [X]' : 'Salvage [X]'}
                               </button>
                               <button
                                 type="button"
@@ -702,7 +838,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               <button
                                 type="button"
                                 tabIndex={-1}
-                                disabled={!canPathA}
+                                aria-disabled={!canPathA}
+                                data-night-locked={isNight ? 'true' : 'false'}
+                                data-testid="btn-upgrade-pathA"
                                 onClick={(e) => {
                                   e.currentTarget.blur();
                                   onUpgradeOnPad('pathA');
@@ -719,14 +857,18 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                                 </div>
                                 <div className="text-[11px] text-[#cbd5e1] mt-0.5">{pathA.tagline}</div>
                                 <div className="text-[10px] font-mono-tabular text-[#fbbf24] mt-1">
-                                  Cost: {pathA.cost.wood}W · {pathA.cost.stone}S · {pathA.cost.food}F
+                                  {isNight
+                                    ? '🔒 Locked at Night — Defend the fort!'
+                                    : `Cost: ${pathA.cost.wood}W · ${pathA.cost.stone}S · ${pathA.cost.food}F`}
                                 </div>
                               </button>
 
                               <button
                                 type="button"
                                 tabIndex={-1}
-                                disabled={!canPathB}
+                                aria-disabled={!canPathB}
+                                data-night-locked={isNight ? 'true' : 'false'}
+                                data-testid="btn-upgrade-pathB"
                                 onClick={(e) => {
                                   e.currentTarget.blur();
                                   onUpgradeOnPad('pathB');
@@ -743,7 +885,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                                 </div>
                                 <div className="text-[11px] text-[#cbd5e1] mt-0.5">{pathB.tagline}</div>
                                 <div className="text-[10px] font-mono-tabular text-[#38bdf8] mt-1">
-                                  Cost: {pathB.cost.wood}W · {pathB.cost.stone}S · {pathB.cost.food}F
+                                  {isNight
+                                    ? '🔒 Locked at Night — Defend the fort!'
+                                    : `Cost: ${pathB.cost.wood}W · ${pathB.cost.stone}S · ${pathB.cost.food}F`}
                                 </div>
                               </button>
                             </div>

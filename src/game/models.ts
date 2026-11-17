@@ -1,5 +1,11 @@
 import * as THREE from 'three';
-import { BuildingType, ResourceType, UpgradePathId, ZombieArchetype } from './types';
+import {
+  BuildingType,
+  FenceSegment,
+  ResourceType,
+  UpgradePathId,
+  ZombieArchetype,
+} from './types';
 
 // Shared procedural bump texture for organic relief
 export function createProceduralBumpTexture(maxAnisotropy: number): THREE.CanvasTexture {
@@ -959,6 +965,262 @@ export function createPlacementPadMesh(ring: 'inner' | 'outer'): THREE.Group {
     const peg = new THREE.Mesh(pegGeo, baseMat);
     peg.position.set(Math.cos(angle) * 1.25, 0.18, Math.sin(angle) * 1.25);
     group.add(peg);
+  }
+
+  return group;
+}
+
+/**
+ * Creates the 4 Square Compound Corner Bastion Pillars at (±halfExtent, ±halfExtent)
+ * and the square stone foundation border that frames the 19.2m x 19.2m outer fence perimeter.
+ */
+export function createSquareCornerBastionPosts(halfExtent: number): THREE.Group {
+  const group = new THREE.Group();
+
+  const stoneMat = new THREE.MeshStandardMaterial({
+    color: 0x475569,
+    roughness: 0.88,
+    metalness: 0.12,
+    flatShading: true,
+  });
+  const timberMat = new THREE.MeshStandardMaterial({
+    color: 0x5c3a21,
+    roughness: 0.82,
+    metalness: 0.1,
+    flatShading: true,
+  });
+  const ironMat = new THREE.MeshStandardMaterial({
+    color: 0x334155,
+    roughness: 0.42,
+    metalness: 0.78,
+    flatShading: true,
+  });
+  const lanternGlowMat = new THREE.MeshStandardMaterial({
+    color: 0xfef08a,
+    emissive: 0xf59e0b,
+    emissiveIntensity: 2.1,
+    roughness: 0.25,
+    flatShading: true,
+  });
+
+  // Subtle square stone border strips along all 4 sides of the perimeter
+  const fullSpan = halfExtent * 2;
+  const nsStripGeo = new THREE.BoxGeometry(fullSpan + 0.7, 0.07, 0.68);
+  const ewStripGeo = new THREE.BoxGeometry(0.68, 0.07, fullSpan + 0.7);
+  const northBase = new THREE.Mesh(nsStripGeo, stoneMat);
+  northBase.position.set(0, 0.035, -halfExtent);
+  northBase.receiveShadow = true;
+  const southBase = new THREE.Mesh(nsStripGeo, stoneMat);
+  southBase.position.set(0, 0.035, halfExtent);
+  southBase.receiveShadow = true;
+  const eastBase = new THREE.Mesh(ewStripGeo, stoneMat);
+  eastBase.position.set(halfExtent, 0.035, 0);
+  eastBase.receiveShadow = true;
+  const westBase = new THREE.Mesh(ewStripGeo, stoneMat);
+  westBase.position.set(-halfExtent, 0.035, 0);
+  westBase.receiveShadow = true;
+  group.add(northBase, southBase, eastBase, westBase);
+
+  // 4 Corner Bastion Posts with iron bands & warm perimeter lanterns
+  const corners: [number, number][] = [
+    [-halfExtent, -halfExtent],
+    [halfExtent, -halfExtent],
+    [-halfExtent, halfExtent],
+    [halfExtent, halfExtent],
+  ];
+
+  const plinthGeo = new THREE.BoxGeometry(0.95, 0.45, 0.95);
+  const pillarGeo = new THREE.BoxGeometry(0.62, 2.25, 0.62);
+  const capGeo = new THREE.ConeGeometry(0.56, 0.52, 4);
+  const bandGeo = new THREE.BoxGeometry(0.68, 0.14, 0.68);
+  const lanternGeo = new THREE.CylinderGeometry(0.15, 0.12, 0.32, 6);
+
+  corners.forEach(([cx, cz]) => {
+    const cGroup = new THREE.Group();
+    cGroup.position.set(cx, 0, cz);
+
+    const plinth = new THREE.Mesh(plinthGeo, stoneMat);
+    plinth.position.y = 0.22;
+    plinth.receiveShadow = true;
+    const pillar = new THREE.Mesh(pillarGeo, timberMat);
+    pillar.position.y = 1.35;
+    pillar.castShadow = true;
+    const bandLow = new THREE.Mesh(bandGeo, ironMat);
+    bandLow.position.y = 0.65;
+    const bandHigh = new THREE.Mesh(bandGeo, ironMat);
+    bandHigh.position.y = 2.05;
+    const cap = new THREE.Mesh(capGeo, ironMat);
+    cap.position.y = 2.72;
+    cap.rotation.y = Math.PI / 4;
+    const lantern = new THREE.Mesh(lanternGeo, lanternGlowMat);
+    lantern.position.y = 3.12;
+
+    cGroup.add(plinth, pillar, bandLow, bandHigh, cap, lantern);
+    group.add(cGroup);
+  });
+
+  return group;
+}
+
+/**
+ * Creates a 3D Square Perimeter Fence Segment for Level 0 (unbuilt/in-progress stakes),
+ * Level 1 (Timber Palisade / Trail Gate), or Level 2 (Ironbark Spiked Fence).
+ */
+export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
+  const group = new THREE.Group();
+  group.position.set(segment.x, 0, segment.z);
+  group.rotation.y = segment.rotationY;
+  const len = segment.length;
+
+  const stoneMat = new THREE.MeshStandardMaterial({
+    color: 0x475569,
+    roughness: 0.88,
+    metalness: 0.14,
+    flatShading: true,
+  });
+  const woodMat = new THREE.MeshStandardMaterial({
+    color: segment.level === 2 ? 0x6b2f14 : 0x7c4a27,
+    roughness: 0.8,
+    metalness: 0.1,
+    flatShading: true,
+  });
+  const darkWoodMat = new THREE.MeshStandardMaterial({
+    color: 0x4a2c16,
+    roughness: 0.85,
+    metalness: 0.1,
+    flatShading: true,
+  });
+  const metalMat = new THREE.MeshStandardMaterial({
+    color: segment.level === 2 ? 0xf59e0b : 0x64748b,
+    roughness: 0.35,
+    metalness: 0.82,
+    flatShading: true,
+  });
+  const guideMat = new THREE.MeshStandardMaterial({
+    color: 0xfbbf24,
+    emissive: 0xd97706,
+    emissiveIntensity: 0.65,
+    roughness: 0.4,
+    flatShading: true,
+  });
+
+  // Clickable foundation base strip along segment span
+  const basePlate = new THREE.Mesh(new THREE.BoxGeometry(len - 0.18, 0.14, 0.72), stoneMat);
+  basePlate.position.y = 0.07;
+  basePlate.receiveShadow = true;
+  group.add(basePlate);
+
+  if (segment.level === 0) {
+    // Stage 0: Foundation stakes + amber guideline + partial progressive logs according to buildProgress
+    const stakeGeo = new THREE.CylinderGeometry(0.11, 0.14, 0.52, 6);
+    const numStakes = 11;
+    const builtCount = Math.floor(segment.buildProgress * numStakes);
+
+    const logGeo = new THREE.CylinderGeometry(0.16, 0.19, 1.5, 6);
+    const tipGeo = new THREE.ConeGeometry(0.17, 0.34, 6);
+
+    for (let i = 0; i < numStakes; i++) {
+      const lx = -len * 0.44 + (i / (numStakes - 1)) * (len * 0.88);
+      if (i < builtCount) {
+        // Assembled log!
+        const log = new THREE.Mesh(logGeo, woodMat);
+        log.position.set(lx, 0.78, 0);
+        log.castShadow = true;
+        const tip = new THREE.Mesh(tipGeo, woodMat);
+        tip.position.set(lx, 1.68, 0);
+        group.add(log, tip);
+      } else {
+        // Unbuilt short foundation peg
+        const stake = new THREE.Mesh(stakeGeo, darkWoodMat);
+        stake.position.set(lx, 0.28, 0);
+        group.add(stake);
+      }
+    }
+
+    // Amber survey rope / build marker bar connecting the stakes
+    const rope = new THREE.Mesh(new THREE.BoxGeometry(len - 0.4, 0.07, 0.08), guideMat);
+    rope.position.set(0, 0.46, 0);
+    group.add(rope);
+    return group;
+  }
+
+  // Level 1 or Level 2 Built Fence / Gate
+  if (segment.isGate) {
+    // Fortified Trail Gate across the road (center span has double gate doors + overhead arch beam)
+    const gatePostGeo = new THREE.BoxGeometry(0.46, 2.35, 0.46);
+    const leftPost = new THREE.Mesh(gatePostGeo, darkWoodMat);
+    leftPost.position.set(-1.55, 1.18, 0);
+    leftPost.castShadow = true;
+    const rightPost = new THREE.Mesh(gatePostGeo, darkWoodMat);
+    rightPost.position.set(1.55, 1.18, 0);
+    rightPost.castShadow = true;
+
+    const topBeam = new THREE.Mesh(new THREE.BoxGeometry(3.75, 0.32, 0.54), darkWoodMat);
+    topBeam.position.set(0, 2.38, 0);
+    topBeam.castShadow = true;
+    group.add(leftPost, rightPost, topBeam);
+
+    // Double wooden gate doors in center
+    const doorHalfGeo = new THREE.BoxGeometry(1.38, 1.38, 0.2);
+    const doorL = new THREE.Mesh(doorHalfGeo, woodMat);
+    doorL.position.set(-0.74, 0.78, 0);
+    doorL.castShadow = true;
+    const doorR = new THREE.Mesh(doorHalfGeo, woodMat);
+    doorR.position.set(0.74, 0.78, 0);
+    doorR.castShadow = true;
+    const crossBrace = new THREE.Mesh(new THREE.BoxGeometry(2.85, 0.16, 0.26), metalMat);
+    crossBrace.position.set(0, 0.85, 0);
+    group.add(doorL, doorR, crossBrace);
+
+    // Flanking palisade logs on both sides of the gate posts
+    const logGeo = new THREE.CylinderGeometry(0.17, 0.2, 1.65, 6);
+    const tipGeo = new THREE.ConeGeometry(0.18, 0.38, 6);
+    [-2.78, -2.38, -1.98, 1.98, 2.38, 2.78].forEach((lx) => {
+      const log = new THREE.Mesh(logGeo, woodMat);
+      log.position.set(lx, 0.85, 0);
+      log.castShadow = true;
+      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? metalMat : woodMat);
+      tip.position.set(lx, 1.84, 0);
+      group.add(log, tip);
+    });
+  } else {
+    // Solid Square Perimeter Palisade Wall Segment (13 sharpened vertical timber logs + 2 crossbeams)
+    const logGeo = new THREE.CylinderGeometry(0.17, 0.21, 1.68, 6);
+    const tipGeo = new THREE.ConeGeometry(0.18, 0.38, 6);
+    const numLogs = 13;
+    for (let i = 0; i < numLogs; i++) {
+      const lx = -len * 0.45 + (i / (numLogs - 1)) * (len * 0.9);
+      const zJitter = (i % 2 === 0 ? 1 : -1) * 0.04;
+      const hScale = 0.94 + ((i * 7) % 3) * 0.05;
+      const log = new THREE.Mesh(logGeo, woodMat);
+      log.position.set(lx, 0.84 * hScale, zJitter);
+      log.scale.set(1, hScale, 1);
+      log.castShadow = true;
+      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? metalMat : woodMat);
+      tip.position.set(lx, 1.82 * hScale, zJitter);
+      group.add(log, tip);
+    }
+
+    const railLow = new THREE.Mesh(new THREE.BoxGeometry(len - 0.24, 0.18, 0.38), darkWoodMat);
+    railLow.position.set(0, 0.58, 0);
+    const railHigh = new THREE.Mesh(new THREE.BoxGeometry(len - 0.24, 0.18, 0.38), darkWoodMat);
+    railHigh.position.set(0, 1.24, 0);
+    group.add(railLow, railHigh);
+  }
+
+  // Level 2 Upgrade: Outward-pointing Ironbark Spikes on both faces
+  if (segment.level === 2) {
+    const spikeGeo = new THREE.ConeGeometry(0.11, 0.58, 5);
+    for (let i = -3; i <= 3; i++) {
+      const sx = i * 0.78;
+      const spFront = new THREE.Mesh(spikeGeo, metalMat);
+      spFront.position.set(sx, 0.72, 0.38);
+      spFront.rotation.x = Math.PI / 3;
+      const spBack = new THREE.Mesh(spikeGeo, metalMat);
+      spBack.position.set(sx, 0.72, -0.38);
+      spBack.rotation.x = -Math.PI / 3;
+      group.add(spFront, spBack);
+    }
   }
 
   return group;

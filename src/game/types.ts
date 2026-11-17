@@ -2,6 +2,8 @@ export type GameScreenState = 'title' | 'playing' | 'paused' | 'gameover';
 
 export type DayNightPhase = 'day' | 'night';
 
+export type HeroAnimState = 'idle' | 'walk' | 'combat' | 'construction';
+
 export type ResourceType = 'wood' | 'stone' | 'food';
 
 export interface Resources {
@@ -20,6 +22,19 @@ export type BuildingType =
   | 'guardtent';
 
 export type UpgradePathId = 'pathA' | 'pathB' | null;
+
+export interface PendingConstructionTask {
+  targetKind: 'fence' | 'pad';
+  action: 'build_fence' | 'build_pad' | 'upgrade_pad' | 'repair_pad';
+  targetId: number;
+  buildingType?: BuildingType;
+  upgradePath?: 'pathA' | 'pathB';
+  targetX: number;
+  targetZ: number;
+  label: string;
+  remainingTime: number;
+  totalTime: number;
+}
 
 export interface UpgradeSpec {
   id: 'pathA' | 'pathB';
@@ -65,6 +80,24 @@ export interface PlacementPad {
     cooldown: number;
     level: number;
   } | null;
+}
+
+export type FenceSide = 'north' | 'east' | 'south' | 'west';
+
+export interface FenceSegment {
+  id: number;
+  side: FenceSide;
+  slotIndex: 0 | 1 | 2;
+  isGate: boolean;
+  label: string;
+  x: number;
+  z: number;
+  rotationY: number;
+  length: number;
+  level: 0 | 1 | 2;
+  hp: number;
+  maxHp: number;
+  buildProgress: number;
 }
 
 export type ZombieArchetype =
@@ -283,6 +316,8 @@ export interface HudSnapshot {
   flareMaxCooldown: number;
   selectedPadId: number | null;
   pads: PlacementPad[];
+  selectedFenceId: number | null;
+  fenceSegments: FenceSegment[];
   bossActive: boolean;
   bossName: string;
   bossHp: number;
@@ -293,6 +328,8 @@ export interface HudSnapshot {
   elapsedRunSeconds: number;
   cameraZoom: number;
   dockCollapsed: boolean;
+  heroAnimState: HeroAnimState;
+  pendingConstruction: PendingConstructionTask | null;
   daily: DailyPersistenceState;
   lastRunSummary: RunCompletionSummary | null;
 }

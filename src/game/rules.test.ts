@@ -1,18 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  advanceFenceSegmentBuild,
   applyBoneHowlerRally,
   applyDamageToZombie,
   applyLanternFlareToZombies,
+  buildOrUpgradeFenceSegment,
   buildStructureOnPad,
   calculateRunScore,
   canAfford,
   computeZombieEffectiveSpeed,
+  createInitialFenceSegments,
   createInitialPads,
   evaluateGameOutcome,
+  FENCE_HALF_EXTENT,
+  findBlockingFenceSegment,
+  findNextFenceSegmentForHero,
   getEffectiveBuildingStats,
   getWaveComposition,
+  HERO_CONSTRUCTION_DURATION,
   INITIAL_RESOURCES,
+  startFenceConstructionTask,
+  startPadConstructionTask,
+  stepConstructionTask,
   upgradeStructureOnPad,
   ZOMBIE_CATALOG,
 } from './rules';
@@ -53,11 +63,59 @@ function makeZombie(overrides: Partial<ZombieEntity>): ZombieEntity {
   };
 }
 
-test('createInitialPads returns a closed palisade ring plus inner and outer pads', () => {
+test('createInitialPads returns 8 weapon pads strictly inside the square fence perimeter', () => {
   const pads = createInitialPads();
-  assert.equal(pads.length, 25);
+  assert.equal(pads.length, 8);
   assert.equal(pads.every((p) => p.building === null), true);
-  assert.equal(pads.some((p) => p.rotationY !== undefined), true);
+  assert.equal(
+    pads.every((p) => Math.abs(p.x) < FENCE_HALF_EXTENT && Math.abs(p.z) < FENCE_HALF_EXTENT),
+    true
+  );
+});
+
+test('createInitialFenceSegments returns 12 square fence segments (3 per side) and supports progressive assembly', () => {
+  const segments = createInitialFenceSegments();
+  assert.equal(segments.length, 12);
+  assert.equal(segments.filter((s) => s.side === 'north').length, 3);
+  assert.equal(segments.filter((s) => s.side === 'east').length, 3);
+  assert.equal(segments.filter((s) => s.side === 'south').length, 3);
+  assert.equal(segments.filter((s) => s.side === 'west').length, 3);
+  assert.equal(segments.filter((s) => s.isGate).length, 4);
+
+  // Find next unbuilt segment for Ranger Rue to assemble
+  const target = findNextFenceSegmentForHero(0, 4, segments);
+  assert.notEqual(target, null);
+  assert.equal(target?.level, 0);
+
+  // Step 1: 50% hammer progress
+  const res = { ...INITIAL_RESOURCES };
+  const step1 = advanceFenceSegmentBuild(target!, res, 0.5);
+  assert.equal(step1.success, true);
+  assert.equal(step1.completed, false);
+  assert.equal(step1.updatedSegment.buildProgress, 0.5);
+  assert.equal(step1.updatedSegment.level, 0);
+
+  // Step 2: 100% hammer progress -> completes Level 1 fence segment and deducts 15W 5S
+  const step2 = advanceFenceSegmentBuild(step1.updatedSegment, step1.updatedResources, 0.6);
+  assert.equal(step2.success, true);
+  assert.equal(step2.completed, true);
+  assert.equal(step2.updatedSegment.level, 1);
+  assert.equal(step2.updatedSegment.hp, 240);
+  assert.equal(step2.updatedResources.wood, res.wood - 15);
+  assert.equal(step2.updatedResources.stone, res.stone - 5);
+
+  // Upgrade Level 1 fence segment to Level 2 (Ironbark Spikes)
+  const upg = buildOrUpgradeFenceSegment(step2.updatedSegment, step2.updatedResources);
+  assert.equal(upg.success, true);
+  assert.equal(upg.action, 'upgraded');
+  assert.equal(upg.updatedSegment.level, 2);
+  assert.equal(upg.updatedSegment.maxHp, 420);
+
+  // Zombie approaching on North trail is blocked by the North Gate fence segment
+  const blocker = findBlockingFenceSegment(0, -11.5, segments);
+  assert.notEqual(blocker, null);
+  assert.equal(blocker?.side, 'north');
+  assert.equal(blocker?.isGate, true);
 });
 
 test('buildStructureOnPad deducts resources and sets building state', () => {
@@ -238,3 +296,234 @@ test('waves include Swift Stumbler, Armored Undead, Bone Howler, and Boss Baron 
     false
   );
 });
+
+test('Day vs Night phase rules: building and upgrading are allowed by day, rejected at night, structures persist into night, and combat works at night', () => {
+  const pads = createInitialPads();
+  const fences = createInitialFenceSegments();
+  const res = { wood: 250, stone: 200, food: 150, tickets: 3 };
+
+  // 1. Day phase: building and upgrading structures and fences succeed
+  const dayBuildPad = buildStructureOnPad(pads[0], res, 'watchtower', 'day');
+  assert.equal(dayBuildPad.success, true);
+  assert.equal(dayBuildPad.updatedPad.building?.type, 'watchtower');
+
+  const unbuiltFence = fences.find((f) => f.level === 0)!;
+  const dayBuildFence = buildOrUpgradeFenceSegment(
+    unbuiltFence,
+    dayBuildPad.updatedResources,
+    'day'
+  );
+  assert.equal(dayBuildFence.success, true);
+  assert.equal(dayBuildFence.action, 'built');
+  assert.equal(dayBuildFence.updatedSegment.level, 1);
+
+  // 2. Night phase: building and upgrading pads or fences are rejected with reason 'night_locked'
+  const nightBuildPad = buildStructureOnPad(
+    pads[1],
+    dayBuildFence.updatedResources,
+    'catapult',
+    'night'
+  );
+  assert.equal(nightBuildPad.success, false);
+  assert.equal(nightBuildPad.reason, 'night_locked');
+  assert.equal(nightBuildPad.updatedPad.building, null);
+  assert.deepEqual(nightBuildPad.updatedResources, dayBuildFence.updatedResources);
+
+  const nightUpgradePad = upgradeStructureOnPad(
+    dayBuildPad.updatedPad,
+    dayBuildFence.updatedResources,
+    'pathA',
+    'night'
+  );
+  assert.equal(nightUpgradePad.success, false);
+  assert.equal(nightUpgradePad.reason, 'night_locked');
+  assert.equal(nightUpgradePad.updatedPad.building?.upgradePath, null);
+
+  const nightUpgradeFence = buildOrUpgradeFenceSegment(
+    dayBuildFence.updatedSegment,
+    dayBuildFence.updatedResources,
+    'night'
+  );
+  assert.equal(nightUpgradeFence.success, false);
+  assert.equal(nightUpgradeFence.reason, 'night_locked');
+  assert.equal(nightUpgradeFence.updatedSegment.level, 1);
+
+  const anotherUnbuiltFence = fences.find((f) => f.level === 0 && f.id !== unbuiltFence.id)!;
+  const nightStepFence = advanceFenceSegmentBuild(
+    anotherUnbuiltFence,
+    dayBuildFence.updatedResources,
+    0.5,
+    'night'
+  );
+  assert.equal(nightStepFence.success, false);
+  assert.equal(nightStepFence.reason, 'night_locked');
+  assert.equal(nightStepFence.updatedSegment.buildProgress, 0);
+
+  // 3. Structures completed before night persist and retain their combat stats & blocking behavior at night
+  assert.equal(dayBuildPad.updatedPad.building?.type, 'watchtower');
+  assert.equal(dayBuildPad.updatedPad.building?.hp, 150);
+  const towerStats = getEffectiveBuildingStats(
+    dayBuildPad.updatedPad.building!.type,
+    dayBuildPad.updatedPad.building!.upgradePath
+  );
+  assert.equal(towerStats.damage > 0, true);
+
+  const updatedFences = fences.map((f) =>
+    f.id === unbuiltFence.id ? dayBuildFence.updatedSegment : f
+  );
+  const gateBlocker = findBlockingFenceSegment(0, -11.5, updatedFences);
+  assert.notEqual(gateBlocker, null);
+
+  // 4. Hero combat actions (melee bonk & Lantern Flare) remain active at night
+  const nightZombie = makeZombie({ id: 99, x: 2.0, z: 0, hp: 100, maxHp: 100 });
+  const meleeRes = applyDamageToZombie(nightZombie, 30, 'melee');
+  assert.equal(meleeRes.actualHpDamage, 30);
+  assert.equal(nightZombie.hp, 70);
+
+  const flareRes = applyLanternFlareToZombies(0, 0, [nightZombie]);
+  assert.equal(flareRes.affectedCount, 1);
+  assert.equal(nightZombie.slowTimer > 0, true);
+
+  // 5. Returning to Day phase restores construction & upgrade actions
+  const nextDayUpgradePad = upgradeStructureOnPad(
+    dayBuildPad.updatedPad,
+    dayBuildFence.updatedResources,
+    'pathA',
+    'day'
+  );
+  assert.equal(nextDayUpgradePad.success, true);
+  assert.equal(nextDayUpgradePad.updatedPad.building?.upgradePath, 'pathA');
+});
+
+test('Hero construction animation state: clicking a segment or pad enters construction state and waits for animation to finish before applying build or upgrade', () => {
+  let pads = createInitialPads();
+  let fences = createInitialFenceSegments();
+  let res = { wood: 250, stone: 200, food: 150, tickets: 3 };
+
+  // 1. Clicking an unbuilt fence segment triggers 'construction' animation state without immediately building
+  const unbuiltFence = fences.find((f) => f.level === 0)!;
+  const startFence = startFenceConstructionTask({
+    segment: unbuiltFence,
+    resources: res,
+    phase: 'day',
+    currentTask: null,
+  });
+  assert.equal(startFence.started, true);
+  assert.equal(startFence.heroAnimState, 'construction');
+  assert.notEqual(startFence.task, null);
+  assert.equal(startFence.task?.remainingTime, HERO_CONSTRUCTION_DURATION);
+  // Before animation finishes, fence segment is still level 0
+  assert.equal(fences.find((f) => f.id === unbuiltFence.id)?.level, 0);
+
+  // Attempting to start another build while 'construction' animation is playing is rejected as 'busy_constructing'
+  const busyAttempt = startPadConstructionTask({
+    pad: pads[0],
+    resources: res,
+    phase: 'day',
+    currentTask: startFence.task,
+    action: 'build_pad',
+    buildingType: 'watchtower',
+  });
+  assert.equal(busyAttempt.started, false);
+  assert.equal(busyAttempt.reason, 'busy_constructing');
+  assert.equal(busyAttempt.heroAnimState, 'construction');
+
+  // Stepping halfway (0.4s) keeps hero in 'construction' state and fence unbuilt
+  const midFenceStep = stepConstructionTask({
+    task: startFence.task,
+    dt: 0.4,
+    phase: 'day',
+    fenceSegments: fences,
+    pads,
+    resources: res,
+  });
+  assert.equal(midFenceStep.completed, false);
+  assert.equal(midFenceStep.heroAnimState, 'construction');
+  assert.equal(midFenceStep.fenceSegments.find((f) => f.id === unbuiltFence.id)?.level, 0);
+  assert.equal(midFenceStep.resources.wood, res.wood);
+
+  // Stepping the remaining time (0.5s) finishes the animation and applies the fence build!
+  const finishFenceStep = stepConstructionTask({
+    task: midFenceStep.task,
+    dt: 0.5,
+    phase: 'day',
+    fenceSegments: midFenceStep.fenceSegments,
+    pads: midFenceStep.pads,
+    resources: midFenceStep.resources,
+  });
+  assert.equal(finishFenceStep.completed, true);
+  assert.equal(finishFenceStep.heroAnimState, 'idle');
+  assert.equal(finishFenceStep.task, null);
+  assert.equal(finishFenceStep.fenceOutcome, 'built');
+  assert.equal(finishFenceStep.fenceSegments.find((f) => f.id === unbuiltFence.id)?.level, 1);
+  assert.equal(finishFenceStep.resources.wood, res.wood - 15);
+  fences = finishFenceStep.fenceSegments;
+  res = finishFenceStep.resources;
+
+  // 2. Clicking a pad to build a Watchtower enters 'construction' state and applies only when animation finishes
+  const startPadBuild = startPadConstructionTask({
+    pad: pads[0],
+    resources: res,
+    phase: 'day',
+    currentTask: null,
+    action: 'build_pad',
+    buildingType: 'watchtower',
+  });
+  assert.equal(startPadBuild.started, true);
+  assert.equal(startPadBuild.heroAnimState, 'construction');
+
+  const midPadStep = stepConstructionTask({
+    task: startPadBuild.task,
+    dt: 0.3,
+    phase: 'day',
+    fenceSegments: fences,
+    pads,
+    resources: res,
+  });
+  assert.equal(midPadStep.completed, false);
+  assert.equal(midPadStep.heroAnimState, 'construction');
+  assert.equal(midPadStep.pads[0].building, null);
+
+  const finishPadStep = stepConstructionTask({
+    task: midPadStep.task,
+    dt: 0.65,
+    phase: 'day',
+    fenceSegments: midPadStep.fenceSegments,
+    pads: midPadStep.pads,
+    resources: midPadStep.resources,
+  });
+  assert.equal(finishPadStep.completed, true);
+  assert.equal(finishPadStep.heroAnimState, 'idle');
+  assert.equal(finishPadStep.pads[0].building?.type, 'watchtower');
+  assert.equal(finishPadStep.pads[0].building?.level, 1);
+  pads = finishPadStep.pads;
+  res = finishPadStep.resources;
+
+  // 3. Clicking the built pad to upgrade (Path A) also enters 'construction' state and applies only when animation finishes
+  const startPadUpgrade = startPadConstructionTask({
+    pad: pads[0],
+    resources: res,
+    phase: 'day',
+    currentTask: null,
+    action: 'upgrade_pad',
+    upgradePath: 'pathA',
+  });
+  assert.equal(startPadUpgrade.started, true);
+  assert.equal(startPadUpgrade.heroAnimState, 'construction');
+  assert.equal(pads[0].building?.upgradePath, null);
+
+  const finishUpgradeStep = stepConstructionTask({
+    task: startPadUpgrade.task,
+    dt: HERO_CONSTRUCTION_DURATION + 0.05,
+    phase: 'day',
+    fenceSegments: fences,
+    pads,
+    resources: res,
+  });
+  assert.equal(finishUpgradeStep.completed, true);
+  assert.equal(finishUpgradeStep.heroAnimState, 'idle');
+  assert.equal(finishUpgradeStep.pads[0].building?.upgradePath, 'pathA');
+  assert.equal(finishUpgradeStep.pads[0].building?.level, 2);
+});
+
+

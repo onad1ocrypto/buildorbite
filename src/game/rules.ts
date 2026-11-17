@@ -1,6 +1,11 @@
 import {
   BuildingCatalogItem,
   BuildingType,
+  DayNightPhase,
+  FenceSegment,
+  FenceSide,
+  HeroAnimState,
+  PendingConstructionTask,
   PlacementPad,
   Resources,
   UpgradePathId,
@@ -17,10 +22,20 @@ export const LANTERN_FLARE_RADIUS = 8.5;
 export const LANTERN_FLARE_DAMAGE = 28;
 export const LANTERN_FLARE_SLOW_DURATION = 4.5;
 export const LANTERN_FLARE_KNOCKBACK = 4.2;
+export const HERO_CONSTRUCTION_DURATION = 0.65;
+
+// Outer Square Perimeter Fence constants (19.2m x 19.2m square box around the inner weapon pads)
+export const FENCE_HALF_EXTENT = 9.6;
+export const FENCE_SEGMENT_LENGTH = 6.2;
+export const FENCE_LEVEL1_MAX_HP = 240;
+export const FENCE_LEVEL2_MAX_HP = 420;
+export const FENCE_BUILD_COST = { wood: 15, stone: 5, food: 0 };
+export const FENCE_UPGRADE_COST = { wood: 20, stone: 15, food: 0 };
+export const FENCE_REPAIR_COST = { wood: 8, stone: 4, food: 0 };
 
 export const INITIAL_RESOURCES: Resources = {
-  wood: 110,
-  stone: 80,
+  wood: 165,
+  stone: 95,
   food: 65,
   tickets: 3,
 };
@@ -30,12 +45,12 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
     type: 'palisade',
     keybind: '1',
     name: 'Palisade Wall',
-    role: 'Sturdy Timber Barrier · Blocks & Thorns',
-    description: 'Stout sharpened logs that intercept zombies and protect the inner clearing.',
+    role: 'Inner Barricade · Blocks & Thorns',
+    description: 'Stout sharpened logs that reinforce inner lanes and deal thorn damage.',
     cost: { wood: 25, stone: 10, food: 0 },
     maxHp: 260,
     damage: 14,
-    range: 2.6,
+    range: 4.6,
     attackInterval: 1.4,
     paths: {
       pathA: {
@@ -45,7 +60,7 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
         cost: { wood: 30, stone: 25, food: 0, tickets: 0 },
         hpBonus: 180,
         damageBonus: 22,
-        rangeBonus: 0.4,
+        rangeBonus: 0.6,
         attackRateMultiplier: 1.25,
         specialEffect: 'thorns',
       },
@@ -56,7 +71,7 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
         cost: { wood: 25, stone: 20, food: 10, tickets: 0 },
         hpBonus: 120,
         damageBonus: 10,
-        rangeBonus: 1.2,
+        rangeBonus: 1.4,
         attackRateMultiplier: 1.15,
         specialEffect: 'slow_aura',
       },
@@ -67,11 +82,11 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
     keybind: '2',
     name: 'Watchtower',
     role: 'Long-Range Crossbow · Fast Single-Target',
-    description: 'Elevated ranger lookout firing pine-cone bolts at approaching undead.',
+    description: 'Elevated ranger lookout inside the fence firing bolts over the perimeter wall.',
     cost: { wood: 35, stone: 15, food: 5 },
     maxHp: 150,
     damage: 26,
-    range: 10.5,
+    range: 12.2,
     attackInterval: 1.0,
     paths: {
       pathA: {
@@ -103,11 +118,11 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
     keybind: '3',
     name: 'Spike Trap',
     role: 'Ground Hazard · AoE Pierce & Slow',
-    description: 'Concealed floor spikes that impale and hobble any zombie stepping close.',
+    description: 'Concealed floor spikes that impale zombies at the fence line and inner lanes.',
     cost: { wood: 20, stone: 20, food: 0 },
     maxHp: 140,
     damage: 22,
-    range: 3.8,
+    range: 5.4,
     attackInterval: 1.1,
     paths: {
       pathA: {
@@ -128,7 +143,7 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
         cost: { wood: 15, stone: 35, food: 0, tickets: 0 },
         hpBonus: 80,
         damageBonus: 28,
-        rangeBonus: 0.5,
+        rangeBonus: 0.6,
         attackRateMultiplier: 1.35,
         specialEffect: 'knockback_trap',
       },
@@ -138,12 +153,12 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
     type: 'campfire',
     keybind: '4',
     name: 'Campfire',
-    role: 'Support Hearth · Heals Fort & Warms Towers',
-    description: 'Cozy crackling blaze that repairs the Fort andlobbing stray sparks at grumblers.',
+    role: 'Support Hearth · Heals Fort & Lobs Sparks',
+    description: 'Cozy crackling blaze inside the compound that repairs the Fort and lobs sparks.',
     cost: { wood: 25, stone: 15, food: 15 },
     maxHp: 160,
     damage: 15,
-    range: 7.5,
+    range: 9.5,
     attackInterval: 1.5,
     paths: {
       pathA: {
@@ -160,7 +175,7 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
       pathB: {
         id: 'pathB',
         name: 'Cinder Brazier',
-        tagline: 'Flings explosive ember fireballs across a wide radius',
+        tagline: 'Flings explosive ember fireballs across the fence line',
         cost: { wood: 25, stone: 35, food: 15, tickets: 0 },
         hpBonus: 70,
         damageBonus: 26,
@@ -175,11 +190,11 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
     keybind: '5',
     name: 'Catapult',
     role: 'Heavy Siege · Long-Range Splash Boulder',
-    description: 'Timber torsion arm hurling hefty boulders that crush clustered zombies.',
+    description: 'Timber torsion arm hurling hefty boulders over the square fence at zombie mobs.',
     cost: { wood: 40, stone: 35, food: 10 },
     maxHp: 170,
     damage: 48,
-    range: 13.0,
+    range: 14.5,
     attackInterval: 2.3,
     paths: {
       pathA: {
@@ -210,12 +225,12 @@ export const BUILDING_CATALOG: Record<BuildingType, BuildingCatalogItem> = {
     type: 'guardtent',
     keybind: '6',
     name: 'Guard Tent',
-    role: 'Critter Garrison · Fast Melee Strikes & Forage',
-    description: 'Canvas ranger tent dispatching trained pine-badgers to pester zombies.',
+    role: 'Critter Garrison · Fast Strikes & Forage',
+    description: 'Canvas ranger tent inside the fence dispatching trained pine-badgers.',
     cost: { wood: 30, stone: 10, food: 25 },
     maxHp: 180,
     damage: 24,
-    range: 8.5,
+    range: 10.5,
     attackInterval: 1.1,
     paths: {
       pathA: {
@@ -452,62 +467,339 @@ export const ZOMBIE_CATALOG: Record<ZombieArchetype, ZombieSpec> = {
 };
 
 export function createInitialPads(): PlacementPad[] {
-  // Fort layout: a BOX-shaped palisade (long wall segments) that completely
-  // encloses the central Fort at (0, 0), with a gate on the north side.
-  // Weapon pads sit INSIDE the walls; trap pads sit OUTSIDE along the trails.
-  const pads: PlacementPad[] = [];
-  let id = 1;
-
-  // --- Box-shaped palisade: long wall segments forming a closed rectangle ---
-  const hx = 8.5; // half-width  (x)
-  const hz = 6.5; // half-depth  (z)
-  const sides = [
-    { x0: -hx, z0: -hz, x1: hx, z1: -hz, count: 5, rot: 0 }, // north (gate here)
-    { x0: -hx, z0: hz, x1: hx, z1: hz, count: 5, rot: 0 }, // south
-    { x0: -hx, z0: -hz, x1: -hx, z1: hz, count: 4, rot: Math.PI / 2 }, // west
-    { x0: hx, z0: -hz, x1: hx, z1: hz, count: 4, rot: Math.PI / 2 }, // east
+  // 8 Weapon Pads arranged in an inner square compound inside the ±9.6m outer Square Fence
+  return [
+    { id: 1, x: -5.6, z: -5.6, ring: 'inner', label: 'NW Corner Weapon Pad', building: null },
+    { id: 2, x: 5.6, z: -5.6, ring: 'inner', label: 'NE Corner Weapon Pad', building: null },
+    { id: 3, x: -5.6, z: 5.6, ring: 'inner', label: 'SW Corner Weapon Pad', building: null },
+    { id: 4, x: 5.6, z: 5.6, ring: 'inner', label: 'SE Corner Weapon Pad', building: null },
+    { id: 5, x: 0, z: -5.8, ring: 'outer', label: 'North Lane Weapon Pad', building: null },
+    { id: 6, x: 5.8, z: 0, ring: 'outer', label: 'East Lane Weapon Pad', building: null },
+    { id: 7, x: 0, z: 5.8, ring: 'outer', label: 'South Lane Weapon Pad', building: null },
+    { id: 8, x: -5.8, z: 0, ring: 'outer', label: 'West Lane Weapon Pad', building: null },
   ];
-  sides.forEach((s, si) => {
-    for (let i = 0; i < s.count; i++) {
-      const t = (i + 0.5) / s.count;
-      const x = s.x0 + (s.x1 - s.x0) * t;
-      const z = s.z0 + (s.z1 - s.z0) * t;
-      if (si === 0 && Math.abs(x) < 1.8) continue; // gate opening (north centre)
-      pads.push({
-        id: id++,
-        x: +x.toFixed(2),
-        z: +z.toFixed(2),
-        ring: 'outer',
-        rotationY: s.rot,
-        label: `Wall ${id}`,
-        building: null,
+}
+
+export function createInitialFenceSegments(): FenceSegment[] {
+  const offsets: [-6.2, 0, 6.2] = [-6.2, 0, 6.2];
+  const sideConfigs: {
+    side: FenceSide;
+    sideLabel: string;
+    rotY: number;
+    coordForSlot: (offset: number) => { x: number; z: number };
+  }[] = [
+    {
+      side: 'north',
+      sideLabel: 'Utara',
+      rotY: 0,
+      coordForSlot: (off) => ({ x: off, z: -FENCE_HALF_EXTENT }),
+    },
+    {
+      side: 'east',
+      sideLabel: 'Timur',
+      rotY: Math.PI / 2,
+      coordForSlot: (off) => ({ x: FENCE_HALF_EXTENT, z: off }),
+    },
+    {
+      side: 'south',
+      sideLabel: 'Selatan',
+      rotY: 0,
+      coordForSlot: (off) => ({ x: off, z: FENCE_HALF_EXTENT }),
+    },
+    {
+      side: 'west',
+      sideLabel: 'Barat',
+      rotY: Math.PI / 2,
+      coordForSlot: (off) => ({ x: -FENCE_HALF_EXTENT, z: off }),
+    },
+  ];
+
+  const segments: FenceSegment[] = [];
+  let nextId = 1;
+  for (const cfg of sideConfigs) {
+    for (let s = 0; s < 3; s++) {
+      const slotIndex = s as 0 | 1 | 2;
+      const isGate = slotIndex === 1;
+      const pos = cfg.coordForSlot(offsets[s]);
+      // Start with the 4 cardinal Trail Gates erected (Level 1) and the 8 side/corner wall segments at Level 0
+      // so Ranger Rue actively assembles the square perimeter step-by-step!
+      const initialLevel: 0 | 1 | 2 = isGate ? 1 : 0;
+      const initialMaxHp = FENCE_LEVEL1_MAX_HP;
+      segments.push({
+        id: nextId++,
+        side: cfg.side,
+        slotIndex,
+        isGate,
+        label: isGate
+          ? `Gerbang ${cfg.sideLabel} (${cfg.side.toUpperCase()}-2)`
+          : `Pagar ${cfg.sideLabel} ${s + 1} (${cfg.side.toUpperCase()}-${s + 1})`,
+        x: pos.x,
+        z: pos.z,
+        rotationY: cfg.rotY,
+        length: FENCE_SEGMENT_LENGTH,
+        level: initialLevel,
+        hp: initialLevel > 0 ? initialMaxHp : 0,
+        maxHp: initialMaxHp,
+        buildProgress: initialLevel > 0 ? 1 : 0,
       });
     }
-  });
+  }
+  return segments;
+}
 
-  // --- Inner weapon pads (towers / catapult / campfire / tent) ---
-  const inner: Array<{ x: number; z: number; label: string }> = [
-    { x: -3.1, z: -3.1, label: 'NW Inner' },
-    { x: 3.1, z: -3.1, label: 'NE Inner' },
-    { x: -3.1, z: 3.1, label: 'SW Inner' },
-    { x: 3.1, z: 3.1, label: 'SE Inner' },
-  ];
-  inner.forEach((p) =>
-    pads.push({ id: id++, x: p.x, z: p.z, ring: 'inner', rotationY: 0, label: p.label, building: null })
+export const NIGHT_BUILD_LOCKED_MESSAGE = 'Night has fallen — defend the fort!';
+
+/**
+ * Locked gameplay rule: Ranger Rue can only place/build, upgrade, repair, or salvage structures during the Day phase.
+ * During the Night phase, construction and upgrade actions are rejected while combat abilities remain active.
+ */
+export function canPerformConstructionInPhase(phase: DayNightPhase): boolean {
+  return phase === 'day';
+}
+
+/**
+ * Progressively assembles an unbuilt (level 0) fence segment when Ranger Rue hammers it during Day phase.
+ * Deducts FENCE_BUILD_COST (15W, 5S) when assembly completes (buildProgress >= 1).
+ */
+export function advanceFenceSegmentBuild(
+  segment: FenceSegment,
+  resources: Resources,
+  progressDelta: number,
+  phase: DayNightPhase = 'day'
+): {
+  updatedSegment: FenceSegment;
+  updatedResources: Resources;
+  completed: boolean;
+  success: boolean;
+  reason?: 'night_locked' | 'insufficient_resources' | 'already_built';
+} {
+  if (!canPerformConstructionInPhase(phase)) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      completed: false,
+      success: false,
+      reason: 'night_locked',
+    };
+  }
+  if (segment.level > 0) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      completed: false,
+      success: false,
+      reason: 'already_built',
+    };
+  }
+  if (!canAfford(resources, FENCE_BUILD_COST)) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      completed: false,
+      success: false,
+      reason: 'insufficient_resources',
+    };
+  }
+  const nextProgress = Math.min(1, segment.buildProgress + progressDelta);
+  if (nextProgress >= 1) {
+    const updatedResources = deductCost(resources, FENCE_BUILD_COST);
+    const updatedSegment: FenceSegment = {
+      ...segment,
+      level: 1,
+      hp: FENCE_LEVEL1_MAX_HP,
+      maxHp: FENCE_LEVEL1_MAX_HP,
+      buildProgress: 1,
+    };
+    return {
+      updatedSegment,
+      updatedResources,
+      completed: true,
+      success: true,
+    };
+  }
+  return {
+    updatedSegment: {
+      ...segment,
+      buildProgress: nextProgress,
+    },
+    updatedResources: resources,
+    completed: false,
+    success: true,
+  };
+}
+
+/**
+ * Direct click / button action on a fence segment (allowed only during Day phase):
+ * - Level 0 -> Builds Level 1 Timber Palisade Fence (15W, 5S)
+ * - Damaged Level 1/2 -> Repairs to full HP (8W, 4S)
+ * - Full HP Level 1 -> Upgrades to Level 2 Ironbark Spiked Fence (20W, 15S)
+ */
+export function buildOrUpgradeFenceSegment(
+  segment: FenceSegment,
+  resources: Resources,
+  phase: DayNightPhase = 'day'
+): {
+  updatedSegment: FenceSegment;
+  updatedResources: Resources;
+  action: 'built' | 'upgraded' | 'repaired' | 'none';
+  success: boolean;
+  reason?: 'night_locked' | 'insufficient_resources' | 'max_level';
+} {
+  if (!canPerformConstructionInPhase(phase)) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      action: 'none',
+      success: false,
+      reason: 'night_locked',
+    };
+  }
+
+  if (segment.level === 0) {
+    if (!canAfford(resources, FENCE_BUILD_COST)) {
+      return {
+        updatedSegment: segment,
+        updatedResources: resources,
+        action: 'none',
+        success: false,
+        reason: 'insufficient_resources',
+      };
+    }
+    return {
+      updatedSegment: {
+        ...segment,
+        level: 1,
+        hp: FENCE_LEVEL1_MAX_HP,
+        maxHp: FENCE_LEVEL1_MAX_HP,
+        buildProgress: 1,
+      },
+      updatedResources: deductCost(resources, FENCE_BUILD_COST),
+      action: 'built',
+      success: true,
+    };
+  }
+
+  if (segment.hp < segment.maxHp) {
+    if (!canAfford(resources, FENCE_REPAIR_COST)) {
+      return {
+        updatedSegment: segment,
+        updatedResources: resources,
+        action: 'none',
+        success: false,
+        reason: 'insufficient_resources',
+      };
+    }
+    return {
+      updatedSegment: {
+        ...segment,
+        hp: segment.maxHp,
+      },
+      updatedResources: deductCost(resources, FENCE_REPAIR_COST),
+      action: 'repaired',
+      success: true,
+    };
+  }
+
+  if (segment.level === 1) {
+    if (!canAfford(resources, FENCE_UPGRADE_COST)) {
+      return {
+        updatedSegment: segment,
+        updatedResources: resources,
+        action: 'none',
+        success: false,
+        reason: 'insufficient_resources',
+      };
+    }
+    return {
+      updatedSegment: {
+        ...segment,
+        level: 2,
+        hp: FENCE_LEVEL2_MAX_HP,
+        maxHp: FENCE_LEVEL2_MAX_HP,
+        buildProgress: 1,
+      },
+      updatedResources: deductCost(resources, FENCE_UPGRADE_COST),
+      action: 'upgraded',
+      success: true,
+    };
+  }
+
+  return {
+    updatedSegment: segment,
+    updatedResources: resources,
+    action: 'none',
+    success: false,
+    reason: 'max_level',
+  };
+}
+
+/**
+ * Finds the highest-priority fence segment for Ranger Rue to assemble, repair, or upgrade next.
+ */
+export function findNextFenceSegmentForHero(
+  rueX: number,
+  rueZ: number,
+  fenceSegments: FenceSegment[]
+): FenceSegment | null {
+  // 1. Unbuilt segments (level === 0) closest to Rue
+  const unbuilt = fenceSegments.filter((s) => s.level === 0);
+  if (unbuilt.length > 0) {
+    unbuilt.sort(
+      (a, b) => Math.hypot(a.x - rueX, a.z - rueZ) - Math.hypot(b.x - rueX, b.z - rueZ)
+    );
+    return unbuilt[0];
+  }
+  // 2. Damaged segments (hp < maxHp) closest to Rue
+  const damaged = fenceSegments.filter((s) => s.level > 0 && s.hp < s.maxHp);
+  if (damaged.length > 0) {
+    damaged.sort(
+      (a, b) => Math.hypot(a.x - rueX, a.z - rueZ) - Math.hypot(b.x - rueX, b.z - rueZ)
+    );
+    return damaged[0];
+  }
+  // 3. Level 1 segments ready for Level 2 upgrade
+  const upgradable = fenceSegments.filter((s) => s.level === 1);
+  if (upgradable.length > 0) {
+    upgradable.sort(
+      (a, b) => Math.hypot(a.x - rueX, a.z - rueZ) - Math.hypot(b.x - rueX, b.z - rueZ)
+    );
+    return upgradable[0];
+  }
+  return null;
+}
+
+/**
+ * Determines which outer square fence segment blocks a zombie approaching the compound from outside.
+ */
+export function findBlockingFenceSegment(
+  zX: number,
+  zZ: number,
+  fenceSegments: FenceSegment[]
+): FenceSegment | null {
+  const absX = Math.abs(zX);
+  const absZ = Math.abs(zZ);
+  // Only intercept zombies that are at or outside the inner edge of the fence perimeter
+  if (Math.max(absX, absZ) < FENCE_HALF_EXTENT - 1.1) {
+    return null;
+  }
+
+  let side: FenceSide;
+  let lateralCoord: number;
+  if (absZ >= absX) {
+    side = zZ < 0 ? 'north' : 'south';
+    lateralCoord = zX;
+  } else {
+    side = zX > 0 ? 'east' : 'west';
+    lateralCoord = zZ;
+  }
+
+  const slotIndex: 0 | 1 | 2 =
+    lateralCoord < -3.1 ? 0 : lateralCoord > 3.1 ? 2 : 1;
+
+  const matching = fenceSegments.find(
+    (s) => s.side === side && s.slotIndex === slotIndex && s.level > 0 && s.hp > 0
   );
-
-  // --- Outer trap pads along the N/S/E/W trails ---
-  const outer: Array<{ x: number; z: number; label: string }> = [
-    { x: 0, z: -9.6, label: 'North Trap' },
-    { x: 9.6, z: 0, label: 'East Trap' },
-    { x: 0, z: 9.6, label: 'South Trap' },
-    { x: -9.6, z: 0, label: 'West Trap' },
-  ];
-  outer.forEach((p) =>
-    pads.push({ id: id++, x: p.x, z: p.z, ring: 'outer', rotationY: 0, label: p.label, building: null })
-  );
-
-  return pads;
+  return matching ?? null;
 }
 
 export function canAfford(
@@ -539,14 +831,38 @@ export function deductCost(
 export function buildStructureOnPad(
   pad: PlacementPad,
   resources: Resources,
-  type: BuildingType
-): { updatedPad: PlacementPad; updatedResources: Resources; success: boolean } {
+  type: BuildingType,
+  phase: DayNightPhase = 'day'
+): {
+  updatedPad: PlacementPad;
+  updatedResources: Resources;
+  success: boolean;
+  reason?: 'night_locked' | 'occupied' | 'insufficient_resources';
+} {
+  if (!canPerformConstructionInPhase(phase)) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'night_locked',
+    };
+  }
   if (pad.building !== null) {
-    return { updatedPad: pad, updatedResources: resources, success: false };
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'occupied',
+    };
   }
   const spec = BUILDING_CATALOG[type];
   if (!canAfford(resources, spec.cost)) {
-    return { updatedPad: pad, updatedResources: resources, success: false };
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'insufficient_resources',
+    };
   }
   const updatedResources = deductCost(resources, spec.cost);
   const updatedPad: PlacementPad = {
@@ -566,15 +882,39 @@ export function buildStructureOnPad(
 export function upgradeStructureOnPad(
   pad: PlacementPad,
   resources: Resources,
-  pathId: 'pathA' | 'pathB'
-): { updatedPad: PlacementPad; updatedResources: Resources; success: boolean } {
+  pathId: 'pathA' | 'pathB',
+  phase: DayNightPhase = 'day'
+): {
+  updatedPad: PlacementPad;
+  updatedResources: Resources;
+  success: boolean;
+  reason?: 'night_locked' | 'invalid_pad' | 'insufficient_resources';
+} {
+  if (!canPerformConstructionInPhase(phase)) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'night_locked',
+    };
+  }
   if (!pad.building || pad.building.upgradePath !== null) {
-    return { updatedPad: pad, updatedResources: resources, success: false };
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'invalid_pad',
+    };
   }
   const spec = BUILDING_CATALOG[pad.building.type];
   const pathSpec = spec.paths[pathId];
   if (!canAfford(resources, pathSpec.cost)) {
-    return { updatedPad: pad, updatedResources: resources, success: false };
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'insufficient_resources',
+    };
   }
   const updatedResources = deductCost(resources, pathSpec.cost);
   const newMaxHp = pad.building.maxHp + pathSpec.hpBonus;
@@ -589,6 +929,439 @@ export function upgradeStructureOnPad(
     },
   };
   return { updatedPad, updatedResources, success: true };
+}
+
+/**
+ * Initiates a distinct 'construction' animation state for Ranger Rue when a fence segment is clicked or selected for build/upgrade.
+ * The actual build/upgrade is deferred until the construction animation finishes via stepConstructionTask.
+ */
+export function startFenceConstructionTask(params: {
+  segment: FenceSegment;
+  resources: Resources;
+  phase: DayNightPhase;
+  currentTask: PendingConstructionTask | null;
+  duration?: number;
+}): {
+  started: boolean;
+  heroAnimState: HeroAnimState;
+  task: PendingConstructionTask | null;
+  reason?: 'night_locked' | 'busy_constructing' | 'insufficient_resources' | 'max_level';
+} {
+  const {
+    segment,
+    resources,
+    phase,
+    currentTask,
+    duration = HERO_CONSTRUCTION_DURATION,
+  } = params;
+
+  if (!canPerformConstructionInPhase(phase)) {
+    return {
+      started: false,
+      heroAnimState: currentTask ? 'construction' : 'idle',
+      task: currentTask,
+      reason: 'night_locked',
+    };
+  }
+
+  if (currentTask !== null) {
+    return {
+      started: false,
+      heroAnimState: 'construction',
+      task: currentTask,
+      reason: 'busy_constructing',
+    };
+  }
+
+  if (segment.level === 0) {
+    if (!canAfford(resources, FENCE_BUILD_COST)) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'insufficient_resources',
+      };
+    }
+  } else if (segment.hp < segment.maxHp) {
+    if (!canAfford(resources, FENCE_REPAIR_COST)) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'insufficient_resources',
+      };
+    }
+  } else if (segment.level === 1) {
+    if (!canAfford(resources, FENCE_UPGRADE_COST)) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'insufficient_resources',
+      };
+    }
+  } else {
+    return {
+      started: false,
+      heroAnimState: 'idle',
+      task: null,
+      reason: 'max_level',
+    };
+  }
+
+  return {
+    started: true,
+    heroAnimState: 'construction',
+    task: {
+      targetKind: 'fence',
+      action: 'build_fence',
+      targetId: segment.id,
+      targetX: segment.x,
+      targetZ: segment.z,
+      label: segment.label,
+      remainingTime: duration,
+      totalTime: duration,
+    },
+  };
+}
+
+/**
+ * Initiates a distinct 'construction' animation state for Ranger Rue when a weapon pad is clicked or selected for build/upgrade/repair.
+ * The actual build/upgrade/repair is deferred until the construction animation finishes via stepConstructionTask.
+ */
+export function startPadConstructionTask(params: {
+  pad: PlacementPad;
+  resources: Resources;
+  phase: DayNightPhase;
+  currentTask: PendingConstructionTask | null;
+  action: 'build_pad' | 'upgrade_pad' | 'repair_pad';
+  buildingType?: BuildingType;
+  upgradePath?: 'pathA' | 'pathB';
+  duration?: number;
+}): {
+  started: boolean;
+  heroAnimState: HeroAnimState;
+  task: PendingConstructionTask | null;
+  reason?:
+    | 'night_locked'
+    | 'busy_constructing'
+    | 'insufficient_resources'
+    | 'occupied'
+    | 'invalid_pad';
+} {
+  const {
+    pad,
+    resources,
+    phase,
+    currentTask,
+    action,
+    buildingType,
+    upgradePath,
+    duration = HERO_CONSTRUCTION_DURATION,
+  } = params;
+
+  if (!canPerformConstructionInPhase(phase)) {
+    return {
+      started: false,
+      heroAnimState: currentTask ? 'construction' : 'idle',
+      task: currentTask,
+      reason: 'night_locked',
+    };
+  }
+
+  if (currentTask !== null) {
+    return {
+      started: false,
+      heroAnimState: 'construction',
+      task: currentTask,
+      reason: 'busy_constructing',
+    };
+  }
+
+  let label = pad.label;
+
+  if (action === 'build_pad') {
+    if (pad.building !== null) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'occupied',
+      };
+    }
+    if (!buildingType) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'invalid_pad',
+      };
+    }
+    const spec = BUILDING_CATALOG[buildingType];
+    if (!canAfford(resources, spec.cost)) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'insufficient_resources',
+      };
+    }
+    label = `${spec.name} (P${pad.id})`;
+  } else if (action === 'upgrade_pad') {
+    if (!pad.building || pad.building.upgradePath !== null || !upgradePath) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'invalid_pad',
+      };
+    }
+    const pathSpec = BUILDING_CATALOG[pad.building.type].paths[upgradePath];
+    if (!canAfford(resources, pathSpec.cost)) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'insufficient_resources',
+      };
+    }
+    label = `${pathSpec.name} (P${pad.id})`;
+  } else if (action === 'repair_pad') {
+    if (!pad.building || pad.building.hp >= pad.building.maxHp) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'invalid_pad',
+      };
+    }
+    if (!canAfford(resources, { wood: 10, stone: 5, food: 0 })) {
+      return {
+        started: false,
+        heroAnimState: 'idle',
+        task: null,
+        reason: 'insufficient_resources',
+      };
+    }
+    label = `Repair P${pad.id}`;
+  }
+
+  return {
+    started: true,
+    heroAnimState: 'construction',
+    task: {
+      targetKind: 'pad',
+      action,
+      targetId: pad.id,
+      buildingType,
+      upgradePath,
+      targetX: pad.x,
+      targetZ: pad.z,
+      label,
+      remainingTime: duration,
+      totalTime: duration,
+    },
+  };
+}
+
+/**
+ * Advances Ranger Rue's active 'construction' animation timer by dt.
+ * While remainingTime > 0, heroAnimState stays 'construction' and no build/upgrade is applied yet.
+ * Once remainingTime reaches 0, the pending fence or pad build/upgrade is applied and heroAnimState returns to 'idle'.
+ */
+export function stepConstructionTask(params: {
+  task: PendingConstructionTask | null;
+  dt: number;
+  phase: DayNightPhase;
+  fenceSegments: FenceSegment[];
+  pads: PlacementPad[];
+  resources: Resources;
+}): {
+  heroAnimState: HeroAnimState;
+  task: PendingConstructionTask | null;
+  completed: boolean;
+  cancelledByNight?: boolean;
+  fenceOutcome?: 'built' | 'upgraded' | 'repaired' | 'none';
+  completedTask?: PendingConstructionTask;
+  fenceSegments: FenceSegment[];
+  pads: PlacementPad[];
+  resources: Resources;
+} {
+  const { task, dt, phase, fenceSegments, pads, resources } = params;
+
+  if (!task) {
+    return {
+      heroAnimState: 'idle',
+      task: null,
+      completed: false,
+      fenceSegments,
+      pads,
+      resources,
+    };
+  }
+
+  if (!canPerformConstructionInPhase(phase)) {
+    return {
+      heroAnimState: 'idle',
+      task: null,
+      completed: false,
+      cancelledByNight: true,
+      fenceSegments,
+      pads,
+      resources,
+    };
+  }
+
+  const remainingTime = Math.max(0, task.remainingTime - dt);
+  if (remainingTime > 0) {
+    return {
+      heroAnimState: 'construction',
+      task: {
+        ...task,
+        remainingTime,
+      },
+      completed: false,
+      fenceSegments,
+      pads,
+      resources,
+    };
+  }
+
+  // Construction animation finished -> apply the deferred build/upgrade/repair
+  if (task.targetKind === 'fence') {
+    const targetSeg = fenceSegments.find((f) => f.id === task.targetId);
+    if (!targetSeg) {
+      return {
+        heroAnimState: 'idle',
+        task: null,
+        completed: false,
+        fenceSegments,
+        pads,
+        resources,
+      };
+    }
+    const res = buildOrUpgradeFenceSegment(targetSeg, resources, phase);
+    if (!res.success) {
+      return {
+        heroAnimState: 'idle',
+        task: null,
+        completed: false,
+        fenceSegments,
+        pads,
+        resources,
+      };
+    }
+    return {
+      heroAnimState: 'idle',
+      task: null,
+      completed: true,
+      fenceOutcome: res.action,
+      completedTask: task,
+      fenceSegments: fenceSegments.map((f) =>
+        f.id === targetSeg.id ? res.updatedSegment : f
+      ),
+      pads,
+      resources: res.updatedResources,
+    };
+  }
+
+  // Pad targetKind
+  const targetPad = pads.find((p) => p.id === task.targetId);
+  if (!targetPad) {
+    return {
+      heroAnimState: 'idle',
+      task: null,
+      completed: false,
+      fenceSegments,
+      pads,
+      resources,
+    };
+  }
+
+  if (task.action === 'build_pad' && task.buildingType) {
+    const res = buildStructureOnPad(targetPad, resources, task.buildingType, phase);
+    if (!res.success) {
+      return {
+        heroAnimState: 'idle',
+        task: null,
+        completed: false,
+        fenceSegments,
+        pads,
+        resources,
+      };
+    }
+    return {
+      heroAnimState: 'idle',
+      task: null,
+      completed: true,
+      completedTask: task,
+      fenceSegments,
+      pads: pads.map((p) => (p.id === targetPad.id ? res.updatedPad : p)),
+      resources: res.updatedResources,
+    };
+  }
+
+  if (task.action === 'upgrade_pad' && task.upgradePath) {
+    const res = upgradeStructureOnPad(targetPad, resources, task.upgradePath, phase);
+    if (!res.success) {
+      return {
+        heroAnimState: 'idle',
+        task: null,
+        completed: false,
+        fenceSegments,
+        pads,
+        resources,
+      };
+    }
+    return {
+      heroAnimState: 'idle',
+      task: null,
+      completed: true,
+      completedTask: task,
+      fenceSegments,
+      pads: pads.map((p) => (p.id === targetPad.id ? res.updatedPad : p)),
+      resources: res.updatedResources,
+    };
+  }
+
+  if (task.action === 'repair_pad' && targetPad.building) {
+    const repairCost = { wood: 10, stone: 5, food: 0 };
+    if (!canAfford(resources, repairCost)) {
+      return {
+        heroAnimState: 'idle',
+        task: null,
+        completed: false,
+        fenceSegments,
+        pads,
+        resources,
+      };
+    }
+    const updatedPad: PlacementPad = {
+      ...targetPad,
+      building: {
+        ...targetPad.building,
+        hp: targetPad.building.maxHp,
+      },
+    };
+    return {
+      heroAnimState: 'idle',
+      task: null,
+      completed: true,
+      completedTask: task,
+      fenceSegments,
+      pads: pads.map((p) => (p.id === targetPad.id ? updatedPad : p)),
+      resources: deductCost(resources, repairCost),
+    };
+  }
+
+  return {
+    heroAnimState: 'idle',
+    task: null,
+    completed: false,
+    fenceSegments,
+    pads,
+    resources,
+  };
 }
 
 export function getEffectiveBuildingStats(

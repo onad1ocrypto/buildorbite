@@ -7,12 +7,14 @@ import {
   createBuildingModel,
   createCentralFortModel,
   createDirtRoadTexture,
+  createFenceSegmentModel,
   createGrassTerrainTexture,
   createPineFoliageTexture,
   createPlacementPadMesh,
   createProceduralBumpTexture,
   createRangerRueModel,
   createResourceNodeModel,
+  createSquareCornerBastionPosts,
   createStripedPajamaTexture,
   createZombieModel,
 } from '../game/models';
@@ -21,14 +23,20 @@ import {
   applyDamageToZombie,
   applyLanternFlareToZombies,
   BUILDING_CATALOG,
+  buildOrUpgradeFenceSegment,
   buildStructureOnPad,
   calculateRunScore,
   canAfford,
+  canPerformConstructionInPhase,
   computeZombieEffectiveSpeed,
+  createInitialFenceSegments,
   createInitialPads,
   DAY_DURATION_SECONDS,
   deductCost,
   evaluateGameOutcome,
+  FENCE_HALF_EXTENT,
+  findBlockingFenceSegment,
+  findNextFenceSegmentForHero,
   FORT_MAX_HP,
   getEffectiveBuildingStats,
   getWaveComposition,
@@ -36,6 +44,10 @@ import {
   LANTERN_FLARE_COOLDOWN,
   LANTERN_FLARE_RADIUS,
   MAX_DAYS,
+  NIGHT_BUILD_LOCKED_MESSAGE,
+  startFenceConstructionTask,
+  startPadConstructionTask,
+  stepConstructionTask,
   upgradeStructureOnPad,
   ZOMBIE_CATALOG,
 } from '../game/rules';
@@ -52,9 +64,12 @@ import {
   BuildingType,
   DailyPersistenceState,
   DayNightPhase,
+  FenceSegment,
   FloatingCallout,
   GameScreenState,
+  HeroAnimState,
   HudSnapshot,
+  PendingConstructionTask,
   PlacementPad,
   ProjectileEntity,
   ResourceNodeEntity,
@@ -75,6 +90,8 @@ export interface GameControllerApi {
   equipTitle: (title: string) => void;
   refillTicketWithCoins: () => void;
   selectPad: (padId: number | null) => void;
+  selectFence: (fenceId: number | null) => void;
+  buildNextFence: () => void;
   buildOnSelectedPad: (type: BuildingType) => void;
   upgradeSelectedPad: (pathId: 'pathA' | 'pathB') => void;
   repairSelectedPad: () => void;
@@ -814,9 +831,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     boulderInst.computeBoundingSphere();
     scene.add(boulderInst);
 
-    // Central Woodland Timber & Cobblestone House (Rumah) at (0, 0)
+    // Central Woodland Timber & Cobblestone House (Rumah) at (0, 0) + Outer Square Fence Corner Bastions
     const fortGroup = createCentralFortModel();
     scene.add(fortGroup);
+
+    const cornerBastions = createSquareCornerBastionPosts(FENCE_HALF_EXTENT);
+    scene.add(cornerBastions);
 
     // Ranger Rue Rig
     const rueRig = createRangerRueModel();
@@ -995,9 +1015,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let flareOriginX = 0;
     let flareOriginZ = 0;
     let selectedPadId: number | null = null;
+    let selectedFenceId: number | null = null;
     let runOutcome: 'victory' | 'defeat' | null = null;
     let elapsedRunSeconds = 0;
-    let statusBanner: string | null = 'Day 1: Gather resources & fortify pads before nightfall!';
+    let statusBanner: string | null = 'Day 1: Gather resources & fortify the fort before nightfall!';
     let statusBannerTimer = 4.5;
     let cameraZoom = 1.0;
     let dockCollapsed = false;
@@ -1005,7 +1026,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let hitstopTimer = 0;
     let nightBlend = 0; // 0 = Day, 1 = Night
 
-    // Rue kinematics
+    // Rue kinematics & construction animation state
     let rueX = 0;
     let rueZ = 4.0;
     let rueRotationY = 0;
@@ -1015,12 +1036,39 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let rueAttackCooldown = 0;
     let moveTarget: { x: number; z: number } | null = null;
     let moveTargetAlpha = 0;
+    let heroAnimState: HeroAnimState = 'idle';
+    let pendingConstruction: PendingConstructionTask | null = null;
+    let constructionSparkTimer = 0;
+    document.body.dataset.heroAnim = heroAnimState;
 
-    // Placement Pads & 3D Meshes
+    // Placement Pads (8 Inner Weapon Pads) & Outer 12-Segment Square Fence
     let pads: PlacementPad[] = createInitialPads();
+    let fenceSegments: FenceSegment[] = createInitialFenceSegments();
     const padMeshesMap = new Map<number, THREE.Group>();
     const buildingMeshesMap = new Map<number, THREE.Group>();
+    const fenceMeshesMap = new Map<number, THREE.Group>();
     const interactableTargets: THREE.Object3D[] = [outerGround, clearingDisc];
+
+    function rebuildFenceVisuals() {
+      fenceSegments.forEach((seg) => {
+        const existing = fenceMeshesMap.get(seg.id);
+        if (existing) {
+          scene.remove(existing);
+          const idx = interactableTargets.indexOf(existing);
+          if (idx !== -1) interactableTargets.splice(idx, 1);
+          fenceMeshesMap.delete(seg.id);
+        }
+        const fMesh = createFenceSegmentModel(seg);
+        fMesh.userData = { kind: 'fence', fenceId: seg.id };
+        fMesh.traverse((c) => {
+          c.userData = { kind: 'fence', fenceId: seg.id };
+        });
+        scene.add(fMesh);
+        fenceMeshesMap.set(seg.id, fMesh);
+        interactableTargets.push(fMesh);
+      });
+    }
+    rebuildFenceVisuals();
 
     function rebuildPadVisuals() {
       pads.forEach((pad) => {
@@ -1054,16 +1102,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
     rebuildPadVisuals();
 
-    // Forest Resource Nodes (Wood, Stone, Food)
+    // Forest Resource Nodes (Wood, Stone, Food) positioned outside the ±9.6m Square Fence
     const resourceNodes: ResourceNodeEntity[] = [
-      { id: 101, type: 'wood', name: 'Fallen Timber', x: -11.5, z: -6.5, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 102, type: 'wood', name: 'Old Pine Stump', x: 11.2, z: -7.2, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 103, type: 'wood', name: 'Hollow Log', x: -12.0, z: 7.0, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 104, type: 'stone', name: 'Granite Outcrop', x: -7.8, z: -11.2, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 105, type: 'stone', name: 'Mossy Boulder', x: 11.8, z: 6.8, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 106, type: 'stone', name: 'Quartz Vein', x: 6.5, z: -11.8, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 107, type: 'food', name: 'Spooky Berry Bush', x: -6.8, z: 11.2, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 108, type: 'food', name: 'Glowcap Mushrooms', x: 7.5, z: 11.0, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 101, type: 'wood', name: 'Fallen Timber', x: -12.6, z: -7.2, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 102, type: 'wood', name: 'Old Pine Stump', x: 12.6, z: -7.4, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 103, type: 'wood', name: 'Hollow Log', x: -12.8, z: 7.4, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 104, type: 'stone', name: 'Granite Outcrop', x: -7.6, z: -12.8, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 105, type: 'stone', name: 'Mossy Boulder', x: 12.8, z: 7.2, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 106, type: 'stone', name: 'Quartz Vein', x: 7.4, z: -12.8, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 107, type: 'food', name: 'Spooky Berry Bush', x: -7.4, z: 12.6, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 108, type: 'food', name: 'Glowcap Mushrooms', x: 7.8, z: 12.6, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
     ];
     const nodeMeshesMap = new Map<number, THREE.Group>();
     resourceNodes.forEach((node) => {
@@ -1125,9 +1173,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     }
 
+    let lastNightLockedNoticeTime = 0;
+
     function setBanner(msg: string, duration = 3.5) {
       statusBanner = msg;
       statusBannerTimer = duration;
+    }
+
+    function notifyNightBuildLocked() {
+      const now = performance.now();
+      if (now - lastNightLockedNoticeTime < 450) return;
+      lastNightLockedNoticeTime = now;
+      setBanner(NIGHT_BUILD_LOCKED_MESSAGE, 2.8);
+      addCallout(NIGHT_BUILD_LOCKED_MESSAGE, rueX, 2.3, rueZ, '#f87171', 1.4);
+      syncHud(true);
     }
 
     function stripZombieArmorVisuals(z: ZombieEntity) {
@@ -1215,6 +1274,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     function beginNightPhase(earlyBonus = false) {
       if (phase === 'night') return;
       phase = 'night';
+      if (pendingConstruction) {
+        pendingConstruction = null;
+        heroAnimState = 'idle';
+        document.body.dataset.heroAnim = heroAnimState;
+      }
       if (earlyBonus) {
         resources = { ...resources, tickets: resources.tickets + 1 };
         addCallout('+1 Early Night Ticket!', rueX, 2.2, rueZ, '#fbbf24', 1.8);
@@ -1264,6 +1328,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           p.building.hp = Math.min(p.building.maxHp, p.building.hp + 45);
         }
       });
+      fenceSegments.forEach((f) => {
+        if (f.level > 0 && f.hp > 0) {
+          f.hp = Math.min(f.maxHp, f.hp + 55);
+        }
+      });
+      rebuildFenceVisuals();
       resources = {
         wood: resources.wood + bonusWood,
         stone: resources.stone + 15,
@@ -1336,6 +1406,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       flareCooldown = 0;
       flareWaveTimer = 0;
       selectedPadId = null;
+      selectedFenceId = null;
       runOutcome = null;
       elapsedRunSeconds = 0;
       cameraTrauma = 0;
@@ -1344,6 +1415,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       rueZ = 4.0;
       rueRotationY = 0;
       moveTarget = null;
+      pendingConstruction = null;
+      heroAnimState = 'idle';
+      document.body.dataset.heroAnim = heroAnimState;
       keysPressed.clear();
 
       // Clear zombies, projectiles, slime
@@ -1364,6 +1438,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       pads = createInitialPads();
       rebuildPadVisuals();
+
+      fenceSegments = createInitialFenceSegments();
+      rebuildFenceVisuals();
 
       resourceNodes.forEach((n) => {
         n.amount = n.maxAmount;
@@ -1437,18 +1514,97 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       selectPad: (padId) => {
         selectedPadId = padId;
         if (padId !== null) {
+          selectedFenceId = null;
           const pad = pads.find((p) => p.id === padId);
           if (pad) {
             selectRingMesh.position.set(pad.x, 0.08, pad.z);
             selectRingMesh.visible = true;
           }
-        } else {
+        } else if (selectedFenceId === null) {
           selectRingMesh.visible = false;
         }
         syncHud(true);
       },
+      selectFence: (fenceId) => {
+        selectedFenceId = fenceId;
+        if (fenceId !== null) {
+          selectedPadId = null;
+          const seg = fenceSegments.find((f) => f.id === fenceId);
+          if (seg) {
+            selectRingMesh.position.set(seg.x, 0.08, seg.z);
+            selectRingMesh.visible = true;
+          }
+        } else if (selectedPadId === null) {
+          selectRingMesh.visible = false;
+        }
+        syncHud(true);
+      },
+      buildNextFence: () => {
+        if (screenState !== 'playing') return;
+        if (!canPerformConstructionInPhase(phase)) {
+          notifyNightBuildLocked();
+          return;
+        }
+        const selectedSeg =
+          selectedFenceId !== null
+            ? fenceSegments.find(
+                (f) =>
+                  f.id === selectedFenceId &&
+                  (f.level === 0 || f.hp < f.maxHp || f.level === 1)
+              ) ?? null
+            : null;
+        const targetSeg = selectedSeg ?? findNextFenceSegmentForHero(rueX, rueZ, fenceSegments);
+
+        if (!targetSeg) {
+          setBanner('All 12 Square Fence segments are already at maximum level!', 2.5);
+          syncHud(true);
+          return;
+        }
+
+        const startRes = startFenceConstructionTask({
+          segment: targetSeg,
+          resources,
+          phase,
+          currentTask: pendingConstruction,
+        });
+
+        if (!startRes.started) {
+          if (startRes.reason === 'busy_constructing') {
+            setBanner(
+              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              2.2
+            );
+          } else if (startRes.reason === 'insufficient_resources') {
+            setBanner('Not enough Wood or Stone to build or upgrade that fence segment!', 2.5);
+          } else if (startRes.reason === 'max_level') {
+            setBanner('That fence segment is already at maximum level!', 2.2);
+          }
+          syncHud(true);
+          return;
+        }
+
+        selectedFenceId = targetSeg.id;
+        selectedPadId = null;
+        selectRingMesh.position.set(targetSeg.x, 0.08, targetSeg.z);
+        selectRingMesh.visible = true;
+        moveTarget = { x: targetSeg.x * 0.84, z: targetSeg.z * 0.84 };
+        moveTargetRing.position.set(targetSeg.x * 0.84, 0.06, targetSeg.z * 0.84);
+        moveTargetAlpha = 0.85;
+        rueRotationY = Math.atan2(targetSeg.x - rueX, targetSeg.z - rueZ);
+        pendingConstruction = startRes.task;
+        heroAnimState = startRes.heroAnimState;
+        document.body.dataset.heroAnim = heroAnimState;
+        constructionSparkTimer = 0.12;
+        soundFX.playGatherHit('wood');
+        setBanner(`Constructing ${targetSeg.label}...`, 1.4);
+        syncHud(true);
+      },
       buildOnSelectedPad: (type) => {
         if (screenState !== 'playing') return;
+        if (!canPerformConstructionInPhase(phase)) {
+          notifyNightBuildLocked();
+          return;
+        }
         let targetPad = pads.find((p) => p.id === selectedPadId);
         if (!targetPad || targetPad.building !== null) {
           targetPad = pads.find((p) => p.building === null);
@@ -1456,63 +1612,144 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
         if (!targetPad) return;
 
-        const res = buildStructureOnPad(targetPad, resources, type);
-        if (res.success) {
-          pads = pads.map((p) => (p.id === targetPad!.id ? res.updatedPad : p));
-          resources = res.updatedResources;
-          score += 50;
-          applyTaskEvent({ buildingsBuiltDelta: 1, runScore: score });
-          rebuildPadVisuals();
-          soundFX.playBuild(false);
-          spawnParticles(targetPad.x, 1.0, targetPad.z, 14, 0xfbbf24, 4.5);
-          addCallout(`Built ${BUILDING_CATALOG[type].name}!`, targetPad.x, 2.2, targetPad.z, '#4ade80');
-          syncHud(true);
-        } else {
-          setBanner('Not enough resources to build that structure!', 2.5);
-          syncHud(true);
-        }
-      },
-      upgradeSelectedPad: (pathId) => {
-        if (screenState !== 'playing' || selectedPadId === null) return;
-        const targetPad = pads.find((p) => p.id === selectedPadId);
-        if (!targetPad || !targetPad.building) return;
+        const startRes = startPadConstructionTask({
+          pad: targetPad,
+          resources,
+          phase,
+          currentTask: pendingConstruction,
+          action: 'build_pad',
+          buildingType: type,
+        });
 
-        const res = upgradeStructureOnPad(targetPad, resources, pathId);
-        if (res.success) {
-          pads = pads.map((p) => (p.id === targetPad.id ? res.updatedPad : p));
-          resources = res.updatedResources;
-          score += 120;
-          applyTaskEvent({ runScore: score });
-          rebuildPadVisuals();
-          soundFX.playBuild(true);
-          spawnParticles(targetPad.x, 1.5, targetPad.z, 20, 0x38bdf8, 5.2);
-          const upName = BUILDING_CATALOG[targetPad.building.type].paths[pathId].name;
-          addCallout(`Upgraded: ${upName}!`, targetPad.x, 2.5, targetPad.z, '#fbbf24');
-          syncHud(true);
-        } else {
-          setBanner('Need more Wood, Stone, or Food for that upgrade!', 2.5);
-          syncHud(true);
-        }
-      },
-      repairSelectedPad: () => {
-        if (screenState !== 'playing' || selectedPadId === null) return;
-        const targetPad = pads.find((p) => p.id === selectedPadId);
-        if (!targetPad || !targetPad.building) return;
-        if (targetPad.building.hp >= targetPad.building.maxHp) return;
-        const repairCost = { wood: 10, stone: 5, food: 0 };
-        if (!canAfford(resources, repairCost)) {
-          setBanner('Need 10 Wood & 5 Stone to repair!', 2.0);
+        if (!startRes.started) {
+          if (startRes.reason === 'busy_constructing') {
+            setBanner(
+              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              2.2
+            );
+          } else if (startRes.reason === 'insufficient_resources') {
+            setBanner('Not enough resources to build that structure!', 2.5);
+          }
           syncHud(true);
           return;
         }
-        resources = deductCost(resources, repairCost);
-        targetPad.building.hp = targetPad.building.maxHp;
-        soundFX.playBuild(false);
-        addCallout('Repaired!', targetPad.x, 2.0, targetPad.z, '#4ade80');
+
+        selectedPadId = targetPad.id;
+        selectedFenceId = null;
+        selectRingMesh.position.set(targetPad.x, 0.08, targetPad.z);
+        selectRingMesh.visible = true;
+        moveTarget = { x: targetPad.x * 0.82, z: targetPad.z * 0.82 };
+        moveTargetRing.position.set(targetPad.x * 0.82, 0.06, targetPad.z * 0.82);
+        moveTargetAlpha = 0.85;
+        rueRotationY = Math.atan2(targetPad.x - rueX, targetPad.z - rueZ);
+        pendingConstruction = startRes.task;
+        heroAnimState = startRes.heroAnimState;
+        document.body.dataset.heroAnim = heroAnimState;
+        constructionSparkTimer = 0.12;
+        soundFX.playGatherHit('wood');
+        setBanner(`Constructing ${BUILDING_CATALOG[type].name} on Pad #${targetPad.id}...`, 1.4);
+        syncHud(true);
+      },
+      upgradeSelectedPad: (pathId) => {
+        if (screenState !== 'playing') return;
+        if (!canPerformConstructionInPhase(phase)) {
+          notifyNightBuildLocked();
+          return;
+        }
+        if (selectedPadId === null) return;
+        const targetPad = pads.find((p) => p.id === selectedPadId);
+        if (!targetPad || !targetPad.building) return;
+
+        const startRes = startPadConstructionTask({
+          pad: targetPad,
+          resources,
+          phase,
+          currentTask: pendingConstruction,
+          action: 'upgrade_pad',
+          upgradePath: pathId,
+        });
+
+        if (!startRes.started) {
+          if (startRes.reason === 'busy_constructing') {
+            setBanner(
+              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              2.2
+            );
+          } else if (startRes.reason === 'insufficient_resources') {
+            setBanner('Need more Wood, Stone, or Food for that upgrade!', 2.5);
+          }
+          syncHud(true);
+          return;
+        }
+
+        selectRingMesh.position.set(targetPad.x, 0.08, targetPad.z);
+        selectRingMesh.visible = true;
+        moveTarget = { x: targetPad.x * 0.82, z: targetPad.z * 0.82 };
+        moveTargetRing.position.set(targetPad.x * 0.82, 0.06, targetPad.z * 0.82);
+        moveTargetAlpha = 0.85;
+        rueRotationY = Math.atan2(targetPad.x - rueX, targetPad.z - rueZ);
+        pendingConstruction = startRes.task;
+        heroAnimState = startRes.heroAnimState;
+        document.body.dataset.heroAnim = heroAnimState;
+        constructionSparkTimer = 0.12;
+        soundFX.playGatherHit('stone');
+        const upName = BUILDING_CATALOG[targetPad.building.type].paths[pathId].name;
+        setBanner(`Upgrading to ${upName} on Pad #${targetPad.id}...`, 1.4);
+        syncHud(true);
+      },
+      repairSelectedPad: () => {
+        if (screenState !== 'playing') return;
+        if (!canPerformConstructionInPhase(phase)) {
+          notifyNightBuildLocked();
+          return;
+        }
+        if (selectedPadId === null) return;
+        const targetPad = pads.find((p) => p.id === selectedPadId);
+        if (!targetPad || !targetPad.building) return;
+        if (targetPad.building.hp >= targetPad.building.maxHp) return;
+
+        const startRes = startPadConstructionTask({
+          pad: targetPad,
+          resources,
+          phase,
+          currentTask: pendingConstruction,
+          action: 'repair_pad',
+        });
+
+        if (!startRes.started) {
+          if (startRes.reason === 'busy_constructing') {
+            setBanner(
+              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              2.2
+            );
+          } else if (startRes.reason === 'insufficient_resources') {
+            setBanner('Need 10 Wood & 5 Stone to repair!', 2.0);
+          }
+          syncHud(true);
+          return;
+        }
+
+        selectRingMesh.position.set(targetPad.x, 0.08, targetPad.z);
+        selectRingMesh.visible = true;
+        moveTarget = { x: targetPad.x * 0.82, z: targetPad.z * 0.82 };
+        moveTargetRing.position.set(targetPad.x * 0.82, 0.06, targetPad.z * 0.82);
+        moveTargetAlpha = 0.85;
+        rueRotationY = Math.atan2(targetPad.x - rueX, targetPad.z - rueZ);
+        pendingConstruction = startRes.task;
+        heroAnimState = startRes.heroAnimState;
+        document.body.dataset.heroAnim = heroAnimState;
+        constructionSparkTimer = 0.12;
+        soundFX.playGatherHit('wood');
+        setBanner(`Repairing Pad #${targetPad.id}...`, 1.4);
         syncHud(true);
       },
       demolishSelectedPad: () => {
-        if (screenState !== 'playing' || selectedPadId === null) return;
+        if (screenState !== 'playing') return;
+        if (!canPerformConstructionInPhase(phase)) {
+          notifyNightBuildLocked();
+          return;
+        }
+        if (selectedPadId === null) return;
         const targetPad = pads.find((p) => p.id === selectedPadId);
         if (!targetPad || !targetPad.building) return;
         const spec = BUILDING_CATALOG[targetPad.building.type];
@@ -1604,6 +1841,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (code === 'Space') {
         e.preventDefault();
         api.triggerLanternFlare();
+      } else if (code === 'KeyF') {
+        e.preventDefault();
+        api.buildNextFence();
       } else if (code === 'Enter' || code === 'KeyN') {
         e.preventDefault();
         api.startNightEarly();
@@ -1665,16 +1905,40 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const hits = raycaster.intersectObjects(interactableTargets, true);
       if (hits.length === 0) return;
 
-      // Prioritize pad or resource node hits before ground
+      // Prioritize pad, fence, or resource node hits before ground
       const padHit = hits.find((h) => h.object.userData?.kind === 'pad');
       if (padHit) {
         const padId = padHit.object.userData.padId as number;
         api.selectPad(padId);
         const pad = pads.find((p) => p.id === padId);
         if (pad) {
-          moveTarget = { x: pad.x, z: pad.z + 1.5 };
-          moveTargetRing.position.set(pad.x, 0.06, pad.z + 1.5);
+          moveTarget = { x: pad.x * 0.82, z: pad.z * 0.82 };
+          moveTargetRing.position.set(pad.x * 0.82, 0.06, pad.z * 0.82);
           moveTargetAlpha = 0.85;
+          // Clicking a 3D pad triggers Ranger Rue's 'construction' animation state (or night lock message at night)
+          if (pad.building === null) {
+            api.buildOnSelectedPad('palisade');
+          } else if (pad.building.hp < pad.building.maxHp) {
+            api.repairSelectedPad();
+          } else if (pad.building.upgradePath === null) {
+            api.upgradeSelectedPad('pathA');
+          }
+        }
+        return;
+      }
+
+      const fenceHit = hits.find((h) => h.object.userData?.kind === 'fence');
+      if (fenceHit) {
+        const fenceId = fenceHit.object.userData.fenceId as number;
+        api.selectFence(fenceId);
+        const seg = fenceSegments.find((f) => f.id === fenceId);
+        if (seg) {
+          moveTarget = { x: seg.x * 0.84, z: seg.z * 0.84 };
+          moveTargetRing.position.set(seg.x * 0.84, 0.06, seg.z * 0.84);
+          moveTargetAlpha = 0.85;
+          if (seg.level === 0 || seg.hp < seg.maxHp || seg.level === 1) {
+            api.buildNextFence();
+          }
         }
         return;
       }
@@ -1750,10 +2014,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         flareCooldown,
         flareMaxCooldown: LANTERN_FLARE_COOLDOWN,
         selectedPadId,
+        selectedFenceId,
         pads: pads.map((p) => ({
           ...p,
           building: p.building ? { ...p.building } : null,
         })),
+        fenceSegments: fenceSegments.map((f) => ({ ...f })),
         bossActive: Boolean(bossEntity),
         bossName: bossEntity ? bossEntity.name : 'Baron Blight',
         bossHp: bossEntity ? bossEntity.hp : 0,
@@ -1764,6 +2030,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         elapsedRunSeconds,
         cameraZoom,
         dockCollapsed,
+        heroAnimState,
+        pendingConstruction: pendingConstruction ? { ...pendingConstruction } : null,
         daily: {
           ...dailyState,
           tasks: dailyState.tasks.map((t) => ({ ...t })),
@@ -1802,7 +2070,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let windTime = 0;
 
     function stepSimulation(rawDt: number) {
-      const dt = Math.min(rawDt, 0.05);
+      const dt = Math.min(rawDt, 0.16);
       windTime += dt;
 
       // Update status banner & ghost HP bar
@@ -2033,18 +2301,155 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         rueRotationY += diff * Math.min(1, dt * 14);
       }
 
-      // Animate Rue's gait, nervous head glance & hammer swing
-      const bounce = Math.abs(Math.sin(rueWalkPhase)) * 0.14;
-      rueRig.group.position.set(rueX, bounce, rueZ);
-      rueRig.group.rotation.y = rueRotationY;
-      rueRig.leftArm.rotation.z = Math.sin(rueWalkPhase * 0.5) * 0.08;
-      rueLanternLight.position.set(rueX + Math.sin(rueRotationY) * 0.5, 1.45, rueZ + Math.cos(rueRotationY) * 0.5);
+      // Step deferred 'construction' animation state machine if active
+      if (pendingConstruction !== null) {
+        const cStep = stepConstructionTask({
+          task: pendingConstruction,
+          dt,
+          phase,
+          fenceSegments,
+          pads,
+          resources,
+        });
+        pendingConstruction = cStep.task;
+        heroAnimState = cStep.heroAnimState;
+        document.body.dataset.heroAnim = heroAnimState;
 
-      if (rueHammerSwingTimer > 0) {
-        rueHammerSwingTimer = Math.max(0, rueHammerSwingTimer - dt * 4.5);
-        rueRig.rightArm.rotation.x = -Math.sin(rueHammerSwingTimer * Math.PI) * 1.35;
+        if (cStep.completed && cStep.completedTask) {
+          const doneTask = cStep.completedTask;
+          fenceSegments = cStep.fenceSegments;
+          pads = cStep.pads;
+          resources = cStep.resources;
+          selectRingMesh.scale.setScalar(1);
+
+          if (doneTask.targetKind === 'fence') {
+            const action = cStep.fenceOutcome ?? 'built';
+            score += action === 'built' ? 40 : action === 'upgraded' ? 75 : 20;
+            applyTaskEvent({
+              buildingsBuiltDelta: action === 'built' ? 1 : 0,
+              runScore: score,
+            });
+            rebuildFenceVisuals();
+            soundFX.playBuild(action === 'upgraded');
+            spawnParticles(
+              doneTask.targetX,
+              1.1,
+              doneTask.targetZ,
+              16,
+              action === 'upgraded' ? 0x38bdf8 : 0xfbbf24,
+              4.6
+            );
+            const msg =
+              action === 'built'
+                ? `Fence Built: ${doneTask.label}!`
+                : action === 'upgraded'
+                ? `Fence Upgraded (Lv.2 Spikes): ${doneTask.label}!`
+                : `Fence Repaired: ${doneTask.label}!`;
+            addCallout(msg, doneTask.targetX, 2.2, doneTask.targetZ, '#4ade80');
+          } else {
+            rebuildPadVisuals();
+            if (doneTask.action === 'build_pad' && doneTask.buildingType) {
+              score += 50;
+              applyTaskEvent({ buildingsBuiltDelta: 1, runScore: score });
+              soundFX.playBuild(false);
+              spawnParticles(doneTask.targetX, 1.0, doneTask.targetZ, 16, 0xfbbf24, 4.6);
+              addCallout(
+                `Built ${BUILDING_CATALOG[doneTask.buildingType].name}!`,
+                doneTask.targetX,
+                2.2,
+                doneTask.targetZ,
+                '#4ade80'
+              );
+            } else if (doneTask.action === 'upgrade_pad' && doneTask.upgradePath) {
+              score += 120;
+              applyTaskEvent({ runScore: score });
+              soundFX.playBuild(true);
+              spawnParticles(doneTask.targetX, 1.5, doneTask.targetZ, 20, 0x38bdf8, 5.2);
+              addCallout(`Upgraded: ${doneTask.label}!`, doneTask.targetX, 2.5, doneTask.targetZ, '#fbbf24');
+            } else if (doneTask.action === 'repair_pad') {
+              soundFX.playBuild(false);
+              spawnParticles(doneTask.targetX, 1.0, doneTask.targetZ, 12, 0x4ade80, 4.0);
+              addCallout('Repaired!', doneTask.targetX, 2.0, doneTask.targetZ, '#4ade80');
+            }
+          }
+          syncHud(true);
+        }
       } else {
-        rueRig.rightArm.rotation.x = THREE.MathUtils.damp(rueRig.rightArm.rotation.x, 0, 10, dt);
+        const nextAnim: HeroAnimState =
+          rueHammerSwingTimer > 0 ? 'combat' : moveLen > 0.01 ? 'walk' : 'idle';
+        if (heroAnimState !== nextAnim) {
+          heroAnimState = nextAnim;
+          document.body.dataset.heroAnim = heroAnimState;
+        }
+      }
+
+      // Animate Rue's gait, distinct 'construction' state, or combat hammer swing
+      if (heroAnimState === 'construction' && pendingConstruction) {
+        const cProg =
+          1 -
+          pendingConstruction.remainingTime / Math.max(0.01, pendingConstruction.totalTime);
+        const strikeWave = Math.sin(cProg * Math.PI * 6);
+        const workSquat = Math.abs(strikeWave) * 0.16;
+        const faceYaw = Math.atan2(
+          pendingConstruction.targetX - rueX,
+          pendingConstruction.targetZ - rueZ
+        );
+        rueRotationY = faceYaw;
+        rueRig.group.position.set(rueX, workSquat, rueZ);
+        rueRig.group.rotation.y = rueRotationY;
+        rueRig.group.rotation.x = Math.max(0, strikeWave) * 0.18;
+        // Left arm holds the Wooden Mallet -> rhythmic overhead construction hammering!
+        rueRig.leftArm.rotation.x = -0.92 - strikeWave * 0.95;
+        rueRig.leftArm.rotation.z = -0.18 + Math.cos(cProg * Math.PI * 6) * 0.14;
+        // Right arm holds the Brass Lantern high to illuminate the construction site
+        rueRig.rightArm.rotation.x = -0.65 + strikeWave * 0.16;
+        rueRig.rightArm.rotation.z = 0.22;
+        rueRig.headGroup.rotation.x = strikeWave * 0.22;
+        rueLanternLight.position.set(
+          rueX + Math.sin(rueRotationY) * 0.55,
+          1.55,
+          rueZ + Math.cos(rueRotationY) * 0.55
+        );
+
+        selectRingMesh.position.set(pendingConstruction.targetX, 0.09, pendingConstruction.targetZ);
+        selectRingMesh.visible = true;
+        selectRingMesh.scale.setScalar(1 + Math.sin(cProg * Math.PI * 6) * 0.08);
+
+        constructionSparkTimer -= dt;
+        if (constructionSparkTimer <= 0) {
+          constructionSparkTimer = 0.25;
+          spawnParticles(
+            pendingConstruction.targetX,
+            0.85,
+            pendingConstruction.targetZ,
+            5,
+            0xfbbf24,
+            3.2
+          );
+          soundFX.playGatherHit('wood');
+        }
+      } else {
+        const bounce = Math.abs(Math.sin(rueWalkPhase)) * 0.14;
+        rueRig.group.position.set(rueX, bounce, rueZ);
+        rueRig.group.rotation.y = rueRotationY;
+        rueRig.group.rotation.x = THREE.MathUtils.damp(rueRig.group.rotation.x, 0, 10, dt);
+        rueRig.headGroup.rotation.x = THREE.MathUtils.damp(rueRig.headGroup.rotation.x, 0, 10, dt);
+        rueRig.leftArm.rotation.z = Math.sin(rueWalkPhase * 0.5) * 0.08;
+        rueRig.rightArm.rotation.z = THREE.MathUtils.damp(rueRig.rightArm.rotation.z, 0, 10, dt);
+        rueLanternLight.position.set(
+          rueX + Math.sin(rueRotationY) * 0.5,
+          1.45,
+          rueZ + Math.cos(rueRotationY) * 0.5
+        );
+
+        if (rueHammerSwingTimer > 0) {
+          rueHammerSwingTimer = Math.max(0, rueHammerSwingTimer - dt * 4.5);
+          rueRig.leftArm.rotation.x = -Math.sin(rueHammerSwingTimer * Math.PI) * 1.35;
+          rueRig.rightArm.rotation.x = THREE.MathUtils.damp(rueRig.rightArm.rotation.x, 0, 10, dt);
+        } else {
+          rueRig.leftArm.rotation.x = THREE.MathUtils.damp(rueRig.leftArm.rotation.x, 0, 10, dt);
+          rueRig.rightArm.rotation.x = THREE.MathUtils.damp(rueRig.rightArm.rotation.x, 0, 10, dt);
+        }
       }
 
       // 2. Resource Node Gathering (Day or Night when Rue is close to a node)
@@ -2449,30 +2854,37 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
         // Determine target:
-        // - Swift Stumblers slip past outer-ring structures unless slowed, rushing inner pads or the Central Fort!
-        // - Old Grumble detours from 5.2m away to smash warm Campfires and outer structures.
+        // 1) Outer Square Fence Perimeter (±9.6m) intercepts zombies outside the box if that side's segment is standing!
+        // 2) Inside the fence, zombies target the 8 inner Weapon Pads or Central Fort.
         let targetX = 0;
         let targetZ = 0;
         let targetPad: PlacementPad | null = null;
-        let minPadDist = z.type === 'grumble' ? 5.2 : 2.8;
-        for (const p of pads) {
-          if (!p.building) continue;
-          if (z.type === 'swift_stumbler' && z.slowTimer <= 0 && p.ring === 'outer') {
-            continue; // Swift Stumblers evade outer-ring blockers while at full speed!
-          }
-          const dp = Math.hypot(p.x - z.x, p.z - z.z);
-          if (dp < minPadDist) {
-            minPadDist = dp;
-            targetPad = p;
-            targetX = p.x;
-            targetZ = p.z;
+        const blockingFence = findBlockingFenceSegment(z.x, z.z, fenceSegments);
+
+        if (blockingFence) {
+          targetX = blockingFence.x;
+          targetZ = blockingFence.z;
+        } else {
+          let minPadDist = z.type === 'grumble' ? 5.2 : 3.2;
+          for (const p of pads) {
+            if (!p.building) continue;
+            if (z.type === 'swift_stumbler' && z.slowTimer <= 0 && p.ring === 'outer') {
+              continue; // Swift Stumblers evade outer-ring blockers while at full speed!
+            }
+            const dp = Math.hypot(p.x - z.x, p.z - z.z);
+            if (dp < minPadDist) {
+              minPadDist = dp;
+              targetPad = p;
+              targetX = p.x;
+              targetZ = p.z;
+            }
           }
         }
 
         const dx = targetX - z.x;
         const dz = targetZ - z.z;
         const distToTarget = Math.hypot(dx, dz);
-        const stopRadius = targetPad ? 1.65 : 3.25;
+        const stopRadius = blockingFence ? 1.35 : targetPad ? 1.65 : 3.25;
 
         if (distToTarget > stopRadius) {
           // Distinct movement policy per archetype via pure helper
@@ -2495,7 +2907,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           z.walkPhase += effSpeed * dt * 4.2;
           z.rotationY = Math.atan2(moveDirX, moveDirZ);
         } else {
-          // Attack building or Fort!
+          // Attack Outer Square Fence, Inner Weapon Pad, or Central Fort!
           z.walkPhase += dt * 3.0;
           if (z.type === 'baron') {
             // Baron Blight has a 0.65s dramatic windup telegraph before heavy strike
@@ -2510,7 +2922,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               z.windupTimer = 0;
               cameraTrauma = Math.min(1.0, cameraTrauma + 0.48);
               soundFX.playAttackHit(true);
-              if (targetPad && targetPad.building) {
+              if (blockingFence) {
+                blockingFence.hp = Math.max(0, blockingFence.hp - z.damage);
+                if (blockingFence.hp <= 0) {
+                  blockingFence.level = 0;
+                  blockingFence.buildProgress = 0;
+                  rebuildFenceVisuals();
+                  addCallout('Fence Breached!', blockingFence.x, 2.0, blockingFence.z, '#ef4444');
+                }
+              } else if (targetPad && targetPad.building) {
                 targetPad.building.hp = Math.max(0, targetPad.building.hp - z.damage);
                 if (targetPad.building.hp <= 0) {
                   targetPad.building = null;
@@ -2525,7 +2945,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             if (z.attackCooldown <= 0) {
               const spec = ZOMBIE_CATALOG[z.type];
               z.attackCooldown = spec.attackInterval;
-              if (targetPad && targetPad.building) {
+              if (blockingFence) {
+                blockingFence.hp = Math.max(0, blockingFence.hp - z.damage);
+                if (blockingFence.level === 2) {
+                  const thornRes = applyDamageToZombie(z, 18, 'trap');
+                  if (thornRes.armorShattered) stripZombieArmorVisuals(z);
+                }
+                if (blockingFence.hp <= 0) {
+                  blockingFence.level = 0;
+                  blockingFence.buildProgress = 0;
+                  rebuildFenceVisuals();
+                  addCallout('Fence Breached!', blockingFence.x, 2.0, blockingFence.z, '#ef4444');
+                }
+              } else if (targetPad && targetPad.building) {
                 targetPad.building.hp = Math.max(0, targetPad.building.hp - z.damage);
                 // Palisade Ironbark thorns counter-damage
                 if (
@@ -2675,6 +3107,37 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             const op = Math.min(1, c.ttl / 0.35).toFixed(2);
             htmlParts.push(
               `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-50%);color:${c.color};opacity:${op};" class="text-xs font-mono-tabular font-bold hud-stroke whitespace-nowrap">${c.text}</div>`
+            );
+          }
+        }
+
+        // Render active 'construction' animation progress badge over the target segment or pad
+        if (pendingConstruction) {
+          _projVec
+            .set(pendingConstruction.targetX, 2.35, pendingConstruction.targetZ)
+            .project(camera);
+          if (_projVec.z >= -1 && _projVec.z <= 1) {
+            const sx = ((_projVec.x + 1) * 0.5 * w).toFixed(0);
+            const sy = ((-_projVec.y + 1) * 0.5 * h).toFixed(0);
+            const pct = Math.max(
+              0,
+              Math.min(
+                100,
+                Math.round(
+                  (1 -
+                    pendingConstruction.remainingTime /
+                      Math.max(0.01, pendingConstruction.totalTime)) *
+                    100
+                )
+              )
+            );
+            htmlParts.push(
+              `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-100%);background:rgba(13,19,28,0.92);" class="px-2.5 py-1 rounded-lg border border-[#fbbf24] flex flex-col items-center pointer-events-none shadow-lg">` +
+                `<div class="text-[10px] font-mono-tabular font-bold text-[#fef3c7] whitespace-nowrap">🔨 Constructing ${pendingConstruction.label} (${pct}%)</div>` +
+                `<div class="w-28 h-1.5 rounded bg-[#090d16] border border-[#334155] overflow-hidden mt-1">` +
+                `<div style="width:${pct}%;" class="h-full bg-[#fbbf24]"></div>` +
+                `</div>` +
+              `</div>`
             );
           }
         }

@@ -6,6 +6,7 @@ import { TitleScreen } from './components/TitleScreen';
 import { soundFX } from './game/audio';
 import { loadDailyStateFromStorage } from './game/dailySystem';
 import {
+  createInitialFenceSegments,
   createInitialPads,
   DAY_DURATION_SECONDS,
   FORT_MAX_HP,
@@ -43,7 +44,9 @@ export default function App() {
       flareCooldown: 0,
       flareMaxCooldown: LANTERN_FLARE_COOLDOWN,
       selectedPadId: null,
+      selectedFenceId: null,
       pads: createInitialPads(),
+      fenceSegments: createInitialFenceSegments(),
       bossActive: false,
       bossName: 'Baron Blight',
       bossHp: 0,
@@ -54,6 +57,8 @@ export default function App() {
       elapsedRunSeconds: 0,
       cameraZoom: 1.0,
       dockCollapsed: false,
+      heroAnimState: 'idle',
+      pendingConstruction: null,
       daily: initialDaily,
       lastRunSummary: null,
     };
@@ -103,6 +108,8 @@ export default function App() {
         hud={hud}
         muted={muted}
         onSelectPad={(padId) => controllerRef.current?.selectPad(padId)}
+        onSelectFence={(fenceId) => controllerRef.current?.selectFence(fenceId)}
+        onBuildNextFence={() => controllerRef.current?.buildNextFence()}
         onBuildOnPad={(type: BuildingType) =>
           controllerRef.current?.buildOnSelectedPad(type)
         }
