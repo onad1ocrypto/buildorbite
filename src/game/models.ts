@@ -237,6 +237,88 @@ export function createPineFoliageTexture(maxAnisotropy: number): THREE.CanvasTex
   return tex;
 }
 
+// Shimmering forest-canal / moat water texture with flowing current streaks
+export function createWaterCanalTexture(maxAnisotropy: number): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, '#0c3b4c');
+  grad.addColorStop(0.25, '#135e75');
+  grad.addColorStop(0.5, '#197994');
+  grad.addColorStop(0.75, '#135e75');
+  grad.addColorStop(1, '#0c3b4c');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 128);
+
+  // Flowing wave ripples & bright specular current lines
+  for (let i = 0; i < 160; i++) {
+    const x = (i * 43) % 256;
+    const y = 12 + ((i * 29) % 104);
+    const len = 14 + (i % 24);
+    ctx.strokeStyle =
+      i % 4 === 0
+        ? 'rgba(186, 230, 253, 0.55)'
+        : i % 2 === 0
+        ? 'rgba(103, 232, 249, 0.38)'
+        : 'rgba(8, 47, 73, 0.45)';
+    ctx.lineWidth = i % 4 === 0 ? 1.8 : 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + len * 0.5, y + ((i % 3) - 1) * 3, x + len, y);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(22, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = maxAnisotropy;
+  return tex;
+}
+
+// Tilled dark loam soil furrow texture for the Cornfield (Ladang Jagung)
+export function createSoilFurrowTexture(maxAnisotropy: number): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#3e2716';
+  ctx.fillRect(0, 0, 256, 256);
+
+  const rowCount = 8;
+  const rowH = 256 / rowCount;
+  for (let r = 0; r < rowCount; r++) {
+    const y0 = r * rowH;
+    const g = ctx.createLinearGradient(0, y0, 0, y0 + rowH);
+    g.addColorStop(0, '#27170b');
+    g.addColorStop(0.35, '#593922');
+    g.addColorStop(0.55, '#6a462b');
+    g.addColorStop(0.85, '#472d19');
+    g.addColorStop(1, '#24150a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y0, 256, rowH);
+  }
+
+  for (let i = 0; i < 1400; i++) {
+    const px = (i * 59) % 256;
+    const py = (i * 37) % 256;
+    ctx.fillStyle = i % 3 === 0 ? 'rgba(28, 16, 8, 0.55)' : 'rgba(118, 82, 52, 0.42)';
+    ctx.fillRect(px, py, 2, 2);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = maxAnisotropy;
+  return tex;
+}
+
 function createStoneMasonryTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -361,39 +443,56 @@ export interface RueRig {
   rightArm: THREE.Group;
   headGroup: THREE.Group;
   lanternMesh: THREE.Mesh;
+  lanternFlameMesh: THREE.Mesh;
+  lanternHaloMesh: THREE.Mesh;
 }
 
 export function createRangerRueModel(): RueRig {
   const group = new THREE.Group();
   group.add(createContactShadow(0.9));
 
-  // Canonical palette from hero-ranger-rue.png
-  const coatGreenMat = new THREE.MeshStandardMaterial({
-    color: 0x2d5a36,
-    roughness: 0.78,
-    metalness: 0.06,
+  // Hat Palette: Red & Black ("topi = merah kombinasi hitam")
+  const hatRedMat = new THREE.MeshStandardMaterial({
+    color: 0xdc2626,
+    roughness: 0.68,
+    metalness: 0.08,
     flatShading: true,
   });
-  const vestLeatherMat = new THREE.MeshStandardMaterial({
-    color: 0x784421,
+  const hatBlackMat = new THREE.MeshStandardMaterial({
+    color: 0x18181b,
     roughness: 0.76,
+    metalness: 0.12,
+    flatShading: true,
+  });
+
+  // Outfit Palette: Blue, Orange & Yellow ("pakaian warna kombinasi = biru, oren dan kuning")
+  const outfitBlueMat = new THREE.MeshStandardMaterial({
+    color: 0x2563eb,
+    roughness: 0.7,
+    metalness: 0.08,
+    flatShading: true,
+  });
+  const outfitOrangeMat = new THREE.MeshStandardMaterial({
+    color: 0xf97316,
+    roughness: 0.66,
+    metalness: 0.08,
+    flatShading: true,
+  });
+  const outfitYellowMat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    roughness: 0.62,
     metalness: 0.1,
     flatShading: true,
   });
+
   const bootBrownMat = new THREE.MeshStandardMaterial({
-    color: 0x5c381e,
+    color: 0x3b2313,
     roughness: 0.82,
     metalness: 0.08,
     flatShading: true,
   });
-  const hatTanMat = new THREE.MeshStandardMaterial({
-    color: 0x6b583f,
-    roughness: 0.8,
-    metalness: 0.06,
-    flatShading: true,
-  });
   const darkBandMat = new THREE.MeshStandardMaterial({
-    color: 0x3d291a,
+    color: 0x1e1b18,
     roughness: 0.85,
     flatShading: true,
   });
@@ -410,7 +509,7 @@ export function createRangerRueModel(): RueRig {
     flatShading: true,
   });
   const silverBadgeMat = new THREE.MeshStandardMaterial({
-    color: 0xcbd5e1,
+    color: 0xe2e8f0,
     roughness: 0.28,
     metalness: 0.85,
     flatShading: true,
@@ -421,19 +520,16 @@ export function createRangerRueModel(): RueRig {
     metalness: 0.82,
     flatShading: true,
   });
-  const bedrollMat = new THREE.MeshStandardMaterial({
-    color: 0xd6ccb8,
-    roughness: 0.82,
-    flatShading: true,
-  });
   const lanternGlowMat = new THREE.MeshStandardMaterial({
-    color: 0xffedd5,
+    color: 0x94a3b8,
     emissive: 0xff8c1a,
-    emissiveIntensity: 2.5,
-    roughness: 0.18,
+    emissiveIntensity: 0.0,
+    roughness: 0.22,
+    transparent: true,
+    opacity: 0.62,
   });
 
-  // 1. Sturdy Laced Brown Hiking Boots & Stocky Green Trousers
+  // 1. Sturdy Laced Boots & Cobalt-Blue Trousers
   const bootGeo = new THREE.BoxGeometry(0.3, 0.26, 0.42);
   const leftBoot = new THREE.Mesh(bootGeo, bootBrownMat);
   leftBoot.position.set(-0.21, 0.13, 0.04);
@@ -443,45 +539,58 @@ export function createRangerRueModel(): RueRig {
   rightBoot.castShadow = true;
 
   const legGeo = new THREE.CylinderGeometry(0.14, 0.15, 0.26, 7);
-  const leftLeg = new THREE.Mesh(legGeo, coatGreenMat);
+  const leftLeg = new THREE.Mesh(legGeo, outfitBlueMat);
   leftLeg.position.set(-0.21, 0.32, 0);
-  const rightLeg = new THREE.Mesh(legGeo, coatGreenMat);
+  const rightLeg = new THREE.Mesh(legGeo, outfitBlueMat);
   rightLeg.position.set(0.21, 0.32, 0);
   group.add(leftBoot, rightBoot, leftLeg, rightLeg);
 
-  // 2. Stocky Forest-Green Ranger Coat + Brown Multi-Buckle Leather Utility Vest
-  const coatHem = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.54, 0.42, 8), coatGreenMat);
-  coatHem.position.y = 0.52;
+  // 2. Blue, Orange & Yellow Ranger Outfit (Blue Coat Skirt + Yellow Trim, Orange Tunic & Cape, Yellow Collar Scarf)
+  const coatHem = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.56, 0.38, 8), outfitBlueMat);
+  coatHem.position.y = 0.53;
   coatHem.castShadow = true;
 
-  const vestTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.48, 0.56, 8), vestLeatherMat);
+  const coatYellowTrim = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.55, 0.58, 0.08, 8),
+    outfitYellowMat
+  );
+  coatYellowTrim.position.y = 0.35;
+
+  const vestTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.48, 0.56, 8), outfitOrangeMat);
   vestTorso.position.y = 0.8;
   vestTorso.castShadow = true;
 
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.42, 0.16, 8), coatGreenMat);
-  collar.position.y = 1.06;
-  group.add(coatHem, vestTorso, collar);
+  const shoulderCape = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5, 0.58, 0.19, 8),
+    outfitOrangeMat
+  );
+  shoulderCape.position.y = 1.01;
+  shoulderCape.castShadow = true;
 
-  // 3 Horizontal Chest Straps + Brass Buckles + Utility Belt + Pocket Compass on Left Hip
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.41, 0.14, 8), outfitYellowMat);
+  collar.position.y = 1.12;
+  group.add(coatHem, coatYellowTrim, vestTorso, shoulderCape, collar);
+
+  // 3 Horizontal Yellow Chest Straps + Silver Buckles + Blue Belt + Orange Pouches + Pocket Compass
   for (let s = 0; s < 3; s++) {
     const sy = 0.66 + s * 0.13;
-    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.045, 0.06), darkBandMat);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.045, 0.06), outfitYellowMat);
     strap.position.set(0, sy, 0.45);
     const tinyBuckle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.07), silverBadgeMat);
     tinyBuckle.position.set(0, sy, 0.46);
     group.add(strap, tinyBuckle);
   }
 
-  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.5, 0.13, 8), darkBandMat);
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.5, 0.13, 8), hatBlackMat);
   belt.position.y = 0.52;
-  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.15, 0.08), silverBadgeMat);
+  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.15, 0.08), outfitYellowMat);
   buckle.position.set(0, 0.52, 0.48);
-  const pouchL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.14), vestLeatherMat);
+  const pouchL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.14), outfitOrangeMat);
   pouchL.position.set(-0.34, 0.52, 0.36);
-  const pouchR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.14), vestLeatherMat);
+  const pouchR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.14), outfitOrangeMat);
   pouchR.position.set(0.34, 0.52, 0.36);
 
-  // Hanging Round Pocket Compass (signature prop from hero-ranger-rue.png)
+  // Hanging Round Pocket Compass
   const compassCase = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.05, 10), brassMat);
   compassCase.rotation.x = Math.PI / 2;
   compassCase.position.set(0.18, 0.39, 0.49);
@@ -498,23 +607,23 @@ export function createRangerRueModel(): RueRig {
   compassNeedle.rotation.z = -0.4;
   group.add(belt, buckle, pouchL, pouchR, compassCase, compassDial, compassNeedle);
 
-  // 4. Expedition Backpack + Rolled Cream-Beige Sleeping Mat on Top
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.58, 0.36), bootBrownMat);
+  // 4. Blue Expedition Backpack + Orange & Yellow Rolled Sleeping Mat on Top
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.58, 0.36), outfitBlueMat);
   pack.position.set(0, 0.74, -0.42);
   pack.castShadow = true;
-  const bedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.64, 10), bedrollMat);
+  const bedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.64, 10), outfitOrangeMat);
   bedroll.rotation.z = Math.PI / 2;
   bedroll.position.set(0, 1.12, -0.4);
   bedroll.castShadow = true;
-  const bedrollSpiralL = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), darkBandMat);
+  const bedrollSpiralL = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), outfitYellowMat);
   bedrollSpiralL.rotation.y = -Math.PI / 2;
   bedrollSpiralL.position.set(-0.325, 1.12, -0.4);
-  const bedrollSpiralR = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), darkBandMat);
+  const bedrollSpiralR = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), outfitYellowMat);
   bedrollSpiralR.rotation.y = Math.PI / 2;
   bedrollSpiralR.position.set(0.325, 1.12, -0.4);
   group.add(pack, bedroll, bedrollSpiralL, bedrollSpiralR);
 
-  // 5. Expressive Head + Spiky Ginger-Red Hair + Tan Pinched-Crown Ranger Hat with Shield Badge
+  // 5. Expressive Head + Spiky Ginger-Red Hair + Red & Black Ranger Hat with Shield Badge
   const headGroup = new THREE.Group();
   headGroup.position.set(0, 1.32, 0);
 
@@ -571,15 +680,20 @@ export function createRangerRueModel(): RueRig {
     headGroup.add(spike);
   });
 
-  // Tan-Olive Ranger Campaign Hat + Dark Brown Band + Silver Ranger Shield Badge
-  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.74, 0.76, 0.06, 12), hatTanMat);
-  hatBrim.position.y = 0.26;
+  // Red & Black Campaign Hat (Red Inner Brim & Crown + Black Outer Brim Rim, Black Hatband & Black Crown Tip)
+  const hatBrimRim = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.78, 0.05, 14), hatBlackMat);
+  hatBrimRim.position.y = 0.255;
+  hatBrimRim.castShadow = true;
+  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.66, 0.065, 14), hatRedMat);
+  hatBrim.position.y = 0.265;
   hatBrim.castShadow = true;
-  const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.44, 0.09, 10), darkBandMat);
-  hatBand.position.y = 0.32;
-  const hatCrown = new THREE.Mesh(new THREE.ConeGeometry(0.44, 0.46, 6), hatTanMat);
+  const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.46, 0.12, 10), hatBlackMat);
+  hatBand.position.y = 0.33;
+  const hatCrown = new THREE.Mesh(new THREE.ConeGeometry(0.44, 0.44, 6), hatRedMat);
   hatCrown.position.y = 0.53;
   hatCrown.castShadow = true;
+  const hatCrownTip = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.19, 0.14, 6), hatBlackMat);
+  hatCrownTip.position.y = 0.69;
   const hatBadge = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.16, 0.05), silverBadgeMat);
   hatBadge.position.set(0, 0.45, 0.36);
   hatBadge.rotation.x = -0.45;
@@ -592,39 +706,47 @@ export function createRangerRueModel(): RueRig {
     smileMouth,
     leftBrow,
     rightBrow,
+    hatBrimRim,
     hatBrim,
     hatBand,
     hatCrown,
+    hatCrownTip,
     hatBadge
   );
   group.add(headGroup);
 
-  // 6. Left Arm (+X side) + Faceted Wooden Mallet / Hammer
+  // 6. Left Arm (+X side, Blue Sleeve + Yellow Cuff) + Faceted Wooden Mallet / Hammer
   const leftArm = new THREE.Group();
   leftArm.position.set(0.54, 0.94, 0);
-  const leftSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.44, 0.24), coatGreenMat);
+  const leftSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.44, 0.24), outfitBlueMat);
   leftSleeve.position.set(0, -0.15, 0.1);
   leftSleeve.rotation.x = -Math.PI / 5;
+  const leftCuff = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26), outfitYellowMat);
+  leftCuff.position.set(0, -0.31, 0.21);
+  leftCuff.rotation.x = -Math.PI / 5;
 
   const hammerShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.74, 7), darkBandMat);
   hammerShaft.position.set(0, -0.18, 0.32);
   hammerShaft.rotation.x = Math.PI / 2.6;
 
-  // Faceted Wooden Mallet Head matching hero-ranger-rue.png
+  // Faceted Wooden Mallet Head
   const malletGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.44, 6);
   malletGeo.rotateZ(Math.PI / 2);
   const hammerHead = new THREE.Mesh(malletGeo, bootBrownMat);
   hammerHead.position.set(0, 0.02, 0.62);
   hammerHead.castShadow = true;
-  leftArm.add(leftSleeve, hammerShaft, hammerHead);
+  leftArm.add(leftSleeve, leftCuff, hammerShaft, hammerHead);
   group.add(leftArm);
 
-  // 7. Right Arm (-X side) + Oversized Warm Brass Hurricane Lantern
+  // 7. Right Arm (-X side, Blue Sleeve + Yellow Cuff) + Oversized Brass Hurricane Lantern (Lit at Night)
   const rightArm = new THREE.Group();
   rightArm.position.set(-0.54, 0.94, 0);
-  const rightSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.44, 0.24), coatGreenMat);
+  const rightSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.44, 0.24), outfitBlueMat);
   rightSleeve.position.set(0, -0.12, 0.18);
   rightSleeve.rotation.x = -Math.PI / 3.2;
+  const rightCuff = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26), outfitYellowMat);
+  rightCuff.position.set(0, -0.26, 0.3);
+  rightCuff.rotation.x = -Math.PI / 3.2;
 
   const lanternGroup = new THREE.Group();
   lanternGroup.position.set(0, -0.34, 0.44);
@@ -633,10 +755,37 @@ export function createRangerRueModel(): RueRig {
   const lanternCap = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.18, 8), brassMat);
   lanternCap.position.y = 0.18;
   const lanternCore = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 8), lanternGlowMat);
+  const lanternFlameMesh = new THREE.Mesh(
+    new THREE.ConeGeometry(0.085, 0.22, 7),
+    new THREE.MeshBasicMaterial({
+      color: 0xfef08a,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    })
+  );
+  lanternFlameMesh.position.y = -0.02;
+  const lanternHaloMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 12, 10),
+    new THREE.MeshBasicMaterial({
+      color: 0xff9e1b,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+  );
   const lanternBase = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.21, 0.09, 8), brassMat);
   lanternBase.position.y = -0.18;
-  lanternGroup.add(lanternHandle, lanternCap, lanternCore, lanternBase);
-  rightArm.add(rightSleeve, lanternGroup);
+  lanternGroup.add(
+    lanternHandle,
+    lanternCap,
+    lanternCore,
+    lanternFlameMesh,
+    lanternHaloMesh,
+    lanternBase
+  );
+  rightArm.add(rightSleeve, rightCuff, lanternGroup);
   group.add(rightArm);
 
   return {
@@ -645,6 +794,8 @@ export function createRangerRueModel(): RueRig {
     rightArm,
     headGroup,
     lanternMesh: lanternCore,
+    lanternFlameMesh,
+    lanternHaloMesh,
   };
 }
 
@@ -935,36 +1086,70 @@ export function createCentralFortModel(): THREE.Group {
 
 export function createPlacementPadMesh(ring: 'inner' | 'outer'): THREE.Group {
   const group = new THREE.Group();
-  const baseMat = new THREE.MeshStandardMaterial({
-    color: ring === 'inner' ? 0x334155 : 0x3f3f46,
-    roughness: 0.85,
-    metalness: 0.15,
+  const stoneMat = new THREE.MeshStandardMaterial({
+    color: ring === 'inner' ? 0x475569 : 0x52525b,
+    roughness: 0.86,
+    metalness: 0.14,
+    flatShading: true,
+  });
+  const woodDeckMat = new THREE.MeshStandardMaterial({
+    color: 0x6b4226,
+    roughness: 0.8,
+    metalness: 0.08,
     flatShading: true,
   });
   const rimMat = new THREE.MeshStandardMaterial({
-    color: 0xd97706,
+    color: 0xf59e0b,
+    emissive: 0xb45309,
+    emissiveIntensity: 0.25,
+    roughness: 0.35,
+    metalness: 0.55,
+    flatShading: true,
+  });
+  const ironMat = new THREE.MeshStandardMaterial({
+    color: 0x334155,
     roughness: 0.4,
-    metalness: 0.5,
+    metalness: 0.78,
     flatShading: true,
   });
 
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.5, 0.16, 8), baseMat);
-  disc.position.y = 0.08;
-  disc.receiveShadow = true;
-  group.add(disc);
+  // Stepped octagonal masonry foundation plinth
+  const baseCurb = new THREE.Mesh(new THREE.CylinderGeometry(1.48, 1.58, 0.14, 8), stoneMat);
+  baseCurb.position.y = 0.07;
+  baseCurb.receiveShadow = true;
+  group.add(baseCurb);
 
-  const ringMesh = new THREE.Mesh(new THREE.TorusGeometry(1.22, 0.06, 6, 8), rimMat);
+  // Recessed timber decking platform
+  const woodDeck = new THREE.Mesh(new THREE.CylinderGeometry(1.26, 1.3, 0.08, 8), woodDeckMat);
+  woodDeck.position.y = 0.15;
+  woodDeck.receiveShadow = true;
+  group.add(woodDeck);
+
+  // Plank joinery seams across the deck
+  const plankBeamGeo = new THREE.BoxGeometry(2.15, 0.03, 0.09);
+  for (let i = -2; i <= 2; i++) {
+    const seam = new THREE.Mesh(plankBeamGeo, stoneMat);
+    seam.position.set(0, 0.185, i * 0.38);
+    group.add(seam);
+  }
+
+  // Glowing brass construction survey ring
+  const ringMesh = new THREE.Mesh(new THREE.TorusGeometry(1.32, 0.055, 6, 16), rimMat);
   ringMesh.rotation.x = Math.PI / 2;
-  ringMesh.position.y = 0.17;
+  ringMesh.position.y = 0.18;
   group.add(ringMesh);
 
-  // Corner pegs
-  const pegGeo = new THREE.BoxGeometry(0.16, 0.28, 0.16);
-  for (let i = 0; i < 4; i++) {
-    const angle = (i * Math.PI) / 2 + Math.PI / 4;
-    const peg = new THREE.Mesh(pegGeo, baseMat);
-    peg.position.set(Math.cos(angle) * 1.25, 0.18, Math.sin(angle) * 1.25);
-    group.add(peg);
+  // 8 Corner masonry bolsters with iron tie-down cleats
+  const pegGeo = new THREE.BoxGeometry(0.22, 0.26, 0.22);
+  const cleatGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.12, 6);
+  for (let i = 0; i < 8; i++) {
+    const angle = (i * Math.PI) / 4 + Math.PI / 8;
+    const peg = new THREE.Mesh(pegGeo, stoneMat);
+    peg.position.set(Math.cos(angle) * 1.38, 0.14, Math.sin(angle) * 1.38);
+    peg.rotation.y = -angle;
+    const cleat = new THREE.Mesh(cleatGeo, ironMat);
+    cleat.position.set(Math.cos(angle) * 1.38, 0.31, Math.sin(angle) * 1.38);
+    group.add(peg, cleat);
   }
 
   return group;
@@ -1073,153 +1258,254 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
   const len = segment.length;
 
   const stoneMat = new THREE.MeshStandardMaterial({
-    color: 0x475569,
-    roughness: 0.88,
+    color: 0x64748b,
+    roughness: 0.86,
     metalness: 0.14,
     flatShading: true,
   });
   const woodMat = new THREE.MeshStandardMaterial({
-    color: segment.level === 2 ? 0x6b2f14 : 0x7c4a27,
-    roughness: 0.8,
-    metalness: 0.1,
+    color: segment.level === 2 ? 0x6e3219 : 0x8b542f,
+    roughness: 0.78,
+    metalness: 0.08,
     flatShading: true,
   });
-  const darkWoodMat = new THREE.MeshStandardMaterial({
+  const barkMat = new THREE.MeshStandardMaterial({
     color: 0x4a2c16,
-    roughness: 0.85,
-    metalness: 0.1,
+    roughness: 0.88,
+    metalness: 0.08,
     flatShading: true,
   });
-  const metalMat = new THREE.MeshStandardMaterial({
-    color: segment.level === 2 ? 0xf59e0b : 0x64748b,
-    roughness: 0.35,
-    metalness: 0.82,
+  const cutWoodMat = new THREE.MeshStandardMaterial({
+    color: 0xd99b66,
+    roughness: 0.7,
+    metalness: 0.05,
+    flatShading: true,
+  });
+  const ironMat = new THREE.MeshStandardMaterial({
+    color: segment.level === 2 ? 0xf59e0b : 0x334155,
+    roughness: 0.34,
+    metalness: 0.84,
+    flatShading: true,
+  });
+  const steelMat = new THREE.MeshStandardMaterial({
+    color: 0xcbd5e1,
+    roughness: 0.28,
+    metalness: 0.88,
     flatShading: true,
   });
   const guideMat = new THREE.MeshStandardMaterial({
     color: 0xfbbf24,
     emissive: 0xd97706,
-    emissiveIntensity: 0.65,
-    roughness: 0.4,
+    emissiveIntensity: 0.7,
+    roughness: 0.35,
     flatShading: true,
   });
 
-  // Clickable foundation base strip along segment span
-  const basePlate = new THREE.Mesh(new THREE.BoxGeometry(len - 0.18, 0.14, 0.72), stoneMat);
-  basePlate.position.y = 0.07;
+  // Sculpted masonry foundation curb along segment span with stone bolsters
+  const basePlate = new THREE.Mesh(new THREE.BoxGeometry(len - 0.14, 0.18, 0.82), stoneMat);
+  basePlate.position.y = 0.09;
   basePlate.receiveShadow = true;
   group.add(basePlate);
 
+  const curbBlockGeo = new THREE.BoxGeometry(0.48, 0.24, 0.92);
+  for (let i = -2; i <= 2; i++) {
+    const bolster = new THREE.Mesh(curbBlockGeo, stoneMat);
+    bolster.position.set(i * (len * 0.21), 0.12, 0);
+    bolster.receiveShadow = true;
+    group.add(bolster);
+  }
+
   if (segment.level === 0) {
-    // Stage 0: Foundation stakes + amber guideline + partial progressive logs according to buildProgress
-    const stakeGeo = new THREE.CylinderGeometry(0.11, 0.14, 0.52, 6);
-    const numStakes = 11;
+    // Stage 0: Foundation stakes + amber carpenter's guideline + progressive logs
+    const stakeGeo = new THREE.CylinderGeometry(0.11, 0.14, 0.56, 8);
+    const stakeTipGeo = new THREE.ConeGeometry(0.11, 0.18, 8);
+    const numStakes = 13;
     const builtCount = Math.floor(segment.buildProgress * numStakes);
 
-    const logGeo = new THREE.CylinderGeometry(0.16, 0.19, 1.5, 6);
-    const tipGeo = new THREE.ConeGeometry(0.17, 0.34, 6);
+    const logGeo = new THREE.CylinderGeometry(0.16, 0.19, 1.55, 8);
+    const tipGeo = new THREE.ConeGeometry(0.165, 0.38, 8);
 
     for (let i = 0; i < numStakes; i++) {
       const lx = -len * 0.44 + (i / (numStakes - 1)) * (len * 0.88);
       if (i < builtCount) {
-        // Assembled log!
         const log = new THREE.Mesh(logGeo, woodMat);
-        log.position.set(lx, 0.78, 0);
+        log.position.set(lx, 0.82, 0);
         log.castShadow = true;
-        const tip = new THREE.Mesh(tipGeo, woodMat);
-        tip.position.set(lx, 1.68, 0);
+        const tip = new THREE.Mesh(tipGeo, cutWoodMat);
+        tip.position.set(lx, 1.78, 0);
         group.add(log, tip);
       } else {
-        // Unbuilt short foundation peg
-        const stake = new THREE.Mesh(stakeGeo, darkWoodMat);
-        stake.position.set(lx, 0.28, 0);
-        group.add(stake);
+        const stake = new THREE.Mesh(stakeGeo, barkMat);
+        stake.position.set(lx, 0.3, 0);
+        const stakeTip = new THREE.Mesh(stakeTipGeo, cutWoodMat);
+        stakeTip.position.set(lx, 0.66, 0);
+        group.add(stake, stakeTip);
       }
     }
 
-    // Amber survey rope / build marker bar connecting the stakes
-    const rope = new THREE.Mesh(new THREE.BoxGeometry(len - 0.4, 0.07, 0.08), guideMat);
-    rope.position.set(0, 0.46, 0);
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, len - 0.36, 6), guideMat);
+    rope.rotation.z = Math.PI / 2;
+    rope.position.set(0, 0.48, 0);
     group.add(rope);
     return group;
   }
 
-  // Level 1 or Level 2 Built Fence / Gate
+  // Level 1 or Level 2 Built Fence / Fortified Gatehouse
   if (segment.isGate) {
-    // Fortified Trail Gate across the road (center span has double gate doors + overhead arch beam)
-    const gatePostGeo = new THREE.BoxGeometry(0.46, 2.35, 0.46);
-    const leftPost = new THREE.Mesh(gatePostGeo, darkWoodMat);
-    leftPost.position.set(-1.55, 1.18, 0);
-    leftPost.castShadow = true;
-    const rightPost = new THREE.Mesh(gatePostGeo, darkWoodMat);
-    rightPost.position.set(1.55, 1.18, 0);
-    rightPost.castShadow = true;
+    // Twin stone-and-timber gatehouse pillars with iron caps & lanterns
+    const pillarPlinthGeo = new THREE.BoxGeometry(0.66, 0.45, 0.76);
+    const gatePostGeo = new THREE.CylinderGeometry(0.24, 0.28, 2.55, 8);
+    const capGeo = new THREE.ConeGeometry(0.36, 0.42, 4);
 
-    const topBeam = new THREE.Mesh(new THREE.BoxGeometry(3.75, 0.32, 0.54), darkWoodMat);
-    topBeam.position.set(0, 2.38, 0);
+    [-1.58, 1.58].forEach((px) => {
+      const plinth = new THREE.Mesh(pillarPlinthGeo, stoneMat);
+      plinth.position.set(px, 0.22, 0);
+      const post = new THREE.Mesh(gatePostGeo, barkMat);
+      post.position.set(px, 1.38, 0);
+      post.castShadow = true;
+      const cap = new THREE.Mesh(capGeo, ironMat);
+      cap.position.set(px, 2.82, 0);
+      cap.rotation.y = Math.PI / 4;
+      group.add(plinth, post, cap);
+    });
+
+    // Overhead fortified lintel beam with iron gussets & diagonal knee braces
+    const topBeam = new THREE.Mesh(new THREE.BoxGeometry(3.95, 0.34, 0.58), barkMat);
+    topBeam.position.set(0, 2.48, 0);
     topBeam.castShadow = true;
-    group.add(leftPost, rightPost, topBeam);
+    const subBeam = new THREE.Mesh(new THREE.BoxGeometry(3.55, 0.18, 0.44), woodMat);
+    subBeam.position.set(0, 2.16, 0);
+    group.add(topBeam, subBeam);
 
-    // Double wooden gate doors in center
-    const doorHalfGeo = new THREE.BoxGeometry(1.38, 1.38, 0.2);
+    [-1.18, 1.18].forEach((bx, idx) => {
+      const knee = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.65, 0.28), barkMat);
+      knee.position.set(bx, 2.02, 0);
+      knee.rotation.z = idx === 0 ? -Math.PI / 4 : Math.PI / 4;
+      group.add(knee);
+    });
+
+    // Heavy arched double oak gate doors with iron hinge straps, drop-bar & ring handles
+    const doorHalfGeo = new THREE.BoxGeometry(1.42, 1.62, 0.22);
     const doorL = new THREE.Mesh(doorHalfGeo, woodMat);
-    doorL.position.set(-0.74, 0.78, 0);
+    doorL.position.set(-0.75, 0.92, 0);
     doorL.castShadow = true;
     const doorR = new THREE.Mesh(doorHalfGeo, woodMat);
-    doorR.position.set(0.74, 0.78, 0);
+    doorR.position.set(0.75, 0.92, 0);
     doorR.castShadow = true;
-    const crossBrace = new THREE.Mesh(new THREE.BoxGeometry(2.85, 0.16, 0.26), metalMat);
-    crossBrace.position.set(0, 0.85, 0);
-    group.add(doorL, doorR, crossBrace);
+    group.add(doorL, doorR);
 
-    // Flanking palisade logs on both sides of the gate posts
-    const logGeo = new THREE.CylinderGeometry(0.17, 0.2, 1.65, 6);
-    const tipGeo = new THREE.ConeGeometry(0.18, 0.38, 6);
-    [-2.78, -2.38, -1.98, 1.98, 2.38, 2.78].forEach((lx) => {
+    // Iron hinge straps & central locking bar
+    [0.48, 0.95, 1.42].forEach((hy) => {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(2.96, 0.09, 0.27), ironMat);
+      strap.position.set(0, hy, 0);
+      group.add(strap);
+    });
+    const ringGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 10);
+    [-0.24, 0.24].forEach((rx) => {
+      const ringF = new THREE.Mesh(ringGeo, steelMat);
+      ringF.position.set(rx, 0.92, 0.14);
+      const ringB = new THREE.Mesh(ringGeo, steelMat);
+      ringB.position.set(rx, 0.92, -0.14);
+      group.add(ringF, ringB);
+    });
+
+    // Flanking sharpened palisade logs on both sides of the gatehouse
+    const logGeo = new THREE.CylinderGeometry(0.16, 0.19, 1.75, 8);
+    const tipGeo = new THREE.ConeGeometry(0.165, 0.42, 8);
+    [-2.82, -2.46, -2.1, 2.1, 2.46, 2.82].forEach((lx, idx) => {
+      const hScale = 0.96 + (idx % 2) * 0.08;
       const log = new THREE.Mesh(logGeo, woodMat);
-      log.position.set(lx, 0.85, 0);
+      log.position.set(lx, 0.92 * hScale, 0);
+      log.scale.set(1, hScale, 1);
       log.castShadow = true;
-      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? metalMat : woodMat);
-      tip.position.set(lx, 1.84, 0);
+      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? steelMat : cutWoodMat);
+      tip.position.set(lx, 1.98 * hScale, 0);
       group.add(log, tip);
     });
   } else {
-    // Solid Square Perimeter Palisade Wall Segment (13 sharpened vertical timber logs + 2 crossbeams)
-    const logGeo = new THREE.CylinderGeometry(0.17, 0.21, 1.68, 6);
-    const tipGeo = new THREE.ConeGeometry(0.18, 0.38, 6);
-    const numLogs = 13;
+    // Realistic Timber Palisade Wall: 15 staggered round logs, bark collars, sharpened tips,
+    // iron-riveted horizontal waling beams, and rear diagonal timber buttresses
+    const logGeo = new THREE.CylinderGeometry(0.155, 0.19, 1.76, 8);
+    const collarGeo = new THREE.CylinderGeometry(0.17, 0.175, 0.14, 8);
+    const tipGeo = new THREE.ConeGeometry(0.16, 0.42, 8);
+    const numLogs = 15;
     for (let i = 0; i < numLogs; i++) {
-      const lx = -len * 0.45 + (i / (numLogs - 1)) * (len * 0.9);
-      const zJitter = (i % 2 === 0 ? 1 : -1) * 0.04;
-      const hScale = 0.94 + ((i * 7) % 3) * 0.05;
-      const log = new THREE.Mesh(logGeo, woodMat);
-      log.position.set(lx, 0.84 * hScale, zJitter);
+      const lx = -len * 0.46 + (i / (numLogs - 1)) * (len * 0.92);
+      const zJitter = (i % 2 === 0 ? 1 : -1) * 0.035;
+      const hScale = 0.92 + ((i * 5) % 4) * 0.055;
+      const log = new THREE.Mesh(logGeo, i % 3 === 0 ? barkMat : woodMat);
+      log.position.set(lx, 0.92 * hScale, zJitter);
       log.scale.set(1, hScale, 1);
       log.castShadow = true;
-      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? metalMat : woodMat);
-      tip.position.set(lx, 1.82 * hScale, zJitter);
-      group.add(log, tip);
+
+      const collar = new THREE.Mesh(collarGeo, barkMat);
+      collar.position.set(lx, 1.72 * hScale, zJitter);
+
+      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? steelMat : cutWoodMat);
+      tip.position.set(lx, 1.98 * hScale, zJitter);
+      group.add(log, collar, tip);
     }
 
-    const railLow = new THREE.Mesh(new THREE.BoxGeometry(len - 0.24, 0.18, 0.38), darkWoodMat);
-    railLow.position.set(0, 0.58, 0);
-    const railHigh = new THREE.Mesh(new THREE.BoxGeometry(len - 0.24, 0.18, 0.38), darkWoodMat);
-    railHigh.position.set(0, 1.24, 0);
+    // Twin horizontal timber waling beams with iron bolts
+    const railGeo = new THREE.BoxGeometry(len - 0.2, 0.18, 0.44);
+    const railLow = new THREE.Mesh(railGeo, barkMat);
+    railLow.position.set(0, 0.62, 0);
+    const railHigh = new THREE.Mesh(railGeo, barkMat);
+    railHigh.position.set(0, 1.34, 0);
     group.add(railLow, railHigh);
+
+    const rivetGeo = new THREE.BoxGeometry(0.09, 0.12, 0.5);
+    for (let r = -3; r <= 3; r++) {
+      const rx = r * (len * 0.13);
+      const riv1 = new THREE.Mesh(rivetGeo, ironMat);
+      riv1.position.set(rx, 0.62, 0);
+      const riv2 = new THREE.Mesh(rivetGeo, ironMat);
+      riv2.position.set(rx, 1.34, 0);
+      group.add(riv1, riv2);
+    }
+
+    // Diagonal rear structural buttress struts
+    const strutGeo = new THREE.CylinderGeometry(0.09, 0.11, 1.45, 6);
+    [-len * 0.3, 0, len * 0.3].forEach((sx) => {
+      const strutF = new THREE.Mesh(strutGeo, barkMat);
+      strutF.position.set(sx, 0.68, -0.36);
+      strutF.rotation.x = Math.PI / 5.5;
+      const strutB = new THREE.Mesh(strutGeo, barkMat);
+      strutB.position.set(sx, 0.68, 0.36);
+      strutB.rotation.x = -Math.PI / 5.5;
+      group.add(strutF, strutB);
+    });
   }
 
-  // Level 2 Upgrade: Outward-pointing Ironbark Spikes on both faces
+  // Level 2 Upgrade: Outward-pointing Ironbark & Steel Chevaux-de-Frise Pikes
   if (segment.level === 2) {
-    const spikeGeo = new THREE.ConeGeometry(0.11, 0.58, 5);
-    for (let i = -3; i <= 3; i++) {
-      const sx = i * 0.78;
-      const spFront = new THREE.Mesh(spikeGeo, metalMat);
-      spFront.position.set(sx, 0.72, 0.38);
-      spFront.rotation.x = Math.PI / 3;
-      const spBack = new THREE.Mesh(spikeGeo, metalMat);
-      spBack.position.set(sx, 0.72, -0.38);
-      spBack.rotation.x = -Math.PI / 3;
-      group.add(spFront, spBack);
+    const pikeShaftGeo = new THREE.CylinderGeometry(0.055, 0.075, 0.78, 6);
+    const pikeHeadGeo = new THREE.ConeGeometry(0.095, 0.34, 5);
+    const bracketBar = new THREE.Mesh(new THREE.BoxGeometry(len - 0.3, 0.14, 0.54), ironMat);
+    bracketBar.position.set(0, 0.75, 0);
+    group.add(bracketBar);
+
+    for (let i = -4; i <= 4; i++) {
+      const sx = i * 0.64;
+      // Front pike
+      const pFront = new THREE.Group();
+      pFront.position.set(sx, 0.76, 0.32);
+      pFront.rotation.x = Math.PI / 3.1;
+      const shaftF = new THREE.Mesh(pikeShaftGeo, barkMat);
+      const headF = new THREE.Mesh(pikeHeadGeo, steelMat);
+      headF.position.y = 0.52;
+      pFront.add(shaftF, headF);
+
+      // Rear pike
+      const pBack = new THREE.Group();
+      pBack.position.set(sx, 0.76, -0.32);
+      pBack.rotation.x = -Math.PI / 3.1;
+      const shaftB = new THREE.Mesh(pikeShaftGeo, barkMat);
+      const headB = new THREE.Mesh(pikeHeadGeo, steelMat);
+      headB.position.y = 0.52;
+      pBack.add(shaftB, headB);
+
+      group.add(pFront, pBack);
     }
   }
 
@@ -1231,12 +1517,24 @@ export function createBuildingModel(
   upgradePath: UpgradePathId
 ): THREE.Group {
   const group = new THREE.Group();
-  group.add(createContactShadow(1.35));
+  group.add(createContactShadow(1.48));
 
   const woodMat = new THREE.MeshStandardMaterial({
-    color: upgradePath === 'pathA' ? 0x7c2d12 : upgradePath === 'pathB' ? 0x365314 : 0x78472a,
-    roughness: 0.8,
-    metalness: 0.12,
+    color: upgradePath === 'pathA' ? 0x7c2d12 : upgradePath === 'pathB' ? 0x3f6212 : 0x8b542f,
+    roughness: 0.78,
+    metalness: 0.1,
+    flatShading: true,
+  });
+  const darkWoodMat = new THREE.MeshStandardMaterial({
+    color: 0x4a2c16,
+    roughness: 0.86,
+    metalness: 0.08,
+    flatShading: true,
+  });
+  const cutWoodMat = new THREE.MeshStandardMaterial({
+    color: 0xd99b66,
+    roughness: 0.68,
+    metalness: 0.05,
     flatShading: true,
   });
   const stoneMat = new THREE.MeshStandardMaterial({
@@ -1245,131 +1543,518 @@ export function createBuildingModel(
     metalness: 0.15,
     flatShading: true,
   });
+  const darkStoneMat = new THREE.MeshStandardMaterial({
+    color: 0x334155,
+    roughness: 0.88,
+    metalness: 0.2,
+    flatShading: true,
+  });
   const metalMat = new THREE.MeshStandardMaterial({
-    color: upgradePath === 'pathA' ? 0xf59e0b : upgradePath === 'pathB' ? 0x38bdf8 : 0x94a3b8,
-    roughness: 0.3,
-    metalness: 0.82,
+    color: upgradePath === 'pathA' ? 0xf59e0b : upgradePath === 'pathB' ? 0x38bdf8 : 0x475569,
+    roughness: 0.32,
+    metalness: 0.84,
+    flatShading: true,
+  });
+  const steelMat = new THREE.MeshStandardMaterial({
+    color: upgradePath === 'pathA' ? 0xfde047 : upgradePath === 'pathB' ? 0x7dd3fc : 0xe2e8f0,
+    roughness: 0.24,
+    metalness: 0.9,
     flatShading: true,
   });
   const greenMat = new THREE.MeshStandardMaterial({
-    color: 0x2d6a4f,
+    color: upgradePath === 'pathA' ? 0x991b1b : upgradePath === 'pathB' ? 0x0f766e : 0x1e4d3b,
     roughness: 0.72,
     metalness: 0.1,
     flatShading: true,
   });
+  const canvasMat = new THREE.MeshStandardMaterial({
+    color: upgradePath === 'pathA' ? 0xfef3c7 : 0xe2dacb,
+    roughness: 0.82,
+    metalness: 0.04,
+    flatShading: true,
+  });
 
   if (type === 'palisade') {
-    // Long palisade wall segment: 9 sharpened stakes + crossbar + iron spikes
-    const logGeo = new THREE.CylinderGeometry(0.16, 0.2, 1.55, 6);
-    const tipGeo = new THREE.ConeGeometry(0.17, 0.38, 6);
-    for (let i = -4; i <= 4; i++) {
-      const log = new THREE.Mesh(logGeo, woodMat);
-      log.position.set(i * 0.33, 0.78, (i % 2) * 0.08);
+    // Realistic Fortified Palisade Barricade:
+    // Stone curb + 11 staggered round timber logs with bark collars & sharpened tips +
+    // twin iron-strapped horizontal crossbeams + rear timber buttresses + front chevaux-de-frise spike rack
+    const baseCurb = new THREE.Mesh(new THREE.BoxGeometry(3.15, 0.22, 0.86), stoneMat);
+    baseCurb.position.y = 0.11;
+    baseCurb.receiveShadow = true;
+    group.add(baseCurb);
+
+    const logGeo = new THREE.CylinderGeometry(0.15, 0.185, 1.72, 8);
+    const tipGeo = new THREE.ConeGeometry(0.155, 0.42, 8);
+    const collarGeo = new THREE.CylinderGeometry(0.165, 0.17, 0.12, 8);
+    for (let i = -5; i <= 5; i++) {
+      const lx = i * 0.265;
+      const lz = (i % 2 === 0 ? 1 : -1) * 0.05;
+      const hScale = 0.92 + ((Math.abs(i) * 3) % 4) * 0.06;
+      const log = new THREE.Mesh(logGeo, i % 2 === 0 ? woodMat : darkWoodMat);
+      log.position.set(lx, 0.92 * hScale, lz);
+      log.scale.set(1, hScale, 1);
       log.castShadow = true;
-      const tip = new THREE.Mesh(tipGeo, upgradePath ? metalMat : woodMat);
-      tip.position.set(i * 0.33, 1.72, (i % 2) * 0.08);
-      group.add(log, tip);
+
+      const collar = new THREE.Mesh(collarGeo, darkWoodMat);
+      collar.position.set(lx, 1.7 * hScale, lz);
+
+      const tip = new THREE.Mesh(tipGeo, upgradePath ? steelMat : cutWoodMat);
+      tip.position.set(lx, 1.96 * hScale, lz);
+      group.add(log, collar, tip);
     }
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.22, 0.45), stoneMat);
-    beam.position.set(0, 0.65, 0);
-    group.add(beam);
-  } else if (type === 'watchtower') {
-    // 4 stilts + elevated platform + roof + crossbow turret
-    const legGeo = new THREE.CylinderGeometry(0.1, 0.14, 2.1, 6);
-    [
-      [-0.6, 1.05, -0.6],
-      [0.6, 1.05, -0.6],
-      [-0.6, 1.05, 0.6],
-      [0.6, 1.05, 0.6],
-    ].forEach(([lx, ly, lz]) => {
-      const leg = new THREE.Mesh(legGeo, woodMat);
-      leg.position.set(lx, ly, lz);
-      leg.castShadow = true;
-      group.add(leg);
+
+    // Twin horizontal waling beams + iron brackets
+    const beamLow = new THREE.Mesh(new THREE.BoxGeometry(3.05, 0.18, 0.42), darkWoodMat);
+    beamLow.position.set(0, 0.62, 0);
+    const beamHigh = new THREE.Mesh(new THREE.BoxGeometry(3.05, 0.18, 0.42), darkWoodMat);
+    beamHigh.position.set(0, 1.32, 0);
+    const ironBandLow = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.08, 0.46), metalMat);
+    ironBandLow.position.set(0, 0.62, 0);
+    const ironBandHigh = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.08, 0.46), metalMat);
+    ironBandHigh.position.set(0, 1.32, 0);
+    group.add(beamLow, beamHigh, ironBandLow, ironBandHigh);
+
+    // Rear angled support buttresses
+    const strutGeo = new THREE.CylinderGeometry(0.085, 0.11, 1.45, 6);
+    [-1.05, 0, 1.05].forEach((sx) => {
+      const strut = new THREE.Mesh(strutGeo, darkWoodMat);
+      strut.position.set(sx, 0.68, -0.38);
+      strut.rotation.x = Math.PI / 5;
+      group.add(strut);
     });
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.24, 1.65), woodMat);
-    deck.position.y = 2.1;
+
+    // Forward-angled defensive chevaux-de-frise pikes
+    const pikeShaftGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.88, 6);
+    const pikeTipGeo = new THREE.ConeGeometry(0.085, 0.32, 5);
+    for (let i = -3; i <= 3; i++) {
+      const pikeGroup = new THREE.Group();
+      pikeGroup.position.set(i * 0.42, 0.56, 0.34);
+      pikeGroup.rotation.x = Math.PI / 3.1;
+      const shaft = new THREE.Mesh(pikeShaftGeo, darkWoodMat);
+      const head = new THREE.Mesh(pikeTipGeo, steelMat);
+      head.position.y = 0.56;
+      pikeGroup.add(shaft, head);
+      group.add(pikeGroup);
+    }
+  } else if (type === 'watchtower') {
+    // Realistic Timber Guard Watchtower & Mounted Roof Ballista:
+    // 4 stone foundation piers + 4 heavy timber corner posts + diagonal X-bracing on all 4 sides +
+    // rear climbing ladder + crenellated wooden parapet battlements with shields +
+    // roof-mounted heavy crossbow/ballista weapon + 4-pillar shingled roof canopy
+    const pierGeo = new THREE.BoxGeometry(0.42, 0.36, 0.42);
+    const legGeo = new THREE.CylinderGeometry(0.13, 0.16, 2.25, 8);
+    const corners: [number, number][] = [
+      [-0.68, -0.68],
+      [0.68, -0.68],
+      [-0.68, 0.68],
+      [0.68, 0.68],
+    ];
+    corners.forEach(([lx, lz]) => {
+      const pier = new THREE.Mesh(pierGeo, stoneMat);
+      pier.position.set(lx, 0.18, lz);
+      pier.receiveShadow = true;
+      const leg = new THREE.Mesh(legGeo, darkWoodMat);
+      leg.position.set(lx, 1.25, lz);
+      leg.castShadow = true;
+      group.add(pier, leg);
+    });
+
+    // Diagonal X-braces on all 4 tower faces
+    const braceGeo = new THREE.BoxGeometry(1.55, 0.1, 0.1);
+    [-0.68, 0.68].forEach((zPos) => {
+      const b1 = new THREE.Mesh(braceGeo, woodMat);
+      b1.position.set(0, 1.15, zPos);
+      b1.rotation.z = Math.PI / 4.2;
+      const b2 = new THREE.Mesh(braceGeo, woodMat);
+      b2.position.set(0, 1.15, zPos);
+      b2.rotation.z = -Math.PI / 4.2;
+      group.add(b1, b2);
+    });
+    [-0.68, 0.68].forEach((xPos) => {
+      const b1 = new THREE.Mesh(braceGeo, woodMat);
+      b1.position.set(xPos, 1.15, 0);
+      b1.rotation.y = Math.PI / 2;
+      b1.rotation.z = Math.PI / 4.2;
+      const b2 = new THREE.Mesh(braceGeo, woodMat);
+      b2.position.set(xPos, 1.15, 0);
+      b2.rotation.y = Math.PI / 2;
+      b2.rotation.z = -Math.PI / 4.2;
+      group.add(b1, b2);
+    });
+
+    // Climbing ladder on rear face
+    const railGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.15, 6);
+    [-0.22, 0.22].forEach((rx) => {
+      const r = new THREE.Mesh(railGeo, cutWoodMat);
+      r.position.set(rx, 1.1, -0.78);
+      r.rotation.x = -0.08;
+      group.add(r);
+    });
+    const rungGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.46, 6);
+    for (let r = 0; r < 6; r++) {
+      const rung = new THREE.Mesh(rungGeo, cutWoodMat);
+      rung.rotation.z = Math.PI / 2;
+      rung.position.set(0, 0.35 + r * 0.32, -0.79);
+      group.add(rung);
+    }
+
+    // Elevated floor deck & support joists
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.22, 1.88), woodMat);
+    deck.position.y = 2.22;
     deck.castShadow = true;
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.45, 1.75), greenMat);
-    rail.position.y = 2.4;
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.35, 1.0, 4), metalMat);
-    roof.position.y = 3.35;
-    roof.rotation.y = Math.PI / 4;
-    roof.castShadow = true;
-    group.add(deck, rail, roof);
+    group.add(deck);
+
+    // Crenellated wooden parapet walls + merlons + round iron boss shields
+    const wallNSGeo = new THREE.BoxGeometry(1.94, 0.42, 0.14);
+    const wallEWGeo = new THREE.BoxGeometry(0.14, 0.42, 1.94);
+    [-0.88, 0.88].forEach((pos) => {
+      const wNS = new THREE.Mesh(wallNSGeo, darkWoodMat);
+      wNS.position.set(0, 2.52, pos);
+      const wEW = new THREE.Mesh(wallEWGeo, darkWoodMat);
+      wEW.position.set(pos, 2.52, 0);
+      group.add(wNS, wEW);
+    });
+    const merlonGeo = new THREE.BoxGeometry(0.34, 0.22, 0.18);
+    [-0.68, 0, 0.68].forEach((mx) => {
+      const mF = new THREE.Mesh(merlonGeo, woodMat);
+      mF.position.set(mx, 2.82, 0.88);
+      const mB = new THREE.Mesh(merlonGeo, woodMat);
+      mB.position.set(mx, 2.82, -0.88);
+      group.add(mF, mB);
+    });
+
+    // Mounted Rotating Heavy Ballista / Crossbow Turret on the Watchtower Deck
+    const ballistaGroup = new THREE.Group();
+    ballistaGroup.position.set(0, 2.35, 0);
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.42, 8), metalMat);
+    pedestal.position.y = 0.2;
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 1.35), darkWoodMat);
+    stock.position.set(0, 0.46, 0.12);
+    // Curved steel bow limbs
+    const limbGeo = new THREE.BoxGeometry(0.78, 0.1, 0.14);
+    const limbL = new THREE.Mesh(limbGeo, steelMat);
+    limbL.position.set(-0.42, 0.48, 0.62);
+    limbL.rotation.y = 0.32;
+    const limbR = new THREE.Mesh(limbGeo, steelMat);
+    limbR.position.set(0.42, 0.48, 0.62);
+    limbR.rotation.y = -0.32;
+    // Loaded iron-tipped ballista bolt
+    const boltShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.15, 6), cutWoodMat);
+    boltShaft.rotation.x = Math.PI / 2;
+    boltShaft.position.set(0, 0.56, 0.35);
+    const boltHead = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.26, 5), steelMat);
+    boltHead.rotation.x = Math.PI / 2;
+    boltHead.position.set(0, 0.56, 0.98);
+    ballistaGroup.add(pedestal, stock, limbL, limbR, boltShaft, boltHead);
+    group.add(ballistaGroup);
+
+    // 4-Pillar Open Canopy Roof so the Ballista is clearly visible inside
+    const roofPostGeo = new THREE.CylinderGeometry(0.075, 0.085, 1.15, 6);
+    corners.forEach(([lx, lz]) => {
+      const rp = new THREE.Mesh(roofPostGeo, darkWoodMat);
+      rp.position.set(lx * 1.12, 3.25, lz * 1.12);
+      group.add(rp);
+    });
+    const roofLower = new THREE.Mesh(new THREE.ConeGeometry(1.58, 0.68, 4), greenMat);
+    roofLower.position.y = 3.98;
+    roofLower.rotation.y = Math.PI / 4;
+    roofLower.castShadow = true;
+    const roofPeak = new THREE.Mesh(new THREE.ConeGeometry(1.02, 0.62, 4), metalMat);
+    roofPeak.position.y = 4.38;
+    roofPeak.rotation.y = Math.PI / 4;
+    const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.48, 6), steelMat);
+    spire.position.y = 4.78;
+    group.add(roofLower, roofPeak, spire);
   } else if (type === 'spiketrap') {
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.18, 1.85), woodMat);
-    frame.position.y = 0.12;
-    group.add(frame);
-    const spikeGeo = new THREE.ConeGeometry(0.14, 0.68, 5);
+    // Realistic Mechanical Ground Spike Trap:
+    // Bevelled timber & bolted iron hazard frame + recessed pit floor +
+    // crisscrossed iron grate bars + 9 spring-loaded barbed steel spikes with piston collars
+    const outerFrame = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.18, 2.05), darkWoodMat);
+    outerFrame.position.y = 0.09;
+    outerFrame.receiveShadow = true;
+    const innerPit = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.19, 1.68), darkStoneMat);
+    innerPit.position.y = 0.095;
+    group.add(outerFrame, innerPit);
+
+    // Corner iron hazard brackets & rivets
+    const cornerPlateGeo = new THREE.BoxGeometry(0.38, 0.21, 0.38);
+    [
+      [-0.86, -0.86],
+      [0.86, -0.86],
+      [-0.86, 0.86],
+      [0.86, 0.86],
+    ].forEach(([cx, cz]) => {
+      const cp = new THREE.Mesh(cornerPlateGeo, metalMat);
+      cp.position.set(cx, 0.105, cz);
+      group.add(cp);
+    });
+
+    // Wrought-iron grate bars across the pit
+    const barGeo = new THREE.BoxGeometry(1.74, 0.05, 0.08);
+    [-0.54, 0, 0.54].forEach((offset) => {
+      const bX = new THREE.Mesh(barGeo, metalMat);
+      bX.position.set(0, 0.19, offset);
+      const bZ = new THREE.Mesh(barGeo, metalMat);
+      bZ.rotation.y = Math.PI / 2;
+      bZ.position.set(offset, 0.19, 0);
+      group.add(bX, bZ);
+    });
+
+    // 3x3 array of mechanical spring-loaded steel spikes with serrated barbs
+    const springBaseGeo = new THREE.CylinderGeometry(0.14, 0.16, 0.16, 8);
+    const spikeShaftGeo = new THREE.CylinderGeometry(0.05, 0.11, 0.48, 6);
+    const spikeTipGeo = new THREE.ConeGeometry(0.11, 0.38, 6);
     for (let x = -1; x <= 1; x++) {
       for (let z = -1; z <= 1; z++) {
-        const sp = new THREE.Mesh(spikeGeo, metalMat);
-        sp.position.set(x * 0.52, 0.48, z * 0.52);
-        group.add(sp);
+        const sx = x * 0.54;
+        const sz = z * 0.54;
+        const collar = new THREE.Mesh(springBaseGeo, metalMat);
+        collar.position.set(sx, 0.22, sz);
+        const shaft = new THREE.Mesh(spikeShaftGeo, darkStoneMat);
+        shaft.position.set(sx, 0.46, sz);
+        const tip = new THREE.Mesh(spikeTipGeo, steelMat);
+        tip.position.set(sx, 0.82, sz);
+        tip.castShadow = true;
+        group.add(collar, shaft, tip);
       }
     }
   } else if (type === 'campfire') {
-    // Circle of stones + crisscrossed logs + glowing multi-layered flame
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 0), stoneMat);
-      rock.position.set(Math.cos(a) * 0.85, 0.18, Math.sin(a) * 0.85);
+    // Realistic Ranger Hearth & Cooking Tripod Cauldron:
+    // Paved flagstone circle + 12 sculpted river boulders + glowing red-hot ember bed +
+    // 6 split oak firewood logs + multi-layered flickering flame + wrought-iron tripod & hanging stew pot
+    const hearthSlab = new THREE.Mesh(new THREE.CylinderGeometry(1.18, 1.25, 0.1, 12), darkStoneMat);
+    hearthSlab.position.y = 0.05;
+    hearthSlab.receiveShadow = true;
+    group.add(hearthSlab);
+
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const rScale = 0.88 + (i % 3) * 0.14;
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 0), stoneMat);
+      rock.position.set(Math.cos(a) * 0.92, 0.18, Math.sin(a) * 0.92);
+      rock.scale.set(rScale, 0.78, rScale);
+      rock.rotation.set(i * 0.5, a, 0);
+      rock.castShadow = true;
       group.add(rock);
     }
-    for (let i = 0; i < 4; i++) {
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 1.3, 6), woodMat);
-      log.position.y = 0.26;
-      log.rotation.z = Math.PI / 2.4;
-      log.rotation.y = (i * Math.PI) / 4;
-      group.add(log);
-    }
-    const flameMat = new THREE.MeshStandardMaterial({
-      color: 0xffedd5,
-      emissive: upgradePath === 'pathB' ? 0xf97316 : 0xf59e0b,
-      emissiveIntensity: 2.5,
-      roughness: 0.2,
+
+    // Glowing coal & ember bed
+    const emberMat = new THREE.MeshStandardMaterial({
+      color: 0xfef08a,
+      emissive: 0xea580c,
+      emissiveIntensity: 2.2,
+      roughness: 0.3,
       flatShading: true,
     });
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.52, 1.25, 6), flameMat);
-    flame.position.y = 0.82;
-    group.add(flame);
+    const emberBed = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.76, 0.14, 10), emberMat);
+    emberBed.position.y = 0.12;
+    group.add(emberBed);
+
+    // 6 radial split oak logs with cut ends
+    const fireLogGeo = new THREE.CylinderGeometry(0.1, 0.12, 1.38, 7);
+    for (let i = 0; i < 6; i++) {
+      const log = new THREE.Mesh(fireLogGeo, i % 2 === 0 ? woodMat : darkWoodMat);
+      log.position.y = 0.28;
+      log.rotation.z = Math.PI / 2.45;
+      log.rotation.y = (i * Math.PI) / 3;
+      log.castShadow = true;
+      group.add(log);
+    }
+
+    // Multi-layered outer & inner flames
+    const outerFlameMat = new THREE.MeshStandardMaterial({
+      color: 0xffedd5,
+      emissive: upgradePath === 'pathB' ? 0xea580c : 0xf59e0b,
+      emissiveIntensity: 2.8,
+      roughness: 0.18,
+      flatShading: true,
+    });
+    const innerFlameMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfef08a,
+      emissiveIntensity: 3.4,
+      roughness: 0.1,
+      flatShading: true,
+    });
+    const flameMain = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.05, 7), outerFlameMat);
+    flameMain.position.y = 0.68;
+    const flameCore = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.72, 6), innerFlameMat);
+    flameCore.position.y = 0.62;
+    group.add(flameMain, flameCore);
+    for (let f = 0; f < 3; f++) {
+      const fa = (f * Math.PI * 2) / 3 + 0.4;
+      const tongue = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 5), outerFlameMat);
+      tongue.position.set(Math.cos(fa) * 0.26, 0.52, Math.sin(fa) * 0.26);
+      tongue.rotation.z = -Math.cos(fa) * 0.22;
+      tongue.rotation.x = Math.sin(fa) * 0.22;
+      group.add(tongue);
+    }
+
+    // Wrought-iron cooking tripod & suspended stew cauldron over the fire
+    const tripodPoleGeo = new THREE.CylinderGeometry(0.035, 0.045, 2.25, 6);
+    for (let t = 0; t < 3; t++) {
+      const ta = (t * Math.PI * 2) / 3;
+      const pole = new THREE.Mesh(tripodPoleGeo, darkStoneMat);
+      pole.position.set(Math.cos(ta) * 0.52, 0.98, Math.sin(ta) * 0.52);
+      pole.lookAt(0, 1.98, 0);
+      pole.rotateX(Math.PI / 2);
+      group.add(pole);
+    }
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.58, 6), steelMat);
+    chain.position.y = 1.62;
+    const potBody = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), darkStoneMat);
+    potBody.position.y = 1.26;
+    potBody.scale.set(1, 0.82, 1);
+    const potRim = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.04, 6, 12), metalMat);
+    potRim.rotation.x = Math.PI / 2;
+    potRim.position.y = 1.42;
+    group.add(chain, potBody, potRim);
   } else if (type === 'catapult') {
-    const baseFrame = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.32, 1.9), woodMat);
-    baseFrame.position.y = 0.22;
-    baseFrame.castShadow = true;
-    const uprightL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.25, 0.28), woodMat);
-    uprightL.position.set(-0.58, 0.85, 0);
-    const uprightR = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.25, 0.28), woodMat);
-    uprightR.position.set(0.58, 0.85, 0);
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 1.75), metalMat);
-    arm.position.set(0, 1.15, -0.2);
-    arm.rotation.x = 0.38;
-    const boulder = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.36, 0),
+    // Realistic Wheeled Siege Onager / Catapult:
+    // Heavy timber chassis + 4 iron-rimmed spoked siege wheels + twin A-frame uprights +
+    // twisted rope torsion bundle + rear ratcheted winch drum + heavy throwing arm with cupped iron spoon & boulder
+    const beamGeo = new THREE.BoxGeometry(0.24, 0.28, 2.25);
+    [-0.64, 0.64].forEach((bx) => {
+      const beam = new THREE.Mesh(beamGeo, darkWoodMat);
+      beam.position.set(bx, 0.38, 0);
+      beam.castShadow = true;
+      group.add(beam);
+    });
+    const crossBeamGeo = new THREE.BoxGeometry(1.56, 0.24, 0.26);
+    [-0.85, 0, 0.85].forEach((bz) => {
+      const cb = new THREE.Mesh(crossBeamGeo, woodMat);
+      cb.position.set(0, 0.38, bz);
+      group.add(cb);
+    });
+
+    // 4 Iron-rimmed spoked siege wheels + axles
+    const axleGeo = new THREE.CylinderGeometry(0.07, 0.07, 1.88, 8);
+    [-0.68, 0.68].forEach((az) => {
+      const axle = new THREE.Mesh(axleGeo, darkWoodMat);
+      axle.rotation.z = Math.PI / 2;
+      axle.position.set(0, 0.34, az);
+      group.add(axle);
+
+      [-0.86, 0.86].forEach((wx) => {
+        const wGroup = new THREE.Group();
+        wGroup.position.set(wx, 0.34, az);
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.06, 6, 12), metalMat);
+        rim.rotation.y = Math.PI / 2;
+        const disk = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.09, 10), woodMat);
+        disk.rotation.z = Math.PI / 2;
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.16, 8), steelMat);
+        hub.rotation.z = Math.PI / 2;
+        const spoke1 = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.56, 0.06), darkWoodMat);
+        const spoke2 = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.06, 0.56), darkWoodMat);
+        wGroup.add(rim, disk, hub, spoke1, spoke2);
+        group.add(wGroup);
+      });
+    });
+
+    // Twin A-frame stanchions & padded crossbar stop
+    const stanchionGeo = new THREE.BoxGeometry(0.2, 1.35, 0.24);
+    [-0.58, 0.58].forEach((sx) => {
+      const stF = new THREE.Mesh(stanchionGeo, woodMat);
+      stF.position.set(sx, 0.96, 0.28);
+      stF.rotation.x = -0.22;
+      stF.castShadow = true;
+      const stB = new THREE.Mesh(stanchionGeo, woodMat);
+      stB.position.set(sx, 0.96, -0.18);
+      stB.rotation.x = 0.24;
+      stB.castShadow = true;
+      group.add(stF, stB);
+    });
+    const stopBar = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.26, 0.3), metalMat);
+    stopBar.position.set(0, 1.48, 0.18);
+    group.add(stopBar);
+
+    // Torsion rope bundle & rear winch drum
+    const torsion = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.38, 8), canvasMat);
+    torsion.rotation.z = Math.PI / 2;
+    torsion.position.set(0, 0.62, 0.12);
+    const winch = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1.25, 8), darkWoodMat);
+    winch.rotation.z = Math.PI / 2;
+    winch.position.set(0, 0.56, -0.82);
+    group.add(torsion, winch);
+
+    // Throwing arm + cupped iron spoon + loaded boulder / brimstone fire-pot
+    const armGroup = new THREE.Group();
+    armGroup.position.set(0, 0.64, 0.12);
+    armGroup.rotation.x = -0.58;
+    const armBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 1.85, 8), woodMat);
+    armBeam.position.set(0, 0.85, 0);
+    armBeam.castShadow = true;
+    const spoonRim = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.22, 0.22, 10), metalMat);
+    spoonRim.position.set(0, 1.78, -0.08);
+    spoonRim.rotation.x = Math.PI / 2;
+    const payloadMat =
       upgradePath === 'pathA'
         ? new THREE.MeshStandardMaterial({
             color: 0xfef08a,
             emissive: 0xea580c,
-            emissiveIntensity: 1.8,
+            emissiveIntensity: 2.0,
             flatShading: true,
           })
-        : stoneMat
-    );
-    boulder.position.set(0, 1.48, -0.82);
-    group.add(baseFrame, uprightL, uprightR, arm, boulder);
+        : stoneMat;
+    const boulder = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 0), payloadMat);
+    boulder.position.set(0, 1.78, 0.14);
+    boulder.castShadow = true;
+    armGroup.add(armBeam, spoonRim, boulder);
+    group.add(armGroup);
   } else if (type === 'guardtent') {
-    // A-frame ranger tent + wooden totem + banner
-    const tentGeo = new THREE.ConeGeometry(1.25, 1.75, 4);
-    const tent = new THREE.Mesh(tentGeo, greenMat);
-    tent.position.y = 0.9;
-    tent.rotation.y = Math.PI / 4;
-    tent.castShadow = true;
-    const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.95, 0.2), woodMat);
-    ridge.position.set(0, 0.98, 0.85);
-    const crest = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.35, 0.12), metalMat);
-    crest.position.set(0, 1.65, 0.92);
-    group.add(tent, ridge, crest);
+    // Realistic Ranger Command Tent & Tripod Crossbow Post:
+    // Timber deck + pitched A-frame canvas tent with ridgepole & gold trim +
+    // forward-mounted Ranger tripod crossbow at tent entrance + weapon rack & supply crate + banner flagpole
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.16, 2.1), darkWoodMat);
+    deck.position.y = 0.08;
+    deck.receiveShadow = true;
+    group.add(deck);
+
+    // Pitched A-frame canvas tent body (triangular prism using 3-sided cylinder rotated)
+    const tentRoofGeo = new THREE.CylinderGeometry(1.18, 1.18, 1.72, 3);
+    const tentRoof = new THREE.Mesh(tentRoofGeo, greenMat);
+    tentRoof.rotation.x = Math.PI / 2;
+    tentRoof.rotation.z = Math.PI; // flat bottom, peak on top
+    tentRoof.scale.set(1.15, 1.0, 0.95);
+    tentRoof.position.set(-0.12, 0.72, -0.1);
+    tentRoof.castShadow = true;
+    group.add(tentRoof);
+
+    // Tent canvas flaps & wooden ridgepole + uprights
+    const ridgePole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.98, 6), cutWoodMat);
+    ridgePole.rotation.x = Math.PI / 2;
+    ridgePole.position.set(-0.12, 1.32, -0.1);
+    const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 1.36, 6), darkWoodMat);
+    frontPost.position.set(-0.12, 0.68, 0.78);
+    const backPost = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 1.36, 6), darkWoodMat);
+    backPost.position.set(-0.12, 0.68, -0.96);
+    group.add(ridgePole, frontPost, backPost);
+
+    // Forward-mounted Ranger Tripod Crossbow Turret guarding the tent entrance
+    const turret = new THREE.Group();
+    turret.position.set(0.58, 0.16, 0.62);
+    const stand = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.62, 4), darkWoodMat);
+    stand.position.y = 0.31;
+    const xbowBody = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.78), woodMat);
+    xbowBody.position.set(0, 0.64, 0.1);
+    const xbowArc = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.08, 0.12), steelMat);
+    xbowArc.position.set(0, 0.66, 0.42);
+    turret.add(stand, xbowBody, xbowArc);
+    group.add(turret);
+
+    // Side supply crate & quiver barrel
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.46), woodMat);
+    crate.position.set(0.72, 0.36, -0.45);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.48, 8), darkWoodMat);
+    barrel.position.set(0.72, 0.38, 0.04);
+    group.add(crate, barrel);
+
+    // Tall Heraldic Ranger Flagpole & Banner
+    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.45, 6), cutWoodMat);
+    flagPole.position.set(-0.78, 1.28, 0.68);
+    const flagCloth = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.42, 0.06), metalMat);
+    flagCloth.position.set(-0.42, 2.18, 0.68);
+    group.add(flagPole, flagCloth);
   }
 
   return group;
@@ -2048,52 +2733,300 @@ export function createZombieModel(
   return group;
 }
 
+export function createWoodBridgeModel(): THREE.Group {
+  const group = new THREE.Group();
+  const beamMat = new THREE.MeshStandardMaterial({
+    color: 0x5c3a21,
+    roughness: 0.9,
+    envMapIntensity: 0.16,
+  });
+  const plankMat = new THREE.MeshStandardMaterial({
+    color: 0x8b5a2b,
+    roughness: 0.86,
+    envMapIntensity: 0.18,
+  });
+  const ironMat = new THREE.MeshStandardMaterial({
+    color: 0x334155,
+    roughness: 0.45,
+    metalness: 0.72,
+  });
+
+  // Two longitudinal side support stringers spanning the ditch (along Z)
+  const stringerL = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 2.75), beamMat);
+  stringerL.position.set(-1.55, 0.08, 0);
+  stringerL.receiveShadow = true;
+  const stringerR = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 2.75), beamMat);
+  stringerR.position.set(1.55, 0.08, 0);
+  stringerR.receiveShadow = true;
+  group.add(stringerL, stringerR);
+
+  // 9 weathered horizontal deck planks spanning across the road width
+  for (let i = 0; i < 9; i++) {
+    const pz = -1.2 + i * 0.3;
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.09, 0.24), plankMat);
+    plank.position.set(0, 0.14, pz);
+    plank.rotation.y = ((i % 3) - 1) * 0.012;
+    plank.castShadow = true;
+    plank.receiveShadow = true;
+    group.add(plank);
+  }
+
+  // 4 corner railing posts & side timber rails
+  const postCoords = [
+    [-1.62, -1.18],
+    [1.62, -1.18],
+    [-1.62, 1.18],
+    [1.62, 1.18],
+  ];
+  postCoords.forEach(([px, pz]) => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.82, 6), beamMat);
+    post.position.set(px, 0.46, pz);
+    post.castShadow = true;
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.08, 0.26), ironMat);
+    cap.position.set(px, 0.88, pz);
+    group.add(post, cap);
+  });
+
+  const railL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 2.5), plankMat);
+  railL.position.set(-1.62, 0.72, 0);
+  railL.castShadow = true;
+  const railR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 2.5), plankMat);
+  railR.position.set(1.62, 0.72, 0);
+  railR.castShadow = true;
+  group.add(railL, railR);
+
+  return group;
+}
+
+export function createCornfieldDecorModel(soilTex: THREE.CanvasTexture): THREE.Group {
+  const group = new THREE.Group();
+
+  // Raised dark tilled furrow soil bed (8.8m wide x 6.6m deep)
+  const bedBase = new THREE.Mesh(
+    new THREE.BoxGeometry(9.1, 0.14, 6.9),
+    new THREE.MeshStandardMaterial({ color: 0x4b301b, roughness: 0.94, envMapIntensity: 0.14 })
+  );
+  bedBase.position.y = 0.05;
+  bedBase.receiveShadow = true;
+  group.add(bedBase);
+
+  const soilTop = new THREE.Mesh(
+    new THREE.PlaneGeometry(8.8, 6.6),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: soilTex,
+      roughness: 0.92,
+      envMapIntensity: 0.12,
+    })
+  );
+  soilTop.rotation.x = -Math.PI / 2;
+  soilTop.position.y = 0.125;
+  soilTop.receiveShadow = true;
+  group.add(soilTop);
+
+  // Raised soil ridges (6 long agricultural rows)
+  const ridgeMat = new THREE.MeshStandardMaterial({ color: 0x4f321c, roughness: 0.94 });
+  for (let r = 0; r < 6; r++) {
+    const rz = -2.35 + r * 0.94;
+    const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 8.2, 6), ridgeMat);
+    ridge.rotation.z = Math.PI / 2;
+    ridge.scale.set(0.6, 1, 1.3);
+    ridge.position.set(0, 0.14, rz);
+    ridge.receiveShadow = true;
+    group.add(ridge);
+  }
+
+  // Rustic wooden split-rail border fencing along back & side edges (leaving front open toward fort)
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 });
+  const postPositions: [number, number][] = [
+    [-4.55, -3.45],
+    [-2.28, -3.45],
+    [0, -3.45],
+    [2.28, -3.45],
+    [4.55, -3.45],
+    [-4.55, -1.15],
+    [-4.55, 1.15],
+    [-4.55, 3.45],
+    [4.55, -1.15],
+    [4.55, 1.15],
+    [4.55, 3.45],
+  ];
+  postPositions.forEach(([px, pz]) => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.95, 6), woodMat);
+    post.position.set(px, 0.48, pz);
+    post.castShadow = true;
+    group.add(post);
+  });
+
+  // Back top & bottom rails
+  [0.74, 0.4].forEach((ry) => {
+    const backRail = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.08, 0.09), woodMat);
+    backRail.position.set(0, ry, -3.45);
+    backRail.castShadow = true;
+    const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 7.0), woodMat);
+    leftRail.position.set(-4.55, ry, 0);
+    leftRail.castShadow = true;
+    const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 7.0), woodMat);
+    rightRail.position.set(4.55, ry, 0);
+    rightRail.castShadow = true;
+    group.add(backRail, leftRail, rightRail);
+  });
+
+  // Spooky-Cute Scarecrow in the center-back of the cornfield
+  const scarecrow = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.35, 6), woodMat);
+  pole.position.y = 1.18;
+  pole.castShadow = true;
+  const crossArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.65, 6), woodMat);
+  crossArm.rotation.z = Math.PI / 2;
+  crossArm.position.y = 1.65;
+  crossArm.castShadow = true;
+  const coat = new THREE.Mesh(
+    new THREE.ConeGeometry(0.45, 0.98, 7),
+    new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.85, flatShading: true })
+  );
+  coat.position.y = 1.38;
+  coat.castShadow = true;
+  const pumpkinHead = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(0.28, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0xf97316,
+      emissive: 0xea580c,
+      emissiveIntensity: 0.35,
+      roughness: 0.55,
+    })
+  );
+  pumpkinHead.position.y = 2.08;
+  pumpkinHead.castShadow = true;
+  const strawHatBrim = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5, 0.54, 0.06, 10),
+    new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.82 })
+  );
+  strawHatBrim.position.y = 2.3;
+  const strawHatTop = new THREE.Mesh(
+    new THREE.ConeGeometry(0.3, 0.42, 10),
+    new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.82 })
+  );
+  strawHatTop.position.y = 2.52;
+  scarecrow.add(pole, crossArm, coat, pumpkinHead, strawHatBrim, strawHatTop);
+  scarecrow.position.set(0.2, 0.1, -0.4);
+  group.add(scarecrow);
+
+  // Two overflow corn crates near the front edge of the cornfield
+  const crateMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.86 });
+  const cobMat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    emissive: 0xca8a04,
+    emissiveIntensity: 0.25,
+    roughness: 0.48,
+  });
+  [-2.8, 2.9].forEach((cx) => {
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.52, 0.65), crateMat);
+    crate.position.set(cx, 0.36, 3.05);
+    crate.castShadow = true;
+    group.add(crate);
+    for (let c = 0; c < 4; c++) {
+      const cob = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.42, 7), cobMat);
+      cob.rotation.z = Math.PI / 2 + (c % 2 === 0 ? 0.2 : -0.2);
+      cob.rotation.y = c * 0.6;
+      cob.position.set(cx + (c - 1.5) * 0.14, 0.65, 3.05 + ((c % 2) - 0.5) * 0.14);
+      group.add(cob);
+    }
+  });
+
+  return group;
+}
+
 export function createResourceNodeModel(type: ResourceType): THREE.Group {
   const group = new THREE.Group();
-  group.add(createContactShadow(1.15));
+  group.add(createContactShadow(1.25));
+
+  // Unmistakable subtle glowing ground ring to distinguish interactive nodes from decorative forest props
+  const ringColor =
+    type === 'wood' ? 0xf59e0b : type === 'stone' ? 0x93c5fd : 0xfacc15;
+  const beaconRing = new THREE.Mesh(
+    new THREE.RingGeometry(1.02, 1.2, 24).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({
+      color: ringColor,
+      transparent: true,
+      opacity: 0.68,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  beaconRing.position.y = 0.045;
+  group.add(beaconRing);
 
   if (type === 'wood') {
+    // Unmistakable Woodcutter's Stacked Timber Pile + Chopping Stump with Embedded Axe (no pine tree camouflage)
     const barkMat = new THREE.MeshStandardMaterial({
-      color: 0x7c5338,
-      roughness: 0.9,
+      color: 0x7c4a26,
+      roughness: 0.88,
       envMapIntensity: 0.18,
     });
     const heartwoodMat = new THREE.MeshStandardMaterial({
-      color: 0xe6c280,
-      roughness: 0.72,
-      envMapIntensity: 0.15,
+      color: 0xfde68a,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.16,
+      roughness: 0.62,
+      envMapIntensity: 0.2,
     });
-    const pineNeedlesMat = new THREE.MeshStandardMaterial({
-      color: 0x134e3f,
-      roughness: 0.85,
-      envMapIntensity: 0.18,
+    const ironMat = new THREE.MeshStandardMaterial({
+      color: 0xcbd5e1,
+      roughness: 0.28,
+      metalness: 0.85,
     });
-    const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.72, 0.62, 8), barkMat);
-    stump.position.set(-0.22, 0.31, -0.1);
+
+    // Pyramid stack of 3 horizontal cut logs with bright golden cut ends
+    const logCoords: [number, number, number][] = [
+      [-0.2, 0.22, 0.12],
+      [0.24, 0.22, 0.16],
+      [0.02, 0.55, 0.14],
+    ];
+    logCoords.forEach(([lx, ly, lz]) => {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.23, 1.38, 8), barkMat);
+      log.rotation.x = Math.PI / 2;
+      log.rotation.z = 0.18;
+      log.position.set(lx, ly, lz);
+      log.castShadow = true;
+      group.add(log);
+
+      const capFront = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.04, 8), heartwoodMat);
+      capFront.rotation.x = Math.PI / 2;
+      capFront.rotation.z = 0.18;
+      capFront.position.set(lx - Math.sin(0.18) * 0.68, ly, lz + Math.cos(0.18) * 0.68);
+      group.add(capFront);
+
+      const capBack = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.04, 8), heartwoodMat);
+      capBack.rotation.x = Math.PI / 2;
+      capBack.rotation.z = 0.18;
+      capBack.position.set(lx + Math.sin(0.18) * 0.68, ly, lz - Math.cos(0.18) * 0.68);
+      group.add(capBack);
+    });
+
+    // Thick chopping stump + embedded woodcutter axe
+    const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.6, 0.66, 9), barkMat);
+    stump.position.set(-0.56, 0.33, -0.34);
     stump.castShadow = true;
-    const ringTop = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.05, 8), heartwoodMat);
-    ringTop.position.set(-0.22, 0.63, -0.1);
-    const log1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.35, 8), barkMat);
-    log1.position.set(0.32, 0.22, 0.32);
-    log1.rotation.z = Math.PI / 2;
-    log1.rotation.y = 0.5;
-    log1.castShadow = true;
-    // Young pine sapling sprouting beside the timber stump
-    const saplingTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 1.15, 7), barkMat);
-    saplingTrunk.position.set(0.38, 0.56, -0.28);
-    const saplingCone1 = new THREE.Mesh(new THREE.ConeGeometry(0.68, 1.1, 8), pineNeedlesMat);
-    saplingCone1.position.set(0.38, 1.15, -0.28);
-    saplingCone1.castShadow = true;
-    const saplingCone2 = new THREE.Mesh(new THREE.ConeGeometry(0.48, 0.85, 8), pineNeedlesMat);
-    saplingCone2.position.set(0.38, 1.68, -0.28);
-    saplingCone2.castShadow = true;
-    group.add(stump, ringTop, log1, saplingTrunk, saplingCone1, saplingCone2);
+    const stumpTop = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.05, 9), heartwoodMat);
+    stumpTop.position.set(-0.56, 0.67, -0.34);
+    const axeHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.06, 0.78, 6),
+      new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.75 })
+    );
+    axeHandle.position.set(-0.48, 1.0, -0.26);
+    axeHandle.rotation.z = -0.36;
+    axeHandle.rotation.x = 0.2;
+    const axeBlade = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.07), ironMat);
+    axeBlade.position.set(-0.56, 0.76, -0.32);
+    axeBlade.rotation.z = -0.36;
+    group.add(stump, stumpTop, axeHandle, axeBlade);
   } else if (type === 'stone') {
     const rockMat = new THREE.MeshStandardMaterial({
       color: 0x64748b,
-      roughness: 0.86,
-      metalness: 0.12,
-      envMapIntensity: 0.2,
+      roughness: 0.84,
+      metalness: 0.14,
+      envMapIntensity: 0.24,
       flatShading: true,
     });
     const darkRockMat = new THREE.MeshStandardMaterial({
@@ -2103,53 +3036,100 @@ export function createResourceNodeModel(type: ResourceType): THREE.Group {
       envMapIntensity: 0.18,
       flatShading: true,
     });
+    const quartzMat = new THREE.MeshStandardMaterial({
+      color: 0xbae6fd,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 0.25,
+      roughness: 0.25,
+      metalness: 0.2,
+    });
     const r1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.72, 0), rockMat);
-    r1.position.set(-0.15, 0.45, 0);
-    r1.scale.set(1.15, 0.85, 1.05);
+    r1.position.set(-0.15, 0.46, 0);
+    r1.scale.set(1.18, 0.88, 1.05);
     r1.castShadow = true;
-    const r2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5, 0), darkRockMat);
-    r2.position.set(0.46, 0.32, 0.26);
+    const r2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.52, 0), darkRockMat);
+    r2.position.set(0.48, 0.34, 0.28);
     r2.castShadow = true;
-    const r3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.38, 0), rockMat);
-    r3.position.set(0.18, 0.26, -0.42);
+    const r3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4, 0), rockMat);
+    r3.position.set(0.18, 0.28, -0.44);
     r3.castShadow = true;
-    group.add(r1, r2, r3);
+    const shard1 = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.56, 5), quartzMat);
+    shard1.position.set(-0.18, 0.98, 0.08);
+    shard1.rotation.z = 0.22;
+    const shard2 = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.42, 5), quartzMat);
+    shard2.position.set(0.16, 0.78, -0.15);
+    shard2.rotation.z = -0.28;
+    group.add(r1, r2, r3, shard1, shard2);
   } else {
-    // Food: Lush Woodland Berry Bush
-    const bushMat = new THREE.MeshStandardMaterial({
-      color: 0x245e32,
-      roughness: 0.86,
+    // Food: Unmistakable Golden Corn & Crimson Apple Harvest Stand (high contrast against green turf)
+    const crateWoodMat = new THREE.MeshStandardMaterial({
+      color: 0x92400e,
+      roughness: 0.85,
       envMapIntensity: 0.16,
-      flatShading: true,
     });
-    const berryMat = new THREE.MeshStandardMaterial({
-      color: 0xe11d48,
-      emissive: 0x9f1239,
-      emissiveIntensity: 0.35,
-      roughness: 0.35,
+    const goldenCornMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      emissive: 0xca8a04,
+      emissiveIntensity: 0.28,
+      roughness: 0.45,
     });
-    const b1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.62, 1), bushMat);
-    b1.position.set(0, 0.46, 0);
-    b1.castShadow = true;
-    const b2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.46, 1), bushMat);
-    b2.position.set(0.44, 0.35, 0.22);
-    const b3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4, 1), bushMat);
-    b3.position.set(-0.38, 0.32, 0.24);
-    group.add(b1, b2, b3);
+    const huskMat = new THREE.MeshStandardMaterial({
+      color: 0x65a30d,
+      roughness: 0.72,
+    });
+    const appleMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xb91c1c,
+      emissiveIntensity: 0.3,
+      roughness: 0.32,
+    });
 
-    const berryOffsets = [
-      [-0.25, 0.72, 0.35],
-      [0.18, 0.82, 0.22],
-      [0.35, 0.58, -0.25],
-      [-0.32, 0.55, -0.28],
-      [0.52, 0.52, 0.38],
+    // Rustic wooden harvest crate filled with bright red apples
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.52, 0.74), crateWoodMat);
+    crate.position.set(-0.18, 0.28, 0.16);
+    crate.rotation.y = 0.25;
+    crate.castShadow = true;
+    group.add(crate);
+
+    const appleCoords: [number, number, number][] = [
+      [-0.36, 0.62, 0.04],
+      [-0.14, 0.65, 0.24],
+      [0.06, 0.61, 0.08],
+      [-0.24, 0.74, 0.14],
+      [-0.04, 0.73, 0.22],
+      [-0.32, 0.61, 0.32],
     ];
-    berryOffsets.forEach(([bx, by, bz]) => {
-      const berry = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), berryMat);
-      berry.position.set(bx, by, bz);
-      group.add(berry);
+    appleCoords.forEach(([ax, ay, az]) => {
+      const apple = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), appleMat);
+      apple.position.set(ax, ay, az);
+      apple.castShadow = true;
+      group.add(apple);
+    });
+
+    // Tall bright golden Corn Stalks & Golden Ears of Corn standing beside the crate
+    const cobCoords: [number, number, number, number][] = [
+      [0.44, 0.64, -0.18, 0.12],
+      [0.62, 0.56, 0.14, -0.18],
+      [0.24, 0.72, -0.34, 0.06],
+    ];
+    cobCoords.forEach(([cx, cy, cz, tilt]) => {
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.35, 6), huskMat);
+      stalk.position.set(cx, 0.68, cz);
+      stalk.rotation.z = tilt;
+      stalk.castShadow = true;
+
+      const cob = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.48, 8), goldenCornMat);
+      cob.position.set(cx + tilt * 0.25, cy + 0.15, cz + 0.08);
+      cob.rotation.z = tilt - 0.35;
+      cob.castShadow = true;
+
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.52, 4), huskMat);
+      leaf.position.set(cx - 0.12, cy + 0.08, cz);
+      leaf.rotation.z = 0.75;
+      group.add(stalk, cob, leaf);
     });
   }
 
   return group;
 }
+

@@ -548,6 +548,7 @@ export function createInitialFenceSegments(): FenceSegment[] {
 }
 
 export const NIGHT_BUILD_LOCKED_MESSAGE = 'Night has fallen — defend the fort!';
+export const FLARE_NIGHT_LOCKED_MESSAGE = 'Lantern Flare can only be used at night!';
 
 /**
  * Locked gameplay rule: Ranger Rue can only place/build, upgrade, repair, or salvage structures during the Day phase.
@@ -555,6 +556,22 @@ export const NIGHT_BUILD_LOCKED_MESSAGE = 'Night has fallen — defend the fort!
  */
 export function canPerformConstructionInPhase(phase: DayNightPhase): boolean {
   return phase === 'day';
+}
+
+/**
+ * Lantern Flare combat ability is only usable during Night phase and when off cooldown.
+ */
+export function canTriggerLanternFlare(
+  phase: DayNightPhase,
+  flareCooldown: number
+): { allowed: boolean; reason?: 'day_locked' | 'cooldown' } {
+  if (phase !== 'night') {
+    return { allowed: false, reason: 'day_locked' };
+  }
+  if (flareCooldown > 0.05) {
+    return { allowed: false, reason: 'cooldown' };
+  }
+  return { allowed: true };
 }
 
 /**

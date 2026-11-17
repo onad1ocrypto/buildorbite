@@ -9,6 +9,7 @@ import {
   buildStructureOnPad,
   calculateRunScore,
   canAfford,
+  canTriggerLanternFlare,
   computeZombieEffectiveSpeed,
   createInitialFenceSegments,
   createInitialPads,
@@ -173,6 +174,20 @@ test('applyLanternFlareToZombies slows, knocks back, and damages zombies in radi
   assert.equal(zombies[0].slowTimer > 0, true);
   assert.equal(zombies[0].hp < 75, true);
   assert.equal(zombies[1].hp, 65);
+});
+
+test('canTriggerLanternFlare allows activation only during Night phase when off cooldown', () => {
+  const dayRes = canTriggerLanternFlare('day', 0);
+  assert.equal(dayRes.allowed, false);
+  assert.equal(dayRes.reason, 'day_locked');
+
+  const nightCdRes = canTriggerLanternFlare('night', 3.2);
+  assert.equal(nightCdRes.allowed, false);
+  assert.equal(nightCdRes.reason, 'cooldown');
+
+  const nightReadyRes = canTriggerLanternFlare('night', 0);
+  assert.equal(nightReadyRes.allowed, true);
+  assert.equal(nightReadyRes.reason, undefined);
 });
 
 test('Swift Stumbler moves faster, triggers Surge Dash when wounded, and is countered by slows', () => {

@@ -6,6 +6,7 @@ import {
   consumeTicketForRun,
   createDefaultDailyState,
   getUTCDateString,
+  grantReviewTickets,
   recordTaskProgress,
 } from './dailySystem';
 
@@ -123,4 +124,13 @@ test('streak increments +1 per consecutive UTC day played, resets if day missed,
   // Skip Day 4 -> reset on Day 5
   state = checkAndApplyDailyReset(state, d5);
   assert.equal(state.streak, 0);
+});
+
+test('grantReviewTickets adds playtest tickets even when tickets are at 0 or above daily cap', () => {
+  const t0 = Date.UTC(2026, 10, 16, 12, 0, 0);
+  let state = { ...createDefaultDailyState(t0), tickets: 0 };
+  state = grantReviewTickets(state, 10);
+  assert.equal(state.tickets, 10);
+  state = grantReviewTickets(state, 15);
+  assert.equal(state.tickets, 25);
 });

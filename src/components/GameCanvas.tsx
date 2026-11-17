@@ -2,10 +2,12 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { soundFX } from '../game/audio';
+import { LanguageCode, TRANSLATIONS } from '../game/i18n';
 import {
   createBarkTexture,
   createBuildingModel,
   createCentralFortModel,
+  createCornfieldDecorModel,
   createDirtRoadTexture,
   createFenceSegmentModel,
   createGrassTerrainTexture,
@@ -14,8 +16,11 @@ import {
   createProceduralBumpTexture,
   createRangerRueModel,
   createResourceNodeModel,
+  createSoilFurrowTexture,
   createSquareCornerBastionPosts,
   createStripedPajamaTexture,
+  createWaterCanalTexture,
+  createWoodBridgeModel,
   createZombieModel,
 } from '../game/models';
 import {
@@ -28,6 +33,7 @@ import {
   calculateRunScore,
   canAfford,
   canPerformConstructionInPhase,
+  canTriggerLanternFlare,
   computeZombieEffectiveSpeed,
   createInitialFenceSegments,
   createInitialPads,
@@ -37,6 +43,7 @@ import {
   FENCE_HALF_EXTENT,
   findBlockingFenceSegment,
   findNextFenceSegmentForHero,
+  FLARE_NIGHT_LOCKED_MESSAGE,
   FORT_MAX_HP,
   getEffectiveBuildingStats,
   getWaveComposition,
@@ -55,6 +62,7 @@ import {
   checkAndApplyDailyReset,
   completeRunProgression,
   consumeTicketForRun,
+  grantReviewTickets,
   LANTERN_COSMETICS,
   loadDailyStateFromStorage,
   recordTaskProgress,
@@ -105,6 +113,7 @@ export interface GameControllerApi {
 interface GameCanvasProps {
   onHudUpdate: (snapshot: HudSnapshot) => void;
   controllerRef: React.MutableRefObject<GameControllerApi | null>;
+  lang?: LanguageCode;
 }
 
 // Pre-allocated module-scope math objects for Zero-GC inside the render loop
@@ -113,13 +122,17 @@ const _projVec = new THREE.Vector3();
 const _dummyObj = new THREE.Object3D();
 const _color = new THREE.Color();
 const _daySkyColor = new THREE.Color(0x1b2e2b);
-const _nightSkyColor = new THREE.Color(0x070d19);
+const _nightSkyColor = new THREE.Color(0x2d1424);
 const _daySunColor = new THREE.Color(0xffdfa8);
-const _nightMoonColor = new THREE.Color(0x60a5fa);
+const _nightMoonColor = new THREE.Color(0xff9eb5);
 const _dayHemiSky = new THREE.Color(0x8ecae6);
-const _nightHemiSky = new THREE.Color(0x1d3557);
+const _nightHemiSky = new THREE.Color(0xb5536b);
+const _dayHemiGround = new THREE.Color(0x263c28);
+const _nightHemiGround = new THREE.Color(0x423038);
+const _dayRimColor = new THREE.Color(0x60a5fa);
+const _nightRimColor = new THREE.Color(0xfb7185);
 
-const MAX_PARTICLES = 160;
+const MAX_PARTICLES = 220;
 interface ParticleSlot {
   active: boolean;
   x: number;
@@ -137,11 +150,14 @@ interface ParticleSlot {
 export const GameCanvas: React.FC<GameCanvasProps> = ({
   onHudUpdate,
   controllerRef,
+  lang = 'en',
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const calloutContainerRef = useRef<HTMLDivElement | null>(null);
   const onHudUpdateRef = useRef(onHudUpdate);
   onHudUpdateRef.current = onHudUpdate;
+  const langRef = useRef<LanguageCode>(lang);
+  langRef.current = lang;
 
   useEffect(() => {
     const container = mountRef.current;
@@ -190,6 +206,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const dirtRoadTex = createDirtRoadTexture(maxAnisotropy);
     const barkTex = createBarkTexture(maxAnisotropy);
     const foliageTex = createPineFoliageTexture(maxAnisotropy);
+    const waterCanalTex = createWaterCanalTexture(maxAnisotropy);
+    const soilFurrowTex = createSoilFurrowTexture(maxAnisotropy);
 
     // Fixed ~45° Isometric / Top-Down 3/4 Camera (NOT a follow camera; keeps whole fort readable)
     const camera = new THREE.PerspectiveCamera(
@@ -251,7 +269,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     scene.add(outerGround);
 
     const clearingDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(18.8, 56),
+      new THREE.CircleGeometry(17.9, 64),
       new THREE.MeshStandardMaterial({
         color: 0xeef6c4,
         map: clearingGrassTex,
@@ -266,26 +284,99 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     clearingDisc.receiveShadow = true;
     scene.add(clearingDisc);
 
-    // Mossy Stone Clearing Perimeter Border Ring
-    const clearingBorderRing = new THREE.Mesh(
-      new THREE.RingGeometry(18.3, 19.1, 56),
-      new THREE.MeshStandardMaterial({
-        color: 0x3b4d38,
-        roughness: 0.94,
-        metalness: 0.04,
-        bumpMap: bumpTex,
-        bumpScale: 0.09,
-      })
-    );
-    clearingBorderRing.rotation.x = -Math.PI / 2;
-    clearingBorderRing.position.y = 0.024;
-    clearingBorderRing.receiveShadow = true;
-    scene.add(clearingBorderRing);
+    // Water Ditch / Moat Canal ("Got / Pembatas Air") surrounding the clearing + 4 Wooden Bridges
+    const ditchMudMat = new THREE.MeshStandardMaterial({
+      color: 0x3b3127,
+      roughness: 0.94,
+      metalness: 0.03,
+      bumpMap: bumpTex,
+      bumpScale: 0.09,
+    });
+    const innerBankRing = new THREE.Mesh(new THREE.RingGeometry(17.58, 18.08, 64), ditchMudMat);
+    innerBankRing.rotation.x = -Math.PI / 2;
+    innerBankRing.position.y = 0.028;
+    innerBankRing.receiveShadow = true;
 
-    // 4 Realistic Dirt & Pebble Roads (North, South, East, West) with feathered edges and wagon wheel ruts
-    const trailMat = new THREE.MeshStandardMaterial({
+    const outerBankRing = new THREE.Mesh(new THREE.RingGeometry(19.52, 20.02, 64), ditchMudMat);
+    outerBankRing.rotation.x = -Math.PI / 2;
+    outerBankRing.position.y = 0.028;
+    outerBankRing.receiveShadow = true;
+
+    const ditchBedRing = new THREE.Mesh(
+      new THREE.RingGeometry(18.0, 19.6, 64),
+      new THREE.MeshStandardMaterial({ color: 0x092029, roughness: 0.96, metalness: 0.02 })
+    );
+    ditchBedRing.rotation.x = -Math.PI / 2;
+    ditchBedRing.position.y = 0.024;
+    ditchBedRing.receiveShadow = true;
+
+    const waterMoatMat = new THREE.MeshStandardMaterial({
+      color: 0x0ea5e9,
+      emissive: 0x075985,
+      emissiveIntensity: 0.35,
+      map: waterCanalTex,
+      roughness: 0.45,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.92,
+      envMapIntensity: 0.08,
+    });
+    const waterMoatRing = new THREE.Mesh(new THREE.RingGeometry(18.04, 19.56, 64), waterMoatMat);
+    waterMoatRing.rotation.x = -Math.PI / 2;
+    waterMoatRing.position.y = 0.042;
+    waterMoatRing.receiveShadow = true;
+    scene.add(innerBankRing, outerBankRing, ditchBedRing, waterMoatRing);
+
+    // Ditch Stone Curb Stones lining inner & outer banks (skipping bridge corridors)
+    const ditchCurbCount = 96;
+    const ditchCurbInst = new THREE.InstancedMesh(
+      new THREE.DodecahedronGeometry(0.24, 0),
+      new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9, flatShading: true }),
+      ditchCurbCount
+    );
+    ditchCurbInst.receiveShadow = true;
+    let curbIdx = 0;
+    for (let i = 0; i < 64 && curbIdx < ditchCurbCount; i++) {
+      const a = (i / 64) * Math.PI * 2;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      if (Math.abs(ca) < 0.12 || Math.abs(sa) < 0.12) continue;
+      const rBank = i % 2 === 0 ? 17.88 : 19.72;
+      _dummyObj.position.set(ca * rBank, 0.08, sa * rBank);
+      _dummyObj.rotation.set(0.2 * (i % 3), a, 0.15);
+      _dummyObj.scale.set(1.15, 0.55, 0.9);
+      _dummyObj.updateMatrix();
+      ditchCurbInst.setMatrixAt(curbIdx++, _dummyObj.matrix);
+    }
+    ditchCurbInst.count = curbIdx;
+    ditchCurbInst.instanceMatrix.needsUpdate = true;
+    ditchCurbInst.computeBoundingSphere();
+    scene.add(ditchCurbInst);
+
+    // 4 Wooden Plank Bridges where N/S/E/W trails cross the Water Ditch
+    [
+      { x: 0, z: -18.8, rotY: 0 },
+      { x: 0, z: 18.8, rotY: 0 },
+      { x: 18.8, z: 0, rotY: Math.PI / 2 },
+      { x: -18.8, z: 0, rotY: Math.PI / 2 },
+    ].forEach((b) => {
+      const bridge = createWoodBridgeModel();
+      bridge.position.set(b.x, 0.045, b.z);
+      bridge.rotation.y = b.rotY;
+      scene.add(bridge);
+    });
+
+    // 4 Realistic Dirt & Pebble Roads OUTSIDE the Fort Perimeter ONLY (±9.6m), split cleanly at the Water Ditch
+    const innerApproachTex = dirtRoadTex.clone();
+    innerApproachTex.needsUpdate = true;
+    innerApproachTex.repeat.set(1, 2.5);
+    const outerTrailTex = dirtRoadTex.clone();
+    outerTrailTex.needsUpdate = true;
+    outerTrailTex.repeat.set(1, 3.0);
+
+    const innerTrailMat = new THREE.MeshStandardMaterial({
       color: 0xd6c2a8,
-      map: dirtRoadTex,
+      map: innerApproachTex,
       transparent: true,
       roughness: 0.92,
       metalness: 0.04,
@@ -293,20 +384,48 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       bumpScale: 0.08,
       depthWrite: false,
     });
-    const nsTrail = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 48), trailMat);
-    nsTrail.rotation.x = -Math.PI / 2;
-    nsTrail.position.y = 0.032;
-    nsTrail.receiveShadow = true;
+    const outerTrailMat = new THREE.MeshStandardMaterial({
+      color: 0xd6c2a8,
+      map: outerTrailTex,
+      transparent: true,
+      roughness: 0.92,
+      metalness: 0.04,
+      bumpMap: bumpTex,
+      bumpScale: 0.08,
+      depthWrite: false,
+    });
 
-    const ewTrail = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 48), trailMat);
-    ewTrail.rotation.x = -Math.PI / 2;
-    ewTrail.rotation.z = Math.PI / 2;
-    ewTrail.position.y = 0.035;
-    ewTrail.receiveShadow = true;
-    scene.add(nsTrail, ewTrail);
+    // North & South Exterior Roads (10.0m..18.0m and 19.6m..29.6m)
+    [-1, 1].forEach((dirZ) => {
+      const innerSeg = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 8.0), innerTrailMat);
+      innerSeg.rotation.x = -Math.PI / 2;
+      innerSeg.position.set(0, 0.032, dirZ * 14.0);
+      innerSeg.receiveShadow = true;
 
-    // Instanced 3D Roadside Cobblestones & Stepping Stones along all 4 roads
-    const roadStoneCount = 152;
+      const outerSeg = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 10.0), outerTrailMat);
+      outerSeg.rotation.x = -Math.PI / 2;
+      outerSeg.position.set(0, 0.032, dirZ * 24.6);
+      outerSeg.receiveShadow = true;
+      scene.add(innerSeg, outerSeg);
+    });
+    // East & West Exterior Roads (10.0m..18.0m and 19.6m..29.6m)
+    [-1, 1].forEach((dirX) => {
+      const innerSeg = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 8.0), innerTrailMat);
+      innerSeg.rotation.x = -Math.PI / 2;
+      innerSeg.rotation.z = Math.PI / 2;
+      innerSeg.position.set(dirX * 14.0, 0.035, 0);
+      innerSeg.receiveShadow = true;
+
+      const outerSeg = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 10.0), outerTrailMat);
+      outerSeg.rotation.x = -Math.PI / 2;
+      outerSeg.rotation.z = Math.PI / 2;
+      outerSeg.position.set(dirX * 24.6, 0.035, 0);
+      outerSeg.receiveShadow = true;
+      scene.add(innerSeg, outerSeg);
+    });
+
+    // Instanced 3D Roadside Cobblestones & Stepping Stones along the 4 EXTERIOR roads only
+    const roadStoneCount = 136;
     const roadStoneInst = new THREE.InstancedMesh(
       new THREE.CylinderGeometry(0.26, 0.34, 0.08, 7),
       new THREE.MeshStandardMaterial({
@@ -329,16 +448,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     ];
     for (let dIdx = 0; dIdx < dirs.length; dIdx++) {
       const dir = dirs[dIdx];
-      for (let step = 0; step < 38 && stoneIdx < roadStoneCount; step++) {
-        const dist = 3.6 + step * 0.48 + ((step * 13) % 5) * 0.04;
-        // Alternate between left/right curb stones and center stepping stones
+      for (let step = 0; step < 36 && stoneIdx < roadStoneCount; step++) {
+        const dist = 10.2 + step * 0.44 + ((step * 13) % 5) * 0.04;
+        // Skip cobblestones across the water ditch & wooden bridge span
+        if (dist >= 17.5 && dist <= 20.1) continue;
         const laneMode = step % 3;
         const lateral =
           laneMode === 0
-            ? -1.28 + ((step * 7) % 5) * 0.05
+            ? -1.26 + ((step * 7) % 5) * 0.05
             : laneMode === 1
-            ? 1.28 - ((step * 11) % 5) * 0.05
-            : ((step * 17) % 9 - 4) * 0.16;
+            ? 1.26 - ((step * 11) % 5) * 0.05
+            : ((step * 17) % 9 - 4) * 0.15;
 
         const sx = dir.dx !== 0 ? dir.dx * dist : lateral;
         const sz = dir.dz !== 0 ? dir.dz * dist : lateral;
@@ -360,13 +480,34 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         stoneIdx++;
       }
     }
+    roadStoneInst.count = stoneIdx;
     roadStoneInst.instanceMatrix.needsUpdate = true;
     if (roadStoneInst.instanceColor) roadStoneInst.instanceColor.needsUpdate = true;
     roadStoneInst.computeBoundingSphere();
     scene.add(roadStoneInst);
 
-    // Instanced 3D Grass Blade Clusters across the clearing and forest margin (warm olive-chartreuse meadow tones)
-    const grassCount = 420;
+    // Pre-define cornfield location (Upper-Right Forest Space) and Resource Node coordinates so props never overlap them
+    const cornCenterX = 18.0;
+    const cornCenterZ = -14.8;
+    const cornRotY = -0.68;
+    const plannedPadCoords = createInitialPads().map((p) => ({ x: p.x, z: p.z }));
+    const resourceNodes: ResourceNodeEntity[] = [
+      { id: 101, type: 'wood', name: 'Timber Log Stack', x: -12.4, z: -9.8, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 102, type: 'wood', name: 'Lumber Chopping Block', x: 12.6, z: 4.4, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 103, type: 'wood', name: 'Split Firewood Pile', x: -12.8, z: 4.6, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 104, type: 'stone', name: 'Granite Outcrop', x: -8.2, z: -12.4, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 105, type: 'stone', name: 'Quartz Quarry', x: 8.2, z: -12.4, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 106, type: 'stone', name: 'Mossy Boulder', x: 13.0, z: -4.2, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 107, type: 'food', name: 'Corn Harvest Stand', x: 12.2, z: -10.0, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
+      { id: 108, type: 'food', name: 'Orchard Harvest Crate', x: -12.2, z: -4.2, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
+    ];
+    const isNearCornfield = (x: number, z: number, pad = 6.2) =>
+      Math.hypot(x - cornCenterX, z - cornCenterZ) < pad;
+    const isNearResourceNode = (x: number, z: number, pad = 2.8) =>
+      resourceNodes.some((n) => Math.hypot(x - n.x, z - n.z) < pad);
+
+    // Instanced 3D Grass Blade Clusters (inside the fort yard + outer meadow, keeping off exterior roads & water moat)
+    const grassCount = 460;
     const grassBladeGeo = new THREE.ConeGeometry(0.15, 0.44, 4);
     grassBladeGeo.translate(0, 0.21, 0);
     const grassTuftInst = new THREE.InstancedMesh(
@@ -390,16 +531,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       sz: number;
     }[] = [];
     let grassIdx = 0;
-    for (let i = 0; i < 900 && grassIdx < grassCount; i++) {
-      // Golden-angle spiral distribution for natural organic clumping
-      const rNorm = Math.sqrt(((i * 73) % 900) / 900);
-      const radius = 3.85 + rNorm * 18.5;
-      const angle = i * 2.39996 + ((i % 5) * 0.08);
+    for (let i = 0; i < 1050 && grassIdx < grassCount; i++) {
+      const rNorm = Math.sqrt(((i * 73) % 1050) / 1050);
+      const radius = 3.85 + rNorm * 19.5;
+      const angle = i * 2.39996 + (i % 5) * 0.08;
       const gx = Math.cos(angle) * radius;
       const gz = Math.sin(angle) * radius;
 
-      // Keep off the 4 dirt roads
-      if (Math.abs(gx) < 1.9 || Math.abs(gz) < 1.9) continue;
+      // Keep off the water moat & exterior dirt roads (inside the fort yard, grass grows freely!)
+      if (radius >= 17.3 && radius <= 20.3) continue;
+      const outsideFort = Math.abs(gx) >= 9.6 || Math.abs(gz) >= 9.6;
+      if (outsideFort && (Math.abs(gx) < 2.0 || Math.abs(gz) < 2.0)) continue;
+      if (plannedPadCoords.some((p) => Math.hypot(gx - p.x, gz - p.z) < 1.8)) continue;
+      if (isNearCornfield(gx, gz, 5.8)) continue;
 
       const bladeScale = 0.65 + ((i * 29) % 60) / 100;
       const tiltX = (((i * 13) % 11) - 5) * 0.05;
@@ -415,7 +559,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       _dummyObj.updateMatrix();
       grassTuftInst.setMatrixAt(grassIdx, _dummyObj.matrix);
 
-      // Warm golden-olive / lime-meadow grass hues (0.21-0.25) so grass clearly contrasts with deep evergreen trees
       const hue = 0.21 + ((i * 7) % 8) * 0.005;
       const sat = 0.56 + ((i * 11) % 16) * 0.01;
       const light = radius > 16.5 ? 0.28 + ((i * 5) % 10) * 0.01 : 0.36 + ((i * 9) % 14) * 0.01;
@@ -430,8 +573,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     grassTuftInst.computeBoundingSphere();
     scene.add(grassTuftInst);
 
-    // Instanced Multi-Tiered Realistic Woodland Pine & Spruce Trees (deep evergreen-teal leaf contrast + wind sway)
-    const treeCount = 128;
+    // Instanced Multi-Tiered Woodland Pine & Spruce Trees around the ENTIRE perimeter (leaving the Upper-Right Cornfield clear!)
+    const treeCount = 176;
     const trunkInst = new THREE.InstancedMesh(
       new THREE.CylinderGeometry(0.22, 0.44, 2.3, 8),
       new THREE.MeshStandardMaterial({
@@ -501,17 +644,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }[] = [];
 
     let treeIdx = 0;
-    for (let i = 0; i < 185 && treeIdx < treeCount; i++) {
-      const angle = (i / 185) * Math.PI * 2 + (i % 4) * 0.055;
-      // Leave clear road corridors on N/S/E/W trails so roads and zombies remain unobstructed
+    for (let i = 0; i < 230 && treeIdx < treeCount; i++) {
+      const angle = (i / 230) * Math.PI * 2 + (i % 4) * 0.045;
       const cosA = Math.abs(Math.cos(angle));
       const sinA = Math.abs(Math.sin(angle));
       if (cosA < 0.12 || sinA < 0.12) continue;
 
       const ringBand = i % 3;
-      const radius = 16.4 + ringBand * 2.85 + ((i * 37) % 10) * 0.55;
+      // Place trees outside the Water Ditch (r >= 20.9) so the moat & clearing remain completely crisp
+      const radius = 21.0 + ringBand * 2.55 + ((i * 37) % 10) * 0.42;
       const tx = Math.cos(angle) * radius;
       const tz = Math.sin(angle) * radius;
+
+      // Reserve Upper-Right forest clearing for the Ladang Jagung (Cornfield)
+      if (isNearCornfield(tx, tz, 6.7)) continue;
+
       const scale = 0.84 + ((i * 19) % 44) / 100;
       const leanX = (((i * 7) % 5) - 2) * 0.018;
       const leanZ = (((i * 11) % 5) - 2) * 0.018;
@@ -540,7 +687,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       _dummyObj.updateMatrix();
       tier3Inst.setMatrixAt(treeIdx, _dummyObj.matrix);
 
-      // Deep cool evergreen-teal / blue-spruce hues (0.43-0.48) that contrast richly with the warm olive meadow grass
       const isBlueSpruce = i % 5 === 0;
       const hue = isBlueSpruce ? 0.47 + ((i * 3) % 4) * 0.006 : 0.42 + ((i * 5) % 6) * 0.007;
       const sat = isBlueSpruce ? 0.62 : 0.68 + ((i * 9) % 12) * 0.01;
@@ -583,7 +729,104 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     tier3Inst.computeBoundingSphere();
     scene.add(trunkInst, tier1Inst, tier2Inst, tier3Inst);
 
-    // 2B. Fallen Trees / Mossy Hollow Logs (Pohon Tumbang) + Broken Root Stumps in the forest & clearing margin
+    // 2A-Cornfield. Ladang Jagung (Upper-Right Forest Cornfield Plot + 72 Swaying Golden Corn Stalks)
+    const cornDecor = createCornfieldDecorModel(soilFurrowTex);
+    cornDecor.position.set(cornCenterX, 0, cornCenterZ);
+    cornDecor.rotation.y = cornRotY;
+    scene.add(cornDecor);
+
+    const cornRows = 6;
+    const cornCols = 12;
+    const cornStalkCount = cornRows * cornCols;
+    const cornStalkGeo = new THREE.CylinderGeometry(0.045, 0.075, 1.55, 6);
+    cornStalkGeo.translate(0, 0.78, 0);
+    const cornStalkInst = new THREE.InstancedMesh(
+      cornStalkGeo,
+      new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.76, envMapIntensity: 0.18 }),
+      cornStalkCount
+    );
+    const cornCobGeo = new THREE.CylinderGeometry(0.085, 0.1, 0.42, 7);
+    const cornCobInst = new THREE.InstancedMesh(
+      cornCobGeo,
+      new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        emissive: 0xca8a04,
+        emissiveIntensity: 0.25,
+        roughness: 0.44,
+      }),
+      cornStalkCount
+    );
+    const cornTasselGeo = new THREE.ConeGeometry(0.12, 0.34, 5);
+    const cornTasselInst = new THREE.InstancedMesh(
+      cornTasselGeo,
+      new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.72 }),
+      cornStalkCount
+    );
+    cornStalkInst.castShadow = !isSoftwareGl;
+    cornCobInst.castShadow = !isSoftwareGl;
+
+    const cornWindData: {
+      wx: number;
+      wz: number;
+      rotY: number;
+      scaleY: number;
+      phase: number;
+    }[] = [];
+    const cosCorn = Math.cos(cornRotY);
+    const sinCorn = Math.sin(cornRotY);
+    let cornIdx = 0;
+    for (let r = 0; r < cornRows; r++) {
+      for (let c = 0; c < cornCols; c++) {
+        const localX = -3.7 + c * 0.67 + ((r % 2) * 0.12 - 0.06);
+        const localZ = -2.35 + r * 0.94 + (((c * 3) % 5) - 2) * 0.03;
+        // Leave a small clearing around the Scarecrow near (0.2, -0.4)
+        if (Math.hypot(localX - 0.2, localZ + 0.4) < 0.95) continue;
+
+        const wx = cornCenterX + localX * cosCorn + localZ * sinCorn;
+        const wz = cornCenterZ - localX * sinCorn + localZ * cosCorn;
+        const scaleY = 0.86 + ((r * 7 + c * 11) % 30) / 100;
+        const rotY = (r * 1.1 + c * 0.7) % (Math.PI * 2);
+
+        _dummyObj.position.set(wx, 0.12, wz);
+        _dummyObj.rotation.set(0, rotY, 0);
+        _dummyObj.scale.set(1, scaleY, 1);
+        _dummyObj.updateMatrix();
+        cornStalkInst.setMatrixAt(cornIdx, _dummyObj.matrix);
+
+        _dummyObj.position.set(wx + Math.cos(rotY) * 0.08, 0.12 + 0.92 * scaleY, wz + Math.sin(rotY) * 0.08);
+        _dummyObj.rotation.set(0.24, rotY, 0.3);
+        _dummyObj.scale.setScalar(1);
+        _dummyObj.updateMatrix();
+        cornCobInst.setMatrixAt(cornIdx, _dummyObj.matrix);
+
+        _dummyObj.position.set(wx, 0.12 + 1.62 * scaleY, wz);
+        _dummyObj.rotation.set(0, rotY, 0);
+        _dummyObj.scale.setScalar(1);
+        _dummyObj.updateMatrix();
+        cornTasselInst.setMatrixAt(cornIdx, _dummyObj.matrix);
+
+        cornWindData.push({
+          wx,
+          wz,
+          rotY,
+          scaleY,
+          phase: (r * 0.6 + c * 0.35) % (Math.PI * 2),
+        });
+        cornIdx++;
+      }
+    }
+    cornStalkInst.count = cornIdx;
+    cornCobInst.count = cornIdx;
+    cornTasselInst.count = cornIdx;
+    cornStalkInst.instanceMatrix.needsUpdate = true;
+    cornCobInst.instanceMatrix.needsUpdate = true;
+    cornTasselInst.instanceMatrix.needsUpdate = true;
+    cornStalkInst.computeBoundingSphere();
+    cornCobInst.computeBoundingSphere();
+    cornTasselInst.computeBoundingSphere();
+    scene.add(cornStalkInst, cornCobInst, cornTasselInst);
+
+    // 2B. Fallen Trees / Mossy Hollow Logs (Pohon Tumbang) outside clearing moat & away from Cornfield/Nodes
     const fallenLogCount = 24;
     const fallenLogGeo = new THREE.CylinderGeometry(0.26, 0.35, 3.4, 8);
     fallenLogGeo.rotateZ(Math.PI / 2);
@@ -625,14 +868,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     const fallenLogPositions: { x: number; z: number; yaw: number; scale: number }[] = [];
     let fLogIdx = 0;
-    for (let i = 0; i < 56 && fLogIdx < fallenLogCount; i++) {
-      const angle = (i / 56) * Math.PI * 2 + 0.21;
-      // Avoid N/S/E/W roads so fallen trees never block trails
+    for (let i = 0; i < 64 && fLogIdx < fallenLogCount; i++) {
+      const angle = (i / 64) * Math.PI * 2 + 0.21;
       if (Math.abs(Math.cos(angle)) < 0.2 || Math.abs(Math.sin(angle)) < 0.2) continue;
 
-      const radius = 13.8 + (i % 3) * 2.1 + ((i * 19) % 7) * 0.25;
+      const radius = 21.6 + (i % 2) * 2.4 + ((i * 19) % 7) * 0.22;
       const lx = Math.cos(angle) * radius;
       const lz = Math.sin(angle) * radius;
+      if (isNearCornfield(lx, lz, 6.8) || isNearResourceNode(lx, lz, 3.2)) continue;
+
       const lScale = 0.78 + ((i * 13) % 36) / 100;
       const yaw = angle + Math.PI / 2 + (((i * 7) % 5) - 2) * 0.28;
 
@@ -642,14 +886,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       _dummyObj.updateMatrix();
       fallenLogInst.setMatrixAt(fLogIdx, _dummyObj.matrix);
 
-      // Lush moss blanket growing along the top spine of each fallen tree
       _dummyObj.position.set(lx, 0.51 * lScale, lz);
       _dummyObj.rotation.set(0.03, yaw, -0.04);
       _dummyObj.scale.setScalar(lScale);
       _dummyObj.updateMatrix();
       fallenMossInst.setMatrixAt(fLogIdx, _dummyObj.matrix);
 
-      // Broken deadwood branch sticking up from the fallen trunk
       _dummyObj.position.set(
         lx + Math.cos(yaw) * 0.65 * lScale,
         0.66 * lScale,
@@ -674,7 +916,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     fallenBranchInst.computeBoundingSphere();
     scene.add(fallenLogInst, fallenMossInst, fallenBranchInst);
 
-    // 2C. Lush Forest Ferns (Pakis Hutan) clustered around fallen logs and the woodland border (sways in wind)
+    // 2C. Lush Forest Ferns (Pakis Hutan) clustered around fallen logs
     const fernCount = 120;
     const fernBladeGeo = new THREE.ConeGeometry(0.28, 1.18, 4);
     fernBladeGeo.translate(0, 0.55, 0);
@@ -700,7 +942,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let fernIdx = 0;
     for (let i = 0; i < fallenLogPositions.length && fernIdx < fernCount; i++) {
       const log = fallenLogPositions[i];
-      // Place a 5-frond rosette fern cluster beside each fallen tree
       for (let frond = 0; frond < 5 && fernIdx < fernCount; frond++) {
         const frondYaw = (frond / 5) * Math.PI * 2 + (i % 3) * 0.3;
         const offsetDist = 0.65 + (i % 2) * 0.25;
@@ -715,7 +956,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         _dummyObj.updateMatrix();
         fernInst.setMatrixAt(fernIdx, _dummyObj.matrix);
 
-        // Rich emerald-jade fern leaf tone
         _color.setHSL(0.36 + (frond % 3) * 0.01, 0.66, 0.26 + (frond % 3) * 0.03);
         fernInst.setColorAt(fernIdx, _color);
 
@@ -736,7 +976,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     fernInst.computeBoundingSphere();
     scene.add(fernInst);
 
-    // 2D. Woodland Toadstool Mushroom Clusters & Wildflowers beside fallen logs and trees
+    // 2D. Woodland Toadstool Mushroom Clusters beside fallen logs
     const mushroomCount = 56;
     const mushStemInst = new THREE.InstancedMesh(
       new THREE.CylinderGeometry(0.06, 0.09, 0.28, 7),
@@ -766,7 +1006,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         _dummyObj.updateMatrix();
         mushCapInst.setMatrixAt(mIdx, _dummyObj.matrix);
 
-        // Red-orange amanita caps & golden chanterelle caps
         if ((i + c) % 3 === 0) {
           _color.setHex(0xf59e0b);
         } else {
@@ -785,7 +1024,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     mushCapInst.computeBoundingSphere();
     scene.add(mushStemInst, mushCapInst);
 
-    // Instanced Forest Edge Boulders & Undergrowth Shrubs for natural woodland border transitions
+    // Instanced Forest Edge Boulders & Undergrowth Shrubs outside the water moat
     const boulderCount = 44;
     const boulderInst = new THREE.InstancedMesh(
       new THREE.DodecahedronGeometry(0.62, 1),
@@ -802,12 +1041,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     boulderInst.castShadow = !isSoftwareGl;
     boulderInst.receiveShadow = true;
     let bIdx = 0;
-    for (let i = 0; i < 72 && bIdx < boulderCount; i++) {
-      const angle = (i / 72) * Math.PI * 2 + 0.04;
+    for (let i = 0; i < 84 && bIdx < boulderCount; i++) {
+      const angle = (i / 84) * Math.PI * 2 + 0.04;
       if (Math.abs(Math.cos(angle)) < 0.14 || Math.abs(Math.sin(angle)) < 0.14) continue;
-      const radius = 15.6 + ((i * 23) % 10) * 0.42;
+      const radius = 20.5 + ((i * 23) % 10) * 0.38;
       const bx = Math.cos(angle) * radius;
       const bz = Math.sin(angle) * radius;
+      if (isNearCornfield(bx, bz, 6.4) || isNearResourceNode(bx, bz, 3.0)) continue;
       const bScale = 0.52 + ((i * 17) % 50) / 100;
 
       _dummyObj.position.set(bx, 0.2 * bScale, bz);
@@ -816,7 +1056,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       _dummyObj.updateMatrix();
       boulderInst.setMatrixAt(bIdx, _dummyObj.matrix);
 
-      // Alternate between mossy forest boulders and dense woodland berry shrubs
       if (i % 2 === 0) {
         _color.setHSL(0.28, 0.16, 0.34 + ((i * 7) % 10) / 100);
       } else {
@@ -843,19 +1082,83 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     rueRig.group.position.set(0, 0, 4.0);
     scene.add(rueRig.group);
 
-    // Lantern Flare Expanding Shockwave Ring Mesh
+    // Lantern Flare Expanding Fiery Shockwave Rings & 3D Flame Pillars
     const flareRingGeo = new THREE.RingGeometry(0.6, 1.0, 32);
     flareRingGeo.rotateX(-Math.PI / 2);
     const flareRingMat = new THREE.MeshBasicMaterial({
-      color: 0xff9e1b,
+      color: 0xff5a1f,
       transparent: true,
       opacity: 0,
       side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     const flareRingMesh = new THREE.Mesh(flareRingGeo, flareRingMat);
     flareRingMesh.position.y = 0.18;
     scene.add(flareRingMesh);
+
+    const flareCoreRingMat = new THREE.MeshBasicMaterial({
+      color: 0xfef08a,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const flareCoreRingMesh = new THREE.Mesh(
+      new THREE.RingGeometry(0.38, 0.72, 28).rotateX(-Math.PI / 2),
+      flareCoreRingMat
+    );
+    flareCoreRingMesh.position.y = 0.24;
+    scene.add(flareCoreRingMesh);
+
+    // Pre-allocated 3D Fire Plumes & Flame Tongues Group (Zero-GC)
+    const flareOuterFlameMat = new THREE.MeshBasicMaterial({
+      color: 0xff4500,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const flareInnerFlameMat = new THREE.MeshBasicMaterial({
+      color: 0xfef08a,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    });
+    const flareFireGroup = new THREE.Group();
+    flareFireGroup.visible = false;
+    const outerFlameGeo = new THREE.ConeGeometry(0.68, 2.9, 8);
+    const innerFlameGeo = new THREE.ConeGeometry(0.36, 1.9, 7);
+    const flareFlameTongues: {
+      holder: THREE.Group;
+      angle: number;
+      isCenter: boolean;
+      phase: number;
+    }[] = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const holder = new THREE.Group();
+      const outer = new THREE.Mesh(outerFlameGeo, flareOuterFlameMat);
+      outer.position.y = 1.45;
+      const inner = new THREE.Mesh(innerFlameGeo, flareInnerFlameMat);
+      inner.position.y = 0.95;
+      holder.add(outer, inner);
+      flareFireGroup.add(holder);
+      flareFlameTongues.push({ holder, angle, isCenter: false, phase: i * 0.9 });
+    }
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2 + 0.3;
+      const holder = new THREE.Group();
+      const outer = new THREE.Mesh(outerFlameGeo, flareOuterFlameMat);
+      outer.position.y = 1.5;
+      const inner = new THREE.Mesh(innerFlameGeo, flareInnerFlameMat);
+      inner.position.y = 1.02;
+      holder.add(outer, inner);
+      flareFireGroup.add(holder);
+      flareFlameTongues.push({ holder, angle, isCenter: true, phase: i * 1.4 });
+    }
+    scene.add(flareFireGroup);
 
     // Selected Pad Highlight Ring + Move Target Ring
     const selectRingGeo = new THREE.RingGeometry(1.42, 1.62, 24);
@@ -965,9 +1268,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const spec =
         LANTERN_COSMETICS[dailyState.equippedLanternId] ?? LANTERN_COSMETICS.amber_default;
       rueLanternLight.color.setHex(spec.threeColor);
-      flareRingMat.color.setHex(spec.threeColor);
+      flareRingMat.color.setHex(
+        dailyState.equippedLanternId === 'amber_default' ? 0xff5a1f : spec.threeColor
+      );
       const lMat = rueRig.lanternMesh.material as THREE.MeshStandardMaterial;
       lMat.emissive.setHex(spec.threeColor);
+      const haloMat = rueRig.lanternHaloMesh.material as THREE.MeshBasicMaterial;
+      haloMat.color.setHex(spec.threeColor);
     }
     applyEquippedLanternVisuals();
 
@@ -1088,6 +1395,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const existingBld = buildingMeshesMap.get(pad.id);
         if (existingBld) {
           scene.remove(existingBld);
+          const idx = interactableTargets.indexOf(existingBld);
+          if (idx !== -1) interactableTargets.splice(idx, 1);
           buildingMeshesMap.delete(pad.id);
         }
         if (pad.building) {
@@ -1095,24 +1404,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           bldMesh.position.set(pad.x, 0.14, pad.z);
           if (pad.rotationY) bldMesh.rotation.y = pad.rotationY;
           bldMesh.userData = { kind: 'pad', padId: pad.id };
+          bldMesh.traverse((c) => {
+            c.userData = { kind: 'pad', padId: pad.id };
+          });
           scene.add(bldMesh);
           buildingMeshesMap.set(pad.id, bldMesh);
+          interactableTargets.push(bldMesh);
         }
       });
     }
     rebuildPadVisuals();
 
-    // Forest Resource Nodes (Wood, Stone, Food) positioned outside the ±9.6m Square Fence
-    const resourceNodes: ResourceNodeEntity[] = [
-      { id: 101, type: 'wood', name: 'Fallen Timber', x: -12.6, z: -7.2, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 102, type: 'wood', name: 'Old Pine Stump', x: 12.6, z: -7.4, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 103, type: 'wood', name: 'Hollow Log', x: -12.8, z: 7.4, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 104, type: 'stone', name: 'Granite Outcrop', x: -7.6, z: -12.8, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 105, type: 'stone', name: 'Mossy Boulder', x: 12.8, z: 7.2, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 106, type: 'stone', name: 'Quartz Vein', x: 7.4, z: -12.8, amount: 55, maxAmount: 55, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 107, type: 'food', name: 'Spooky Berry Bush', x: -7.4, z: 12.6, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
-      { id: 108, type: 'food', name: 'Glowcap Mushrooms', x: 7.8, z: 12.6, amount: 50, maxAmount: 50, hitFlashTimer: 0, respawnTimer: 0 },
-    ];
+    // Forest Resource Nodes (Wood, Stone, Food) positioned in clear visible zones outside the ±9.6m Square Fence
     const nodeMeshesMap = new Map<number, THREE.Group>();
     resourceNodes.forEach((node) => {
       const m = createResourceNodeModel(node.type);
@@ -1502,23 +1805,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         syncHud(true);
       },
       refillTicketWithCoins: () => {
-        if (dailyState.coins < 50 || dailyState.tickets >= dailyState.maxDailyTickets) return;
-        dailyState = {
-          ...dailyState,
-          coins: dailyState.coins - 50,
-          tickets: Math.min(dailyState.maxDailyTickets, dailyState.tickets + 1),
-        };
+        dailyState = grantReviewTickets(dailyState, 10);
+        resources = { ...resources, tickets: dailyState.tickets };
         saveDailyStateToStorage(dailyState);
+        setBanner(`+10 Review Tickets Added! (${dailyState.tickets} Tickets Available)`, 2.6);
+        if (screenState === 'playing') {
+          addCallout('+10 Tickets!', rueX, 2.3, rueZ, '#fbbf24', 1.4);
+        }
         syncHud(true);
       },
       selectPad: (padId) => {
         selectedPadId = padId;
         if (padId !== null) {
           selectedFenceId = null;
+          dockCollapsed = false;
           const pad = pads.find((p) => p.id === padId);
           if (pad) {
             selectRingMesh.position.set(pad.x, 0.08, pad.z);
             selectRingMesh.visible = true;
+            moveTarget = { x: pad.x * 0.82, z: pad.z * 0.82 };
+            moveTargetRing.position.set(pad.x * 0.82, 0.06, pad.z * 0.82);
+            moveTargetAlpha = 0.85;
           }
         } else if (selectedFenceId === null) {
           selectRingMesh.visible = false;
@@ -1529,6 +1836,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         selectedFenceId = fenceId;
         if (fenceId !== null) {
           selectedPadId = null;
+          dockCollapsed = false;
           const seg = fenceSegments.find((f) => f.id === fenceId);
           if (seg) {
             selectRingMesh.position.set(seg.x, 0.08, seg.z);
@@ -1764,16 +2072,26 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         syncHud(true);
       },
       triggerLanternFlare: () => {
-        if (screenState !== 'playing' || flareCooldown > 0.05) return;
+        if (screenState !== 'playing') return;
+        const flareCheck = canTriggerLanternFlare(phase, flareCooldown);
+        if (!flareCheck.allowed) {
+          if (flareCheck.reason === 'day_locked') {
+            setBanner(FLARE_NIGHT_LOCKED_MESSAGE, 2.2);
+            addCallout('Flare: Night Only!', rueX, 2.3, rueZ, '#f87171', 1.2);
+            syncHud(true);
+          }
+          return;
+        }
         flareCooldown = LANTERN_FLARE_COOLDOWN;
-        flareWaveTimer = 0.55;
+        flareWaveTimer = 1.15;
         flareOriginX = rueX;
         flareOriginZ = rueZ;
         soundFX.playLanternFlare();
-        cameraTrauma = Math.min(1.0, cameraTrauma + 0.35);
-        const flareColor =
-          LANTERN_COSMETICS[dailyState.equippedLanternId]?.threeColor ?? 0xff9e1b;
-        spawnParticles(rueX, 1.1, rueZ, 24, flareColor, 6.5);
+        cameraTrauma = Math.min(1.0, cameraTrauma + 0.42);
+        // Layered fire & ember burst (yellow sparks, blazing orange fire, crimson embers)
+        spawnParticles(rueX, 1.0, rueZ, 22, 0xfef08a, 5.6);
+        spawnParticles(rueX, 0.8, rueZ, 28, 0xff5a1f, 7.6);
+        spawnParticles(rueX, 0.6, rueZ, 20, 0xef4444, 9.2);
         applyTaskEvent({ flaresUsedDelta: 1 });
 
         const { affectedCount, shatteredCount } = applyLanternFlareToZombies(rueX, rueZ, zombies);
@@ -1786,14 +2104,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
         addCallout(
           shatteredCount > 0
-            ? `Lantern Flare! (${shatteredCount} Armor Shattered!)`
+            ? `Fire Flare! (${shatteredCount} Armor Shattered!)`
             : affectedCount > 0
-            ? `Lantern Flare! (${affectedCount} stunned)`
-            : 'Lantern Flare!',
+            ? `Fire Flare! (${affectedCount} scorched)`
+            : 'Fire Flare!',
           rueX,
           2.4,
           rueZ,
-          '#fbbf24'
+          '#fb923c'
         );
         syncHud(true);
       },
@@ -1807,7 +2125,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         syncHud(true);
       },
       adjustZoom: (delta) => {
-        cameraZoom = THREE.MathUtils.clamp(cameraZoom + delta, 0.75, 1.3);
+        cameraZoom = THREE.MathUtils.clamp(cameraZoom + delta, 0.62, 1.45);
         syncHud(true);
       },
     };
@@ -1887,13 +2205,60 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onWindowBlur);
 
-    // Raycasting for Click-to-Move, Node Gathering & Pad Selection
+    // Raycasting for Click-to-Move, Node Gathering, Pad Choice Menu & Zoom (Mouse Wheel + Mobile Pinch)
     const raycaster = new THREE.Raycaster();
     const pointerNdc = new THREE.Vector2();
+    renderer.domElement.style.touchAction = 'none';
+
+    let isDraggingGround = false;
+    let activePinchDist: number | null = null;
+    let lastPinchTimestamp = 0;
+
+    const onWheel = (e: WheelEvent) => {
+      if (screenState !== 'playing') return;
+      e.preventDefault();
+      const zoomStep = e.deltaY > 0 ? 0.08 : -0.08;
+      cameraZoom = THREE.MathUtils.clamp(cameraZoom + zoomStep, 0.62, 1.45);
+      syncHud(true);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isDraggingGround = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        activePinchDist = Math.hypot(dx, dy);
+        lastPinchTimestamp = performance.now();
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (screenState !== 'playing') return;
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        if (activePinchDist !== null && activePinchDist > 8) {
+          const deltaScale = (activePinchDist - dist) * 0.0035;
+          cameraZoom = THREE.MathUtils.clamp(cameraZoom + deltaScale, 0.62, 1.45);
+          syncHud(false);
+        }
+        activePinchDist = dist;
+        lastPinchTimestamp = performance.now();
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        activePinchDist = null;
+      }
+    };
 
     const onPointerDown = (e: PointerEvent) => {
       if (screenState !== 'playing') return;
       if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (activePinchDist !== null || performance.now() - lastPinchTimestamp < 180) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
@@ -1905,46 +2270,40 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const hits = raycaster.intersectObjects(interactableTargets, true);
       if (hits.length === 0) return;
 
-      // Prioritize pad, fence, or resource node hits before ground
+      // 1. Clicking a Build Pad selects that pad and opens the Build Choice Menu (never auto-builds a fence/palisade!)
       const padHit = hits.find((h) => h.object.userData?.kind === 'pad');
       if (padHit) {
+        isDraggingGround = false;
         const padId = padHit.object.userData.padId as number;
         api.selectPad(padId);
         const pad = pads.find((p) => p.id === padId);
         if (pad) {
-          moveTarget = { x: pad.x * 0.82, z: pad.z * 0.82 };
-          moveTargetRing.position.set(pad.x * 0.82, 0.06, pad.z * 0.82);
-          moveTargetAlpha = 0.85;
-          // Clicking a 3D pad triggers Ranger Rue's 'construction' animation state (or night lock message at night)
-          if (pad.building === null) {
-            api.buildOnSelectedPad('palisade');
-          } else if (pad.building.hp < pad.building.maxHp) {
-            api.repairSelectedPad();
-          } else if (pad.building.upgradePath === null) {
-            api.upgradeSelectedPad('pathA');
+          const tr = TRANSLATIONS[langRef.current];
+          const padLabelLoc = tr.translatePadLabel(pad.id, pad.label);
+          if (phase === 'night') {
+            notifyNightBuildLocked();
+          } else if (pad.building === null) {
+            setBanner(
+              tr.padSelectedEmptyBanner(pad.id, padLabelLoc),
+              3.5
+            );
+            addCallout(tr.chooseBuildingCallout(pad.id), pad.x, 1.9, pad.z, '#fbbf24', 1.4);
+          } else {
+            const bName = tr.buildings[pad.building.type]?.name ?? BUILDING_CATALOG[pad.building.type].name;
+            setBanner(
+              tr.padSelectedBuiltBanner(pad.id, bName),
+              3.5
+            );
           }
+          syncHud(true);
         }
         return;
       }
 
-      const fenceHit = hits.find((h) => h.object.userData?.kind === 'fence');
-      if (fenceHit) {
-        const fenceId = fenceHit.object.userData.fenceId as number;
-        api.selectFence(fenceId);
-        const seg = fenceSegments.find((f) => f.id === fenceId);
-        if (seg) {
-          moveTarget = { x: seg.x * 0.84, z: seg.z * 0.84 };
-          moveTargetRing.position.set(seg.x * 0.84, 0.06, seg.z * 0.84);
-          moveTargetAlpha = 0.85;
-          if (seg.level === 0 || seg.hp < seg.maxHp || seg.level === 1) {
-            api.buildNextFence();
-          }
-        }
-        return;
-      }
-
+      // 2. Clicking a Resource Node walks Rue to gather that resource
       const nodeHit = hits.find((h) => h.object.userData?.kind === 'node');
       if (nodeHit) {
+        isDraggingGround = false;
         const nodeId = nodeHit.object.userData.nodeId as number;
         const node = resourceNodes.find((n) => n.id === nodeId);
         if (node) {
@@ -1955,7 +2314,33 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         return;
       }
 
-      // Ground click -> Click-to-Move / Tap-to-Move
+      // 3. Clicking an Outer Fence Segment selects that fence and shows the Fence action in the dock (no silent auto-build)
+      const fenceHit = hits.find((h) => h.object.userData?.kind === 'fence');
+      if (fenceHit) {
+        isDraggingGround = false;
+        const fenceId = fenceHit.object.userData.fenceId as number;
+        api.selectFence(fenceId);
+        const seg = fenceSegments.find((f) => f.id === fenceId);
+        if (seg) {
+          moveTarget = { x: seg.x * 0.84, z: seg.z * 0.84 };
+          moveTargetRing.position.set(seg.x * 0.84, 0.06, seg.z * 0.84);
+          moveTargetAlpha = 0.85;
+          if (phase === 'night') {
+            notifyNightBuildLocked();
+          } else {
+            const tr = TRANSLATIONS[langRef.current];
+            setBanner(
+              tr.fenceSelectedBanner(seg.label),
+              3.2
+            );
+          }
+          syncHud(true);
+        }
+        return;
+      }
+
+      // 4. Ground click / touch -> Click-to-Move & Continuous Touch Drag-to-Move
+      isDraggingGround = true;
       const groundPoint = hits[0].point;
       const clampedR = Math.min(16.8, Math.hypot(groundPoint.x, groundPoint.z));
       const angle = Math.atan2(groundPoint.z, groundPoint.x);
@@ -1966,7 +2351,40 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       moveTargetAlpha = 0.85;
     };
 
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isDraggingGround || screenState !== 'playing') return;
+      if (activePinchDist !== null) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointerNdc, camera);
+      const hits = raycaster.intersectObjects([outerGround, clearingDisc], false);
+      if (hits.length > 0) {
+        const groundPoint = hits[0].point;
+        const clampedR = Math.min(16.8, Math.hypot(groundPoint.x, groundPoint.z));
+        const angle = Math.atan2(groundPoint.z, groundPoint.x);
+        const gx = Math.cos(angle) * clampedR;
+        const gz = Math.sin(angle) * clampedR;
+        moveTarget = { x: gx, z: gz };
+        moveTargetRing.position.set(gx, 0.06, gz);
+        moveTargetAlpha = 0.65;
+      }
+    };
+
+    const onPointerUp = () => {
+      isDraggingGround = false;
+    };
+
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: true });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd, { passive: true });
 
     // ResizeObserver for Responsive Viewport
     const handleResize = () => {
@@ -2079,7 +2497,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       fortGhostHp = THREE.MathUtils.damp(fortGhostHp, fortHp, 3.2, dt);
 
-      // Day <-> Night Lighting & Fog Atmosphere Interpolation
+      // Blood Moon Day <-> Night Lighting, Forest Darkening & Handheld Lantern Glow
       const targetNightBlend = phase === 'night' ? 1.0 : 0.0;
       nightBlend = THREE.MathUtils.damp(nightBlend, targetNightBlend, 2.2, dt);
 
@@ -2087,14 +2505,49 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       scene.background = _color.clone();
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.color.copy(_color);
-        scene.fog.density = THREE.MathUtils.lerp(0.014, 0.022, nightBlend);
+        scene.fog.density = THREE.MathUtils.lerp(0.014, 0.015, nightBlend);
       }
+      scene.environmentIntensity = THREE.MathUtils.lerp(1.0, 0.72, nightBlend);
       keyLight.color.copy(_daySunColor).lerp(_nightMoonColor, nightBlend);
-      keyLight.intensity = THREE.MathUtils.lerp(1.65, 0.72, nightBlend);
+      keyLight.intensity = THREE.MathUtils.lerp(1.65, 1.25, nightBlend);
       hemiLight.color.copy(_dayHemiSky).lerp(_nightHemiSky, nightBlend);
-      hemiLight.intensity = THREE.MathUtils.lerp(0.85, 0.42, nightBlend);
-      rueLanternLight.intensity = THREE.MathUtils.lerp(1.8, 3.4, nightBlend);
-      fortWarmLight.intensity = THREE.MathUtils.lerp(1.5, 2.8, nightBlend);
+      hemiLight.groundColor.copy(_dayHemiGround).lerp(_nightHemiGround, nightBlend);
+      hemiLight.intensity = THREE.MathUtils.lerp(0.85, 0.74, nightBlend);
+      rimLight.color.copy(_dayRimColor).lerp(_nightRimColor, nightBlend);
+      rimLight.intensity = THREE.MathUtils.lerp(0.55, 0.82, nightBlend);
+      fortWarmLight.intensity = THREE.MathUtils.lerp(0.9, 3.8, nightBlend);
+
+      const flameFlicker =
+        0.92 + Math.sin(windTime * 11.5) * 0.08 + Math.cos(windTime * 17.3) * 0.05;
+      const lanternGlassMat = rueRig.lanternMesh.material as THREE.MeshStandardMaterial;
+      lanternGlassMat.color.setHex(nightBlend > 0.25 ? 0xfef3c7 : 0x94a3b8);
+      lanternGlassMat.emissiveIntensity = THREE.MathUtils.lerp(0.0, 4.2 * flameFlicker, nightBlend);
+      (rueRig.lanternFlameMesh.material as THREE.MeshBasicMaterial).opacity = THREE.MathUtils.clamp(
+        nightBlend * 1.2,
+        0,
+        1
+      );
+      rueRig.lanternFlameMesh.scale.set(
+        0.85 + nightBlend * 0.3,
+        (0.35 + nightBlend * 0.95) * flameFlicker,
+        0.85 + nightBlend * 0.3
+      );
+      (rueRig.lanternHaloMesh.material as THREE.MeshBasicMaterial).opacity =
+        nightBlend * (0.48 + Math.sin(windTime * 7.5) * 0.08);
+      rueRig.lanternHaloMesh.scale.setScalar(0.75 + nightBlend * 0.65 * flameFlicker);
+
+      if (flareWaveTimer > 0) {
+        const flareFade = flareWaveTimer / 1.15;
+        rueLanternLight.color.setHex(0xff5a1f);
+        rueLanternLight.intensity = 5.8 + flareFade * 7.5;
+        rueLanternLight.distance = 24;
+      } else {
+        const spec =
+          LANTERN_COSMETICS[dailyState.equippedLanternId] ?? LANTERN_COSMETICS.amber_default;
+        rueLanternLight.color.setHex(spec.threeColor);
+        rueLanternLight.intensity = THREE.MathUtils.lerp(0.0, 5.8 * flameFlicker, nightBlend);
+        rueLanternLight.distance = THREE.MathUtils.lerp(6, 17, nightBlend);
+      }
 
       // Real-Time Forest Wind Sway Animation for Tree Leaves (tier1-3), Ferns, and Grass Tufts
       const windSpeed = phase === 'night' ? 2.6 : 1.95;
@@ -2190,6 +2643,44 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       grassTuftInst.instanceMatrix.needsUpdate = true;
 
+      // Animate shimmering water ditch flow & Cornfield stalk wind sway
+      waterCanalTex.offset.x = (windTime * 0.14) % 1;
+      for (let i = 0; i < cornWindData.length; i++) {
+        const c = cornWindData[i];
+        const cWave =
+          Math.sin(windTime * (windSpeed * 1.15) + c.wx * 0.25 + c.wz * 0.2 + c.phase) *
+          0.09 *
+          windPower;
+        _dummyObj.position.set(c.wx, 0.12, c.wz);
+        _dummyObj.rotation.set(cWave * 0.65, c.rotY, -cWave);
+        _dummyObj.scale.set(1, c.scaleY, 1);
+        _dummyObj.updateMatrix();
+        cornStalkInst.setMatrixAt(i, _dummyObj.matrix);
+
+        _dummyObj.position.set(
+          c.wx + Math.cos(c.rotY) * 0.08 - cWave * 0.45,
+          0.12 + 0.92 * c.scaleY,
+          c.wz + Math.sin(c.rotY) * 0.08 + cWave * 0.3
+        );
+        _dummyObj.rotation.set(0.24 + cWave * 0.6, c.rotY, 0.3 - cWave);
+        _dummyObj.scale.setScalar(1);
+        _dummyObj.updateMatrix();
+        cornCobInst.setMatrixAt(i, _dummyObj.matrix);
+
+        _dummyObj.position.set(
+          c.wx - cWave * 0.85,
+          0.12 + 1.62 * c.scaleY,
+          c.wz + cWave * 0.55
+        );
+        _dummyObj.rotation.set(cWave * 0.65, c.rotY, -cWave);
+        _dummyObj.scale.setScalar(1);
+        _dummyObj.updateMatrix();
+        cornTasselInst.setMatrixAt(i, _dummyObj.matrix);
+      }
+      cornStalkInst.instanceMatrix.needsUpdate = true;
+      cornCobInst.instanceMatrix.needsUpdate = true;
+      cornTasselInst.instanceMatrix.needsUpdate = true;
+
       // Title Screen Ambient Camera Pan & Idling
       if (screenState === 'title') {
         const t = performance.now() * 0.0004;
@@ -2218,13 +2709,36 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       if (flareWaveTimer > 0) {
         flareWaveTimer = Math.max(0, flareWaveTimer - dt);
-        const progress = 1 - flareWaveTimer / 0.55;
-        const r = 0.5 + progress * LANTERN_FLARE_RADIUS;
+        const progress = 1 - flareWaveTimer / 1.15;
+        const r = 0.8 + progress * LANTERN_FLARE_RADIUS;
         flareRingMesh.position.set(flareOriginX, 0.22, flareOriginZ);
         flareRingMesh.scale.setScalar(r);
-        flareRingMat.opacity = (1 - progress) * 0.85;
+        flareRingMat.opacity = (1 - progress) * 0.95;
+
+        flareCoreRingMesh.position.set(flareOriginX, 0.28, flareOriginZ);
+        flareCoreRingMesh.scale.setScalar(0.6 + progress * (LANTERN_FLARE_RADIUS * 0.78));
+        flareCoreRingMat.opacity = (1 - progress) * 0.95;
+
+        flareFireGroup.visible = true;
+        flareFireGroup.position.set(flareOriginX, 0.12, flareOriginZ);
+        const fireFade = Math.sin((1 - progress) * Math.PI * 0.5);
+        flareOuterFlameMat.opacity = fireFade * 0.92;
+        flareInnerFlameMat.opacity = fireFade * 0.95;
+        const ringRadius = 1.0 + progress * (LANTERN_FLARE_RADIUS * 0.76);
+        for (let i = 0; i < flareFlameTongues.length; i++) {
+          const ft = flareFlameTongues[i];
+          const flicker = 0.85 + Math.sin(windTime * 22 + ft.phase) * 0.22;
+          const dist = ft.isCenter ? 0.65 + progress * 1.6 : ringRadius;
+          ft.holder.position.set(Math.cos(ft.angle) * dist, 0, Math.sin(ft.angle) * dist);
+          ft.holder.rotation.y = -ft.angle + windTime * 2.5;
+          const hScale = (ft.isCenter ? 1.55 : 1.25) * (1 - progress * 0.3) * flicker;
+          const wScale = (ft.isCenter ? 1.25 : 1.1) * (1 - progress * 0.22);
+          ft.holder.scale.set(wScale, hScale, wScale);
+        }
       } else {
         flareRingMat.opacity = 0;
+        flareCoreRingMat.opacity = 0;
+        flareFireGroup.visible = false;
       }
 
       // 1. Move Ranger Rue (WASD / Arrows + Click-to-Move)
@@ -2360,12 +2874,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 doneTask.targetZ,
                 '#4ade80'
               );
+              selectedPadId = null;
+              selectRingMesh.visible = false;
             } else if (doneTask.action === 'upgrade_pad' && doneTask.upgradePath) {
               score += 120;
               applyTaskEvent({ runScore: score });
               soundFX.playBuild(true);
               spawnParticles(doneTask.targetX, 1.5, doneTask.targetZ, 20, 0x38bdf8, 5.2);
               addCallout(`Upgraded: ${doneTask.label}!`, doneTask.targetX, 2.5, doneTask.targetZ, '#fbbf24');
+              selectedPadId = null;
+              selectRingMesh.visible = false;
             } else if (doneTask.action === 'repair_pad') {
               soundFX.playBuild(false);
               spawnParticles(doneTask.targetX, 1.0, doneTask.targetZ, 12, 0x4ade80, 4.0);
@@ -3043,11 +3561,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const shakeX = (Math.random() - 0.5) * 2 * shakeAmt;
       const shakeZ = (Math.random() - 0.5) * 2 * shakeAmt;
 
-      // Subtle pan toward Rue while keeping Fort (0,0) squarely in frame
-      const targetLookX = rueX * 0.18 + shakeX;
-      const targetLookZ = rueZ * 0.18 + shakeZ;
+      // Subtle pan toward Rue while keeping Fort (0,0) squarely in frame (auto-scaled on mobile portrait)
+      const isPortrait = camera.aspect < 1.0;
+      const followRatio = isPortrait ? 0.3 : 0.18;
+      const portraitScale = isPortrait
+        ? THREE.MathUtils.clamp(1 / Math.pow(camera.aspect, 0.36), 1.0, 1.35)
+        : 1.0;
+      const targetLookX = rueX * followRatio + shakeX;
+      const targetLookZ = rueZ * followRatio + shakeZ;
       const nightZoom = THREE.MathUtils.lerp(1.0, 0.9, nightBlend);
-      const distFactor = 24.5 * cameraZoom * nightZoom;
+      const distFactor = 24.5 * cameraZoom * nightZoom * portraitScale;
 
       camera.position.x = THREE.MathUtils.damp(camera.position.x, targetLookX, 5.5, dt);
       camera.position.y = THREE.MathUtils.damp(camera.position.y, distFactor, 5.5, dt);
@@ -3211,6 +3734,66 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
+        // Render crisp interactive WOOD / FOOD / STONE world labels & P1-P8 Build Pad indicators during Day Phase
+        if (phase === 'day') {
+          const tr = TRANSLATIONS[langRef.current];
+          for (const pad of pads) {
+            _projVec.set(pad.x, pad.building ? 2.15 : 0.95, pad.z).project(camera);
+            if (_projVec.z >= -1 && _projVec.z <= 1) {
+              const sxNum = (_projVec.x + 1) * 0.5 * w;
+              const syNum = (-_projVec.y + 1) * 0.5 * h;
+              if (syNum < 82 || syNum > h - 84) continue;
+              const sx = sxNum.toFixed(0);
+              const sy = syNum.toFixed(0);
+              const isSel = pad.id === selectedPadId;
+              const padStyle = isSel
+                ? 'border-[#fbbf24] text-[#090d16] bg-[#fbbf24]'
+                : pad.building
+                ? 'border-[#4ade80]/70 text-[#86efac]'
+                : 'border-[#f59e0b]/70 text-[#fef3c7]';
+              const padBg = isSel ? '' : 'background:rgba(13,19,28,0.86);';
+              const bldLocName = pad.building
+                ? (tr.buildings[pad.building.type]?.shortName ?? BUILDING_CATALOG[pad.building.type].name)
+                : '';
+              const padText = pad.building
+                ? `P${pad.id} · ${bldLocName}`
+                : isSel
+                ? tr.padSelectedWorldBadge(pad.id)
+                : tr.padEmptyWorldBadge(pad.id);
+              htmlParts.push(
+                `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-100%);${padBg}" class="px-1.5 py-0.5 rounded border ${padStyle} text-[8.5px] font-mono-tabular font-bold tracking-wider whitespace-nowrap pointer-events-none shadow">${padText}</div>`
+              );
+            }
+          }
+
+          for (const node of resourceNodes) {
+            if (node.amount <= 0 || node.respawnTimer > 0) continue;
+            _projVec.set(node.x, 1.95, node.z).project(camera);
+            if (_projVec.z >= -1 && _projVec.z <= 1) {
+              const sxNum = (_projVec.x + 1) * 0.5 * w;
+              const syNum = (-_projVec.y + 1) * 0.5 * h;
+              if (syNum < 88 || syNum > h - 84) continue;
+              const sx = sxNum.toFixed(0);
+              const sy = syNum.toFixed(0);
+              const badgeStyle =
+                node.type === 'wood'
+                  ? 'border-[#f59e0b] text-[#fde68a]'
+                  : node.type === 'food'
+                  ? 'border-[#fb7185] text-[#fecdd3]'
+                  : 'border-[#38bdf8] text-[#bae6fd]';
+              const labelText =
+                node.type === 'wood'
+                  ? `${tr.woodLabel} · ${node.amount}`
+                  : node.type === 'food'
+                  ? `${tr.foodLabel} · ${node.amount}`
+                  : `${tr.stoneLabel} · ${node.amount}`;
+              htmlParts.push(
+                `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-100%);background:rgba(13,19,28,0.88);" class="px-1.5 py-0.5 rounded border ${badgeStyle} text-[9px] font-mono-tabular font-bold tracking-wider whitespace-nowrap pointer-events-none shadow">${labelText}</div>`
+              );
+            }
+          }
+        }
+
         calloutContainerRef.current.innerHTML = htmlParts.join('');
       }
 
@@ -3244,7 +3827,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onWindowBlur);
+      window.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('wheel', onWheel);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
       renderer.dispose();
     };
   }, [controllerRef]);

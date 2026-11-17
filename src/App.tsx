@@ -6,6 +6,11 @@ import { TitleScreen } from './components/TitleScreen';
 import { soundFX } from './game/audio';
 import { loadDailyStateFromStorage } from './game/dailySystem';
 import {
+  LanguageCode,
+  loadLanguageFromStorage,
+  saveLanguageToStorage,
+} from './game/i18n';
+import {
   createInitialFenceSegments,
   createInitialPads,
   DAY_DURATION_SECONDS,
@@ -20,6 +25,12 @@ export default function App() {
   const controllerRef = useRef<GameControllerApi | null>(null);
   const [muted, setMuted] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [lang, setLang] = useState<LanguageCode>(() => loadLanguageFromStorage());
+
+  const handleSelectLanguage = (nextLang: LanguageCode) => {
+    setLang(nextLang);
+    saveLanguageToStorage(nextLang);
+  };
 
   const [hud, setHud] = useState<HudSnapshot>(() => {
     const autostart =
@@ -84,9 +95,12 @@ export default function App() {
   };
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-[#0b1016] select-none">
+    <main
+      className="relative w-screen h-screen overflow-hidden bg-[#0b1016] select-none"
+      data-lang={lang}
+    >
       {/* 3D WebGL Viewport */}
-      <GameCanvas onHudUpdate={setHud} controllerRef={controllerRef} />
+      <GameCanvas onHudUpdate={setHud} controllerRef={controllerRef} lang={lang} />
 
       {/* Title Screen Overlay */}
       {hud.screen === 'title' && !showGuide && (
@@ -100,6 +114,8 @@ export default function App() {
           onRefillTicketWithCoins={() =>
             controllerRef.current?.refillTicketWithCoins()
           }
+          lang={lang}
+          onSelectLanguage={handleSelectLanguage}
         />
       )}
 
@@ -107,6 +123,8 @@ export default function App() {
       <HudOverlay
         hud={hud}
         muted={muted}
+        lang={lang}
+        onSelectLanguage={handleSelectLanguage}
         onSelectPad={(padId) => controllerRef.current?.selectPad(padId)}
         onSelectFence={(fenceId) => controllerRef.current?.selectFence(fenceId)}
         onBuildNextFence={() => controllerRef.current?.buildNextFence()}
@@ -125,11 +143,14 @@ export default function App() {
         onOpenGuide={() => setShowGuide(true)}
         onToggleDock={() => controllerRef.current?.toggleDock()}
         onAdjustZoom={(delta) => controllerRef.current?.adjustZoom(delta)}
+        onRefillTicketWithCoins={() => controllerRef.current?.refillTicketWithCoins()}
       />
 
       {/* Pause, Unified End Screen Result Card, and Schema/Guide Modals */}
       <Modals
         hud={hud}
+        lang={lang}
+        onSelectLanguage={handleSelectLanguage}
         showGuide={showGuide}
         onCloseGuide={() => setShowGuide(false)}
         onResume={() => controllerRef.current?.togglePause()}

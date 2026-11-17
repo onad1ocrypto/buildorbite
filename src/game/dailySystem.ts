@@ -570,6 +570,22 @@ export function completeRunProgression(
   };
 }
 
+export const REVIEW_GRANT_TICKETS = 25;
+
+/**
+ * Grants free playtest/review tickets on demand without capping at MAX_DAILY_TICKETS.
+ */
+export function grantReviewTickets(
+  state: DailyPersistenceState,
+  amount = 10
+): DailyPersistenceState {
+  const safeAmount = Math.max(1, Math.round(amount));
+  return {
+    ...state,
+    tickets: state.tickets + safeAmount,
+  };
+}
+
 export function loadDailyStateFromStorage(nowMs: number = Date.now()): DailyPersistenceState {
   if (typeof window === 'undefined' || !window.localStorage) {
     return createDefaultDailyState(nowMs);
@@ -577,16 +593,27 @@ export function loadDailyStateFromStorage(nowMs: number = Date.now()): DailyPers
   try {
     const raw = window.localStorage.getItem(DAILY_STORAGE_KEY);
     if (!raw) {
-      const initial = createDefaultDailyState(nowMs);
+      const initial = {
+        ...createDefaultDailyState(nowMs),
+        tickets: REVIEW_GRANT_TICKETS,
+      };
       saveDailyStateToStorage(initial);
       return initial;
     }
     const parsed = JSON.parse(raw) as DailyPersistenceState;
     const resetChecked = checkAndApplyDailyReset(parsed, nowMs);
-    saveDailyStateToStorage(resetChecked);
-    return resetChecked;
+    const toppedUp: DailyPersistenceState =
+      resetChecked.tickets < REVIEW_GRANT_TICKETS
+        ? { ...resetChecked, tickets: REVIEW_GRANT_TICKETS }
+        : resetChecked;
+    saveDailyStateToStorage(toppedUp);
+    return toppedUp;
   } catch {
-    return createDefaultDailyState(nowMs);
+    const fallback = {
+      ...createDefaultDailyState(nowMs),
+      tickets: REVIEW_GRANT_TICKETS,
+    };
+    return fallback;
   }
 }
 
