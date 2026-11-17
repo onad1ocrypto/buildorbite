@@ -449,76 +449,73 @@ export interface RueRig {
 
 export function createRangerRueModel(): RueRig {
   const group = new THREE.Group();
-  group.add(createContactShadow(0.9));
+  group.add(createContactShadow(0.95));
 
-  // Hat Palette: Red & Black ("topi = merah kombinasi hitam")
+  // Hat Palette: Sharp Vivid Crimson Red + Jet Black Accents ("ubah warna topi merah tajam")
   const hatRedMat = new THREE.MeshStandardMaterial({
-    color: 0xdc2626,
-    roughness: 0.68,
-    metalness: 0.08,
-    flatShading: true,
+    color: 0xc80018,
+    emissive: 0x6e000e,
+    emissiveIntensity: 0.22,
+    roughness: 0.48,
+    metalness: 0.05,
   });
   const hatBlackMat = new THREE.MeshStandardMaterial({
-    color: 0x18181b,
-    roughness: 0.76,
-    metalness: 0.12,
-    flatShading: true,
+    color: 0x111318,
+    roughness: 0.65,
+    metalness: 0.18,
   });
 
   // Outfit Palette: Blue, Orange & Yellow ("pakaian warna kombinasi = biru, oren dan kuning")
   const outfitBlueMat = new THREE.MeshStandardMaterial({
-    color: 0x2563eb,
-    roughness: 0.7,
+    color: 0x1d4ed8,
+    emissive: 0x1e3a8a,
+    emissiveIntensity: 0.1,
+    roughness: 0.58,
     metalness: 0.08,
-    flatShading: true,
   });
   const outfitOrangeMat = new THREE.MeshStandardMaterial({
     color: 0xf97316,
-    roughness: 0.66,
+    emissive: 0xc2410c,
+    emissiveIntensity: 0.1,
+    roughness: 0.54,
     metalness: 0.08,
-    flatShading: true,
   });
   const outfitYellowMat = new THREE.MeshStandardMaterial({
     color: 0xfacc15,
-    roughness: 0.62,
-    metalness: 0.1,
-    flatShading: true,
+    emissive: 0xca8a04,
+    emissiveIntensity: 0.12,
+    roughness: 0.48,
+    metalness: 0.12,
   });
 
   const bootBrownMat = new THREE.MeshStandardMaterial({
     color: 0x3b2313,
-    roughness: 0.82,
-    metalness: 0.08,
-    flatShading: true,
+    roughness: 0.72,
+    metalness: 0.1,
   });
   const darkBandMat = new THREE.MeshStandardMaterial({
     color: 0x1e1b18,
-    roughness: 0.85,
-    flatShading: true,
+    roughness: 0.8,
   });
   const gingerHairMat = new THREE.MeshStandardMaterial({
     color: 0xc2410c,
-    roughness: 0.68,
+    roughness: 0.6,
     metalness: 0.05,
-    flatShading: true,
   });
   const skinMat = new THREE.MeshStandardMaterial({
-    color: 0xf4c29f,
-    roughness: 0.62,
+    color: 0xf6c6a4,
+    roughness: 0.55,
     metalness: 0.04,
-    flatShading: true,
   });
   const silverBadgeMat = new THREE.MeshStandardMaterial({
-    color: 0xe2e8f0,
-    roughness: 0.28,
-    metalness: 0.85,
-    flatShading: true,
+    color: 0xf1f5f9,
+    roughness: 0.22,
+    metalness: 0.88,
   });
   const brassMat = new THREE.MeshStandardMaterial({
-    color: 0xd97706,
-    roughness: 0.3,
+    color: 0xf59e0b,
+    roughness: 0.28,
     metalness: 0.82,
-    flatShading: true,
   });
   const lanternGlowMat = new THREE.MeshStandardMaterial({
     color: 0x94a3b8,
@@ -526,152 +523,215 @@ export function createRangerRueModel(): RueRig {
     emissiveIntensity: 0.0,
     roughness: 0.22,
     transparent: true,
-    opacity: 0.62,
+    opacity: 0.65,
   });
 
-  // 1. Sturdy Laced Boots & Cobalt-Blue Trousers
-  const bootGeo = new THREE.BoxGeometry(0.3, 0.26, 0.42);
-  const leftBoot = new THREE.Mesh(bootGeo, bootBrownMat);
-  leftBoot.position.set(-0.21, 0.13, 0.04);
-  leftBoot.castShadow = true;
-  const rightBoot = new THREE.Mesh(bootGeo, bootBrownMat);
-  rightBoot.position.set(0.21, 0.13, 0.04);
-  rightBoot.castShadow = true;
+  // 1. Detailed Laced Ranger Boots (Sole + Heel + Rounded Toe Cap + Cuff) & Articulated Legs
+  [-0.21, 0.21].forEach((lx) => {
+    const bootSole = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.44), hatBlackMat);
+    bootSole.position.set(lx, 0.03, 0.04);
+    const bootShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.14, 0.22, 12), bootBrownMat);
+    bootShaft.position.set(lx, 0.15, 0.01);
+    bootShaft.castShadow = true;
+    const bootToe = new THREE.Mesh(new THREE.SphereGeometry(0.135, 12, 10), bootBrownMat);
+    bootToe.scale.set(1.0, 0.75, 1.35);
+    bootToe.position.set(lx, 0.1, 0.11);
+    bootToe.castShadow = true;
+    const bootCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.14, 0.05, 12), outfitYellowMat);
+    bootCuff.position.set(lx, 0.25, 0.01);
 
-  const legGeo = new THREE.CylinderGeometry(0.14, 0.15, 0.26, 7);
-  const leftLeg = new THREE.Mesh(legGeo, outfitBlueMat);
-  leftLeg.position.set(-0.21, 0.32, 0);
-  const rightLeg = new THREE.Mesh(legGeo, outfitBlueMat);
-  rightLeg.position.set(0.21, 0.32, 0);
-  group.add(leftBoot, rightBoot, leftLeg, rightLeg);
+    const legTrouser = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.13, 0.24, 12), outfitBlueMat);
+    legTrouser.position.set(lx, 0.36, 0);
+    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), outfitOrangeMat);
+    kneePad.scale.set(1.1, 0.9, 0.6);
+    kneePad.position.set(lx, 0.34, 0.11);
 
-  // 2. Blue, Orange & Yellow Ranger Outfit (Blue Coat Skirt + Yellow Trim, Orange Tunic & Cape, Yellow Collar Scarf)
-  const coatHem = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.56, 0.38, 8), outfitBlueMat);
-  coatHem.position.y = 0.53;
+    group.add(bootSole, bootShaft, bootToe, bootCuff, legTrouser, kneePad);
+  });
+
+  // 2. Sculpted Ranger Coat Skirt, Tunic Torso, Shoulder Pauldrons & Flowing Scarf
+  const coatHem = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.54, 0.36, 16), outfitBlueMat);
+  coatHem.position.y = 0.54;
   coatHem.castShadow = true;
 
   const coatYellowTrim = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.55, 0.58, 0.08, 8),
+    new THREE.CylinderGeometry(0.53, 0.56, 0.07, 16),
     outfitYellowMat
   );
-  coatYellowTrim.position.y = 0.35;
+  coatYellowTrim.position.y = 0.37;
 
-  const vestTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.48, 0.56, 8), outfitOrangeMat);
-  vestTorso.position.y = 0.8;
+  // Sculpted upper torso (wider chest, tapered waist)
+  const vestTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.41, 0.54, 16), outfitOrangeMat);
+  vestTorso.scale.set(1.08, 1.0, 0.88);
+  vestTorso.position.y = 0.84;
   vestTorso.castShadow = true;
 
+  // Blue inner lapel V-panel on chest
+  const chestLapel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.38, 0.05), outfitBlueMat);
+  chestLapel.position.set(0, 0.88, 0.36);
+
+  // Distinct Shoulder Pauldrons / Capelet
   const shoulderCape = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.58, 0.19, 8),
+    new THREE.CylinderGeometry(0.46, 0.56, 0.18, 16),
     outfitOrangeMat
   );
-  shoulderCape.position.y = 1.01;
+  shoulderCape.scale.set(1.1, 1.0, 0.92);
+  shoulderCape.position.y = 1.04;
   shoulderCape.castShadow = true;
 
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.41, 0.14, 8), outfitYellowMat);
-  collar.position.y = 1.12;
-  group.add(coatHem, coatYellowTrim, vestTorso, shoulderCape, collar);
+  [-0.48, 0.48].forEach((sx) => {
+    const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), outfitBlueMat);
+    pauldron.scale.set(1.1, 0.72, 1.0);
+    pauldron.position.set(sx, 1.03, 0);
+    pauldron.castShadow = true;
+    const pauldronTrim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.025, 8, 14), outfitYellowMat);
+    pauldronTrim.rotation.x = Math.PI / 2;
+    pauldronTrim.rotation.y = sx < 0 ? 0.3 : -0.3;
+    pauldronTrim.position.set(sx, 1.01, 0);
+    group.add(pauldron, pauldronTrim);
+  });
 
-  // 3 Horizontal Yellow Chest Straps + Silver Buckles + Blue Belt + Orange Pouches + Pocket Compass
-  for (let s = 0; s < 3; s++) {
-    const sy = 0.66 + s * 0.13;
-    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.045, 0.06), outfitYellowMat);
-    strap.position.set(0, sy, 0.45);
-    const tinyBuckle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.07), silverBadgeMat);
-    tinyBuckle.position.set(0, sy, 0.46);
+  // Yellow Collar Scarf + Twin Fluttering Scarf Tails at the Back
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.085, 10, 18), outfitYellowMat);
+  collar.rotation.x = Math.PI / 2;
+  collar.scale.set(1.05, 0.95, 1.0);
+  collar.position.y = 1.13;
+
+  const scarfTailL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.36, 0.04), outfitYellowMat);
+  scarfTailL.position.set(-0.14, 0.96, -0.42);
+  scarfTailL.rotation.set(0.28, 0, 0.15);
+  const scarfTailR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.32, 0.04), outfitOrangeMat);
+  scarfTailR.position.set(0.12, 0.98, -0.43);
+  scarfTailR.rotation.set(0.32, 0, -0.18);
+  group.add(coatHem, coatYellowTrim, vestTorso, chestLapel, shoulderCape, collar, scarfTailL, scarfTailR);
+
+  // 3. Cross-Body Baldric Strap, Utility Belt, Pouches & Pocket Compass
+  const baldricStrap = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.58, 0.82), outfitYellowMat);
+  baldricStrap.position.set(0, 0.84, 0);
+  baldricStrap.rotation.z = 0.52;
+  group.add(baldricStrap);
+
+  for (let s = 0; s < 2; s++) {
+    const sy = 0.74 + s * 0.16;
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, 0.06), outfitYellowMat);
+    strap.position.set(0, sy, 0.38);
+    const tinyBuckle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.055, 0.07), silverBadgeMat);
+    tinyBuckle.position.set(0, sy, 0.39);
     group.add(strap, tinyBuckle);
   }
 
-  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.5, 0.13, 8), hatBlackMat);
-  belt.position.y = 0.52;
-  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.15, 0.08), outfitYellowMat);
-  buckle.position.set(0, 0.52, 0.48);
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.47, 0.12, 16), hatBlackMat);
+  belt.scale.set(1.06, 1.0, 0.9);
+  belt.position.y = 0.56;
+  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.15, 0.08), brassMat);
+  buckle.position.set(0, 0.56, 0.42);
+  const buckleInner = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.09), hatBlackMat);
+  buckleInner.position.set(0, 0.56, 0.42);
+
   const pouchL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.14), outfitOrangeMat);
-  pouchL.position.set(-0.34, 0.52, 0.36);
+  pouchL.position.set(-0.36, 0.55, 0.3);
   const pouchR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.14), outfitOrangeMat);
-  pouchR.position.set(0.34, 0.52, 0.36);
+  pouchR.position.set(0.36, 0.55, 0.3);
 
   // Hanging Round Pocket Compass
-  const compassCase = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.05, 10), brassMat);
+  const compassCase = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.045, 12), brassMat);
   compassCase.rotation.x = Math.PI / 2;
-  compassCase.position.set(0.18, 0.39, 0.49);
+  compassCase.position.set(0.19, 0.42, 0.44);
   const compassDial = new THREE.Mesh(
-    new THREE.CircleGeometry(0.085, 10),
+    new THREE.CircleGeometry(0.078, 12),
     new THREE.MeshBasicMaterial({ color: 0xf8fafc })
   );
-  compassDial.position.set(0.18, 0.39, 0.52);
-  const compassNeedle = new THREE.Mesh(
-    new THREE.BoxGeometry(0.025, 0.09, 0.01),
-    new THREE.MeshBasicMaterial({ color: 0xdc2626 })
-  );
-  compassNeedle.position.set(0.18, 0.39, 0.525);
-  compassNeedle.rotation.z = -0.4;
-  group.add(belt, buckle, pouchL, pouchR, compassCase, compassDial, compassNeedle);
+  compassDial.position.set(0.19, 0.42, 0.465);
+  group.add(belt, buckle, buckleInner, pouchL, pouchR, compassCase, compassDial);
 
-  // 4. Blue Expedition Backpack + Orange & Yellow Rolled Sleeping Mat on Top
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.58, 0.36), outfitBlueMat);
-  pack.position.set(0, 0.74, -0.42);
+  // 4. Detailed Expedition Backpack + Top Rolled Sleeping Mat
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.54, 0.32), outfitBlueMat);
+  pack.position.set(0, 0.78, -0.38);
   pack.castShadow = true;
-  const bedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.64, 10), outfitOrangeMat);
+  const packFlap = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.16, 0.34), outfitOrangeMat);
+  packFlap.position.set(0, 0.98, -0.38);
+  const bedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.62, 12), hatRedMat);
   bedroll.rotation.z = Math.PI / 2;
-  bedroll.position.set(0, 1.12, -0.4);
+  bedroll.position.set(0, 1.14, -0.38);
   bedroll.castShadow = true;
-  const bedrollSpiralL = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), outfitYellowMat);
-  bedrollSpiralL.rotation.y = -Math.PI / 2;
-  bedrollSpiralL.position.set(-0.325, 1.12, -0.4);
-  const bedrollSpiralR = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), outfitYellowMat);
-  bedrollSpiralR.rotation.y = Math.PI / 2;
-  bedrollSpiralR.position.set(0.325, 1.12, -0.4);
-  group.add(pack, bedroll, bedrollSpiralL, bedrollSpiralR);
+  const bedrollStrapL = new THREE.Mesh(new THREE.CylinderGeometry(0.148, 0.148, 0.06, 12), outfitYellowMat);
+  bedrollStrapL.rotation.z = Math.PI / 2;
+  bedrollStrapL.position.set(-0.18, 1.14, -0.38);
+  const bedrollStrapR = new THREE.Mesh(new THREE.CylinderGeometry(0.148, 0.148, 0.06, 12), outfitYellowMat);
+  bedrollStrapR.rotation.z = Math.PI / 2;
+  bedrollStrapR.position.set(0.18, 1.14, -0.38);
+  group.add(pack, packFlap, bedroll, bedrollStrapL, bedrollStrapR);
 
-  // 5. Expressive Head + Spiky Ginger-Red Hair + Red & Black Ranger Hat with Shield Badge
+  // 5. Sculpted Head, Facial Features, Ginger Hair & Sharp Vivid Crimson-Scarlet Ranger Hat
   const headGroup = new THREE.Group();
-  headGroup.position.set(0, 1.32, 0);
+  headGroup.position.set(0, 1.35, 0);
 
-  const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4, 1), skinMat);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 18, 16), skinMat);
+  head.scale.set(1.0, 1.02, 0.96);
   head.castShadow = true;
   headGroup.add(head);
 
-  // Big dark-brown expressive eyes with white sclera & cheerful smile
+  // Sculpted Ears & Nose
+  [-0.37, 0.37].forEach((ex) => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), skinMat);
+    ear.scale.set(0.55, 1.1, 0.8);
+    ear.position.set(ex, 0.0, 0.02);
+    headGroup.add(ear);
+  });
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.12, 8), skinMat);
+  nose.rotation.x = Math.PI / 2 - 0.15;
+  nose.position.set(0, -0.02, 0.39);
+  headGroup.add(nose);
+
+  // Expressive Eyes with White Catchlight Sparkles + Cheerful Smile
   const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const irisBrownMat = new THREE.MeshBasicMaterial({ color: 0x291811 });
-  const eyeGeo = new THREE.SphereGeometry(0.115, 8, 8);
-  const pupilGeo = new THREE.SphereGeometry(0.068, 8, 8);
+  const irisBrownMat = new THREE.MeshBasicMaterial({ color: 0x1e120d });
+  const eyeGeo = new THREE.SphereGeometry(0.105, 12, 10);
+  const pupilGeo = new THREE.SphereGeometry(0.062, 10, 10);
+  const catchlightGeo = new THREE.SphereGeometry(0.022, 6, 6);
 
   const leftEye = new THREE.Mesh(eyeGeo, eyeWhiteMat);
-  leftEye.position.set(-0.14, 0.03, 0.32);
+  leftEye.position.set(-0.14, 0.04, 0.31);
   const rightEye = new THREE.Mesh(eyeGeo, eyeWhiteMat);
-  rightEye.position.set(0.14, 0.03, 0.32);
+  rightEye.position.set(0.14, 0.04, 0.31);
 
   const leftPupil = new THREE.Mesh(pupilGeo, irisBrownMat);
-  leftPupil.position.set(-0.14, 0.03, 0.39);
+  leftPupil.position.set(-0.14, 0.04, 0.375);
   const rightPupil = new THREE.Mesh(pupilGeo, irisBrownMat);
-  rightPupil.position.set(0.14, 0.03, 0.39);
+  rightPupil.position.set(0.14, 0.04, 0.375);
+
+  const leftSparkle = new THREE.Mesh(catchlightGeo, eyeWhiteMat);
+  leftSparkle.position.set(-0.115, 0.068, 0.425);
+  const rightSparkle = new THREE.Mesh(catchlightGeo, eyeWhiteMat);
+  rightSparkle.position.set(0.165, 0.068, 0.425);
 
   const smileMouth = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.045, 0.04),
+    new THREE.BoxGeometry(0.15, 0.04, 0.04),
     new THREE.MeshBasicMaterial({ color: 0xffffff })
   );
-  smileMouth.position.set(0, -0.14, 0.36);
+  smileMouth.position.set(0, -0.14, 0.35);
 
-  // Thick auburn eyebrows
-  const browGeo = new THREE.BoxGeometry(0.16, 0.05, 0.06);
+  // Eyebrows
+  const browGeo = new THREE.BoxGeometry(0.15, 0.045, 0.05);
   const leftBrow = new THREE.Mesh(browGeo, gingerHairMat);
-  leftBrow.position.set(-0.15, 0.18, 0.35);
-  leftBrow.rotation.z = 0.12;
+  leftBrow.position.set(-0.15, 0.17, 0.34);
+  leftBrow.rotation.z = 0.1;
   const rightBrow = new THREE.Mesh(browGeo, gingerHairMat);
-  rightBrow.position.set(0.15, 0.18, 0.35);
-  rightBrow.rotation.z = -0.12;
+  rightBrow.position.set(0.15, 0.17, 0.34);
+  rightBrow.rotation.z = -0.1;
 
-  // Spiky Ginger-Red / Auburn Hair framing temples, cheeks, and back
-  const hairSpikeGeo = new THREE.ConeGeometry(0.15, 0.34, 5);
+  // Ginger-Red Hair Locks framing temples, cheeks, and back
+  const hairSpikeGeo = new THREE.ConeGeometry(0.14, 0.32, 7);
   const hairOffsets: [number, number, number, number, number][] = [
-    [-0.36, 0.08, 0.12, 0.2, 0.65],
-    [-0.38, -0.06, 0.02, 0.1, 0.85],
-    [0.36, 0.08, 0.12, 0.2, -0.65],
-    [0.38, -0.06, 0.02, 0.1, -0.85],
-    [-0.1, 0.22, 0.32, 0.6, 0.25],
-    [0.08, 0.22, 0.32, 0.6, -0.2],
-    [0, 0.05, -0.36, -0.5, 0],
+    [-0.34, 0.06, 0.12, 0.2, 0.62],
+    [-0.36, -0.07, 0.02, 0.1, 0.82],
+    [0.34, 0.06, 0.12, 0.2, -0.62],
+    [0.36, -0.07, 0.02, 0.1, -0.82],
+    [-0.1, 0.2, 0.31, 0.55, 0.22],
+    [0.08, 0.2, 0.31, 0.55, -0.18],
+    [0, 0.04, -0.35, -0.45, 0],
+    [-0.2, 0.02, -0.32, -0.4, 0.3],
+    [0.2, 0.02, -0.32, -0.4, -0.3],
   ];
   hairOffsets.forEach(([hx, hy, hz, rx, rz]) => {
     const spike = new THREE.Mesh(hairSpikeGeo, gingerHairMat);
@@ -680,83 +740,138 @@ export function createRangerRueModel(): RueRig {
     headGroup.add(spike);
   });
 
-  // Red & Black Campaign Hat (Red Inner Brim & Crown + Black Outer Brim Rim, Black Hatband & Black Crown Tip)
-  const hatBrimRim = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.78, 0.05, 14), hatBlackMat);
-  hatBrimRim.position.y = 0.255;
-  hatBrimRim.castShadow = true;
-  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.66, 0.065, 14), hatRedMat);
-  hatBrim.position.y = 0.265;
+  // VIVID SHARP RED RANGER HAT ("ubah warna topi merah tajam"):
+  // Wide Vivid Scarlet Brim + Sleek Black Outer Trim Ring + Black Hatband + Tall Vivid Red Montana-Peak Crown
+  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.80, 0.065, 24), hatRedMat);
+  hatBrim.position.y = 0.25;
   hatBrim.castShadow = true;
-  const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.46, 0.12, 10), hatBlackMat);
-  hatBand.position.y = 0.33;
-  const hatCrown = new THREE.Mesh(new THREE.ConeGeometry(0.44, 0.44, 6), hatRedMat);
-  hatCrown.position.y = 0.53;
-  hatCrown.castShadow = true;
-  const hatCrownTip = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.19, 0.14, 6), hatBlackMat);
-  hatCrownTip.position.y = 0.69;
-  const hatBadge = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.16, 0.05), silverBadgeMat);
-  hatBadge.position.set(0, 0.45, 0.36);
-  hatBadge.rotation.x = -0.45;
+
+  const hatBrimOuterTrim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.79, 0.032, 10, 28),
+    hatBlackMat
+  );
+  hatBrimOuterTrim.rotation.x = Math.PI / 2;
+  hatBrimOuterTrim.position.y = 0.25;
+
+  const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.48, 0.1, 18), hatBlackMat);
+  hatBand.position.y = 0.32;
+
+  const hatBandGoldStripe = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.47, 0.475, 0.03, 18),
+    outfitYellowMat
+  );
+  hatBandGoldStripe.position.y = 0.29;
+
+  // Tall, Bold Vivid Red Ranger Crown
+  const hatCrownBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.32, 0.46, 0.36, 16),
+    hatRedMat
+  );
+  hatCrownBase.position.y = 0.52;
+  hatCrownBase.castShadow = true;
+
+  const hatCrownDome = new THREE.Mesh(
+    new THREE.ConeGeometry(0.33, 0.26, 8),
+    hatRedMat
+  );
+  hatCrownDome.position.y = 0.78;
+  hatCrownDome.castShadow = true;
+
+  // Front Ranger Shield Badge in Gold & Silver
+  const hatBadgeGold = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.19, 0.05), outfitYellowMat);
+  hatBadgeGold.position.set(0, 0.45, 0.42);
+  hatBadgeGold.rotation.x = -0.25;
+  const hatBadgeCore = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.14, 0.06), silverBadgeMat);
+  hatBadgeCore.position.set(0, 0.45, 0.425);
+  hatBadgeCore.rotation.x = -0.25;
 
   headGroup.add(
     leftEye,
     rightEye,
     leftPupil,
     rightPupil,
+    leftSparkle,
+    rightSparkle,
     smileMouth,
     leftBrow,
     rightBrow,
-    hatBrimRim,
     hatBrim,
+    hatBrimOuterTrim,
     hatBand,
-    hatCrown,
-    hatCrownTip,
-    hatBadge
+    hatBandGoldStripe,
+    hatCrownBase,
+    hatCrownDome,
+    hatBadgeGold,
+    hatBadgeCore
   );
   group.add(headGroup);
 
-  // 6. Left Arm (+X side, Blue Sleeve + Yellow Cuff) + Faceted Wooden Mallet / Hammer
+  // 6. Left Arm (+X side, Blue Sleeve + Yellow Cuff + Gloved Hand) + Iron-Bound Ranger War-Mallet
   const leftArm = new THREE.Group();
-  leftArm.position.set(0.54, 0.94, 0);
-  const leftSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.44, 0.24), outfitBlueMat);
+  leftArm.position.set(0.55, 0.96, 0);
+  const leftSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.42, 12), outfitBlueMat);
   leftSleeve.position.set(0, -0.15, 0.1);
   leftSleeve.rotation.x = -Math.PI / 5;
-  const leftCuff = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26), outfitYellowMat);
-  leftCuff.position.set(0, -0.31, 0.21);
+  const leftCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.125, 0.09, 12), outfitYellowMat);
+  leftCuff.position.set(0, -0.3, 0.2);
   leftCuff.rotation.x = -Math.PI / 5;
+  const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 10), bootBrownMat);
+  leftHand.position.set(0, -0.36, 0.25);
 
-  const hammerShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.74, 7), darkBandMat);
-  hammerShaft.position.set(0, -0.18, 0.32);
+  const hammerShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.052, 0.78, 10), darkBandMat);
+  hammerShaft.position.set(0, -0.18, 0.34);
   hammerShaft.rotation.x = Math.PI / 2.6;
 
-  // Faceted Wooden Mallet Head
-  const malletGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.44, 6);
+  // Iron-Banded Wooden Mallet Head with Steel Striking Faces
+  const malletGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.46, 12);
   malletGeo.rotateZ(Math.PI / 2);
   const hammerHead = new THREE.Mesh(malletGeo, bootBrownMat);
-  hammerHead.position.set(0, 0.02, 0.62);
+  hammerHead.position.set(0, 0.02, 0.64);
   hammerHead.castShadow = true;
-  leftArm.add(leftSleeve, leftCuff, hammerShaft, hammerHead);
+
+  [-0.17, 0.17].forEach((mx) => {
+    const steelBand = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.19, 0.19, 0.055, 12),
+      silverBadgeMat
+    );
+    steelBand.rotation.z = Math.PI / 2;
+    steelBand.position.set(mx, 0.02, 0.64);
+    leftArm.add(steelBand);
+  });
+
+  leftArm.add(leftSleeve, leftCuff, leftHand, hammerShaft, hammerHead);
   group.add(leftArm);
 
-  // 7. Right Arm (-X side, Blue Sleeve + Yellow Cuff) + Oversized Brass Hurricane Lantern (Lit at Night)
+  // 7. Right Arm (-X side, Blue Sleeve + Yellow Cuff + Gloved Hand) + Caged Brass Hurricane Lantern
   const rightArm = new THREE.Group();
-  rightArm.position.set(-0.54, 0.94, 0);
-  const rightSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.44, 0.24), outfitBlueMat);
+  rightArm.position.set(-0.55, 0.96, 0);
+  const rightSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.42, 12), outfitBlueMat);
   rightSleeve.position.set(0, -0.12, 0.18);
   rightSleeve.rotation.x = -Math.PI / 3.2;
-  const rightCuff = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.26), outfitYellowMat);
-  rightCuff.position.set(0, -0.26, 0.3);
+  const rightCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.125, 0.09, 12), outfitYellowMat);
+  rightCuff.position.set(0, -0.26, 0.29);
   rightCuff.rotation.x = -Math.PI / 3.2;
+  const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 10), bootBrownMat);
+  rightHand.position.set(0, -0.31, 0.35);
 
   const lanternGroup = new THREE.Group();
-  lanternGroup.position.set(0, -0.34, 0.44);
-  const lanternHandle = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.02, 6, 10, Math.PI), brassMat);
+  lanternGroup.position.set(0, -0.35, 0.45);
+  const lanternHandle = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.022, 8, 14, Math.PI), brassMat);
   lanternHandle.position.y = 0.22;
-  const lanternCap = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.18, 8), brassMat);
+  const lanternCap = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.18, 12), brassMat);
   lanternCap.position.y = 0.18;
-  const lanternCore = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 8), lanternGlowMat);
+  const lanternCore = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 12), lanternGlowMat);
+
+  // 4 Vertical Brass Cage Guard Bars around Lantern Glass
+  for (let c = 0; c < 4; c++) {
+    const ca = (c / 4) * Math.PI * 2;
+    const cageBar = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.32, 6), brassMat);
+    cageBar.position.set(Math.cos(ca) * 0.155, 0, Math.sin(ca) * 0.155);
+    lanternGroup.add(cageBar);
+  }
+
   const lanternFlameMesh = new THREE.Mesh(
-    new THREE.ConeGeometry(0.085, 0.22, 7),
+    new THREE.ConeGeometry(0.085, 0.22, 8),
     new THREE.MeshBasicMaterial({
       color: 0xfef08a,
       transparent: true,
@@ -775,7 +890,7 @@ export function createRangerRueModel(): RueRig {
       depthWrite: false,
     })
   );
-  const lanternBase = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.21, 0.09, 8), brassMat);
+  const lanternBase = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.21, 0.09, 12), brassMat);
   lanternBase.position.y = -0.18;
   lanternGroup.add(
     lanternHandle,
@@ -785,7 +900,7 @@ export function createRangerRueModel(): RueRig {
     lanternHaloMesh,
     lanternBase
   );
-  rightArm.add(rightSleeve, rightCuff, lanternGroup);
+  rightArm.add(rightSleeve, rightCuff, rightHand, lanternGroup);
   group.add(rightArm);
 
   return {
@@ -2002,59 +2117,158 @@ export function createBuildingModel(
     armGroup.add(armBeam, spoonRim, boulder);
     group.add(armGroup);
   } else if (type === 'guardtent') {
-    // Realistic Ranger Command Tent & Tripod Crossbow Post:
-    // Timber deck + pitched A-frame canvas tent with ridgepole & gold trim +
-    // forward-mounted Ranger tripod crossbow at tent entrance + weapon rack & supply crate + banner flagpole
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.16, 2.1), darkWoodMat);
+    // Realistic Ranger Command Ridge Tent & Tripod Crossbow Post ("perbaiki bentuk tenda penjaga"):
+    // 1. Timber Deck Platform with 4 Corner Stone Bolsters
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.16, 0.16, 2.16), darkWoodMat);
     deck.position.y = 0.08;
     deck.receiveShadow = true;
     group.add(deck);
 
-    // Pitched A-frame canvas tent body (triangular prism using 3-sided cylinder rotated)
-    const tentRoofGeo = new THREE.CylinderGeometry(1.18, 1.18, 1.72, 3);
-    const tentRoof = new THREE.Mesh(tentRoofGeo, greenMat);
-    tentRoof.rotation.x = Math.PI / 2;
-    tentRoof.rotation.z = Math.PI; // flat bottom, peak on top
-    tentRoof.scale.set(1.15, 1.0, 0.95);
-    tentRoof.position.set(-0.12, 0.72, -0.1);
-    tentRoof.castShadow = true;
-    group.add(tentRoof);
+    for (const [cx, cz] of [
+      [-1.02, -1.02],
+      [1.02, -1.02],
+      [-1.02, 1.02],
+      [1.02, 1.02],
+    ]) {
+      const bolster = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.24), stoneMat);
+      bolster.position.set(cx, 0.11, cz);
+      group.add(bolster);
+    }
 
-    // Tent canvas flaps & wooden ridgepole + uprights
-    const ridgePole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.98, 6), cutWoodMat);
+    // Canvas Materials: Warm Cream/Sand Canvas + Bold Crimson/Gold Heraldic Trim (contrasts sharply with grass)
+    const canvasCreamMat = new THREE.MeshStandardMaterial({
+      color: 0xf4ead2,
+      roughness: 0.72,
+      metalness: 0.04,
+    });
+    const canvasTrimMat = new THREE.MeshStandardMaterial({
+      color: upgradePath === 'pathA' ? 0xdc2626 : upgradePath === 'pathB' ? 0x2563eb : 0xb91c1c,
+      emissive: upgradePath === 'pathA' ? 0x991b1b : upgradePath === 'pathB' ? 0x1e40af : 0x7f1d1d,
+      emissiveIntensity: 0.18,
+      roughness: 0.58,
+      metalness: 0.08,
+    });
+    const tentInteriorMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+    const tentGroup = new THREE.Group();
+    tentGroup.position.set(-0.08, 0.16, -0.06);
+
+    // 100% Seamless Pentagon Ridge-Tent Body via ExtrudeGeometry (Vertical Side Walls + Pitched A-Frame Roof)
+    const tentShape = new THREE.Shape();
+    tentShape.moveTo(-0.84, 0);
+    tentShape.lineTo(0.84, 0);
+    tentShape.lineTo(0.84, 0.54);
+    tentShape.lineTo(0, 1.36);
+    tentShape.lineTo(-0.84, 0.54);
+    tentShape.closePath();
+
+    const tentExtrudeGeo = new THREE.ExtrudeGeometry(tentShape, {
+      depth: 1.64,
+      bevelEnabled: false,
+    });
+    tentExtrudeGeo.translate(0, 0, -0.82);
+    const tentBody = new THREE.Mesh(tentExtrudeGeo, canvasCreamMat);
+    tentBody.castShadow = true;
+    tentBody.receiveShadow = true;
+    tentGroup.add(tentBody);
+
+    // Overhanging Pitched Roof Eave Slopes (Left & Right angled roof panels meeting cleanly at top ridge y = 1.38)
+    const leftRoofSlope = new THREE.Mesh(new THREE.BoxGeometry(1.26, 0.06, 1.78), canvasCreamMat);
+    leftRoofSlope.position.set(-0.44, 0.96, 0);
+    leftRoofSlope.rotation.z = 0.77;
+    leftRoofSlope.castShadow = true;
+
+    const rightRoofSlope = new THREE.Mesh(new THREE.BoxGeometry(1.26, 0.06, 1.78), canvasCreamMat);
+    rightRoofSlope.position.set(0.44, 0.96, 0);
+    rightRoofSlope.rotation.z = -0.77;
+    rightRoofSlope.castShadow = true;
+    tentGroup.add(leftRoofSlope, rightRoofSlope);
+
+    // Heraldic Decorative Stripes on Both Roof Slopes
+    for (const zOff of [-0.52, 0, 0.52]) {
+      const stripeL = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.075, 0.22), canvasTrimMat);
+      stripeL.position.set(-0.44, 0.97, zOff);
+      stripeL.rotation.z = 0.77;
+      const stripeR = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.075, 0.22), canvasTrimMat);
+      stripeR.position.set(0.44, 0.97, zOff);
+      stripeR.rotation.z = -0.77;
+      tentGroup.add(stripeL, stripeR);
+    }
+
+    // Dark Front Doorway Opening + Swept-Back Open Front Entrance Curtains
+    const doorOpening = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.78, 0.05), tentInteriorMat);
+    doorOpening.position.set(0, 0.39, 0.81);
+    const flapL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.86, 0.07), canvasTrimMat);
+    flapL.position.set(-0.52, 0.44, 0.84);
+    flapL.rotation.y = 0.28;
+    flapL.rotation.z = -0.18;
+    const flapR = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.86, 0.07), canvasTrimMat);
+    flapR.position.set(0.52, 0.44, 0.84);
+    flapR.rotation.y = -0.28;
+    flapR.rotation.z = 0.18;
+    tentGroup.add(doorOpening, flapL, flapR);
+
+    // Wooden Ridgepole & Front/Rear Upright Poles + Hanging Warm Camp Lantern at Tent Entrance
+    const ridgePole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.06, 8), cutWoodMat);
     ridgePole.rotation.x = Math.PI / 2;
-    ridgePole.position.set(-0.12, 1.32, -0.1);
-    const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 1.36, 6), darkWoodMat);
-    frontPost.position.set(-0.12, 0.68, 0.78);
-    const backPost = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 1.36, 6), darkWoodMat);
-    backPost.position.set(-0.12, 0.68, -0.96);
-    group.add(ridgePole, frontPost, backPost);
+    ridgePole.position.set(0, 1.38, 0.04);
+    const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.4, 8), darkWoodMat);
+    frontPost.position.set(0, 0.7, 0.86);
+    const backPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.4, 8), darkWoodMat);
+    backPost.position.set(0, 0.7, -0.86);
+
+    const entranceLantern = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.08, 0.18, 8),
+      new THREE.MeshStandardMaterial({
+        color: 0xfef08a,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 1.6,
+        roughness: 0.2,
+      })
+    );
+    entranceLantern.position.set(0, 1.16, 0.94);
+    tentGroup.add(ridgePole, frontPost, backPost, entranceLantern);
+
+    // 4 Tension Guy-Ropes & Wooden Ground Stakes on Left & Right Sides
+    for (const sideSign of [-1, 1]) {
+      for (const zRope of [-0.55, 0.55]) {
+        const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.65, 6), cutWoodMat);
+        rope.position.set(sideSign * 0.96, 0.32, zRope);
+        rope.rotation.z = sideSign * 0.52;
+        const stake = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.22, 6), darkWoodMat);
+        stake.position.set(sideSign * 1.1, 0.1, zRope);
+        stake.rotation.z = -sideSign * 0.25;
+        tentGroup.add(rope, stake);
+      }
+    }
+
+    group.add(tentGroup);
 
     // Forward-mounted Ranger Tripod Crossbow Turret guarding the tent entrance
     const turret = new THREE.Group();
-    turret.position.set(0.58, 0.16, 0.62);
-    const stand = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.62, 4), darkWoodMat);
-    stand.position.y = 0.31;
-    const xbowBody = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.78), woodMat);
-    xbowBody.position.set(0, 0.64, 0.1);
+    turret.position.set(0.62, 0.16, 0.78);
+    const stand = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.58, 4), darkWoodMat);
+    stand.position.y = 0.29;
+    const xbowBody = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.76), woodMat);
+    xbowBody.position.set(0, 0.6, 0.08);
     const xbowArc = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.08, 0.12), steelMat);
-    xbowArc.position.set(0, 0.66, 0.42);
-    turret.add(stand, xbowBody, xbowArc);
+    xbowArc.position.set(0, 0.62, 0.38);
+    const boltShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.56, 6), cutWoodMat);
+    boltShaft.rotation.x = Math.PI / 2;
+    boltShaft.position.set(0, 0.66, 0.2);
+    turret.add(stand, xbowBody, xbowArc, boltShaft);
     group.add(turret);
 
-    // Side supply crate & quiver barrel
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.46), woodMat);
-    crate.position.set(0.72, 0.36, -0.45);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.48, 8), darkWoodMat);
-    barrel.position.set(0.72, 0.38, 0.04);
-    group.add(crate, barrel);
-
-    // Tall Heraldic Ranger Flagpole & Banner
-    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.45, 6), cutWoodMat);
-    flagPole.position.set(-0.78, 1.28, 0.68);
-    const flagCloth = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.42, 0.06), metalMat);
-    flagCloth.position.set(-0.42, 2.18, 0.68);
-    group.add(flagPole, flagCloth);
+    // Tall Heraldic Ranger Flagpole & Vivid Pennant Banner
+    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.55, 8), cutWoodMat);
+    flagPole.position.set(-0.82, 1.32, 0.72);
+    const flagFinial = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), metalMat);
+    flagFinial.position.set(-0.82, 2.62, 0.72);
+    const flagCloth = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.38, 0.05), canvasTrimMat);
+    flagCloth.position.set(-0.46, 2.32, 0.72);
+    const flagGoldEdge = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.07, 0.06), metalMat);
+    flagGoldEdge.position.set(-0.46, 2.14, 0.72);
+    group.add(flagPole, flagFinial, flagCloth, flagGoldEdge);
   }
 
   return group;

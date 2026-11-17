@@ -10,6 +10,8 @@ import { DailyPersistenceState } from '../game/types';
 
 interface TitleScreenProps {
   onStartGame: () => void;
+  onStartFreePlay: () => void;
+  onClaimDailyCheckIn: () => void;
   onOpenGuide: () => void;
   bestScore: number;
   daily: DailyPersistenceState;
@@ -22,6 +24,8 @@ interface TitleScreenProps {
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
+  onStartFreePlay,
+  onClaimDailyCheckIn,
   onOpenGuide,
   bestScore,
   daily,
@@ -38,6 +42,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   const tr = TRANSLATIONS[lang];
   const currentLangOption =
     SUPPORTED_LANGUAGES.find((l) => l.code === lang) ?? SUPPORTED_LANGUAGES[0];
+  const todayUTC = daily.lastResetDateUTC;
+  const checkInClaimedToday = daily.lastCheckInClaimedDateUTC === todayUTC;
+  const checkInReady =
+    !checkInClaimedToday &&
+    (daily.checkInEligibleDateUTC === todayUTC || daily.lastPlayedDateUTC === todayUTC);
 
   useEffect(() => {
     const handlePointerDown = (e: MouseEvent) => {
@@ -164,12 +173,40 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         {/* One-line description */}
         <p
           data-testid="title-tagline"
-          className="text-xs sm:text-sm md:text-base text-[#e2dacb] font-medium leading-relaxed mb-5 max-w-md drop-shadow"
+          className="text-xs sm:text-sm md:text-base text-[#e2dacb] font-medium leading-relaxed mb-4 max-w-md drop-shadow"
         >
           {tr.tagline}
         </p>
 
-        {/* Primary Play CTA (-1 Ticket) + Secondary Compact Actions */}
+        {/* Daily Progression Complete Notice when 3/3 tasks are done */}
+        {daily.dailyProgressionLocked && (
+          <div
+            data-testid="title-daily-lock-banner"
+            className="w-full max-w-lg mb-3 px-3.5 py-2 rounded-xl bg-[#11221c]/95 border border-[#22c55e]/60 text-xs text-[#fef3c7] shadow-lg"
+          >
+            <div className="font-bold text-[#4ade80] mb-0.5">
+              🔒 {tr.dailyProgressionCompleteTitle}
+            </div>
+            <div className="text-[11px] text-[#cbd5e1]">{tr.dailyProgressionCompleteDesc}</div>
+          </div>
+        )}
+
+        {/* Daily Check-In Claim Button on Title Screen when eligible */}
+        {checkInReady && (
+          <button
+            type="button"
+            data-testid="title-btn-claim-checkin"
+            onClick={(e) => {
+              e.currentTarget.blur();
+              onClaimDailyCheckIn();
+            }}
+            className="mb-3 px-4 py-2 rounded-xl bg-[#16a34a] hover:bg-[#22c55e] text-[#090d16] font-display font-bold text-xs shadow-lg cursor-pointer transition-transform active:translate-y-0.5"
+          >
+            {tr.dailyCheckInClaimBtn}
+          </button>
+        )}
+
+        {/* Primary Play CTA (-1 Ticket) + Free Play / Demo CTA + Secondary Compact Actions */}
         <div className="flex flex-wrap items-center justify-center gap-2.5 mb-3">
           <button
             type="button"
@@ -188,6 +225,23 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             {daily.tickets > 0
               ? tr.playRunBtn(daily.tickets)
               : tr.noTicketsBtn(daily.maxDailyTickets)}
+          </button>
+
+          <button
+            type="button"
+            data-testid="btn-free-play"
+            onClick={(e) => {
+              e.currentTarget.blur();
+              onStartFreePlay();
+            }}
+            title={tr.freePlayNoRewardsNote}
+            className={`px-4 py-3.5 rounded-xl font-display font-bold text-xs tracking-wide transition-colors whitespace-nowrap shrink-0 shadow-md cursor-pointer border ${
+              daily.dailyProgressionLocked || daily.tickets <= 0
+                ? 'bg-[#14532d] hover:bg-[#166534] border-[#4ade80] text-[#fef3c7]'
+                : 'bg-[#0d131c]/95 hover:bg-[#1e293b] border-[#38bdf8]/60 text-[#38bdf8]'
+            }`}
+          >
+            {tr.freePlayBtn}
           </button>
 
           <button
@@ -288,11 +342,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </div>
       </div>
 
-      {/* Slim Bottom Hint Line */}
-      <div className="w-full max-w-[1180px] mx-auto flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#cbd5e1]/85 tracking-wide pointer-events-auto pt-2">
-        <span>{tr.controlsFooter}</span>
-        <span className="text-[#94a3b8] font-mono-tabular">{tr.schemaFooter}</span>
-      </div>
+      {/* Clean bottom safe margin spacer */}
+      <div className="h-2 pointer-events-none" />
     </div>
   );
 };

@@ -256,14 +256,41 @@ export interface StreakMilestoneSpec {
   title?: string;
 }
 
+export interface SavedPadState {
+  id: number;
+  building: {
+    type: BuildingType;
+    upgradePath: UpgradePathId;
+    level: number;
+    hp: number;
+    maxHp: number;
+  } | null;
+}
+
+export interface SavedFenceState {
+  id: number;
+  level: 0 | 1 | 2;
+  hp: number;
+  maxHp: number;
+  buildProgress: number;
+}
+
+export interface BonusTaskItem {
+  id: string;
+  title: string;
+  target: number;
+  rewardXp: number;
+}
+
 export interface DailyPersistenceState {
-  schemaVersion: 1;
+  schemaVersion: number;
   tickets: number;
   maxDailyTickets: number;
   pendingBonusTicketsTomorrow: number;
   coins: number;
   xp: number;
   level: number;
+  toolTier: number;
   streak: number;
   bestStreak: number;
   lastResetDateUTC: string;
@@ -271,6 +298,19 @@ export interface DailyPersistenceState {
   tasks: DailyTaskItem[];
   taskProgress: Record<string, number>;
   allTasksBonusClaimed: boolean;
+  dailyProgressionLocked: boolean;
+  savedPads: SavedPadState[];
+  savedFenceSegments: SavedFenceState[];
+  savedResources: {
+    wood: number;
+    stone: number;
+    food: number;
+  };
+  checkInEligibleDateUTC: string | null;
+  lastCheckInClaimedDateUTC: string | null;
+  bonusTasks: BonusTaskItem[];
+  bonusTaskProgress: Record<string, number>;
+  bonusXpClaimedIds: string[];
   cosmetics: string[];
   equippedLanternId: string;
   unlockedTitles: string[];
@@ -293,6 +333,10 @@ export interface RunCompletionSummary {
   completedTasksCount: number;
   totalTasksCount: number;
   allTasksBonusClaimed: boolean;
+  dailyProgressionLocked: boolean;
+  isFreePlay: boolean;
+  checkInAvailableToClaim: boolean;
+  checkInClaimedToday: boolean;
   pendingBonusTicketsTomorrow: number;
   newUnlocks: string[];
 }
@@ -330,6 +374,8 @@ export interface HudSnapshot {
   dockCollapsed: boolean;
   heroAnimState: HeroAnimState;
   pendingConstruction: PendingConstructionTask | null;
+  isFreePlay: boolean;
   daily: DailyPersistenceState;
   lastRunSummary: RunCompletionSummary | null;
 }
+

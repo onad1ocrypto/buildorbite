@@ -1,14 +1,47 @@
 import {
+  BonusTaskItem,
   DailyPersistenceState,
   DailyTaskItem,
+  FenceSegment,
   LanternCosmeticSpec,
   LevelRewardSpec,
+  PlacementPad,
+  Resources,
   RunCompletionSummary,
   StreakMilestoneSpec,
 } from './types';
+import {
+  INITIAL_RESOURCES,
+  createInitialFenceSegments,
+  createInitialPads,
+  restoreFenceSegmentsFromPersistence,
+  restorePadsFromPersistence,
+  serializeFenceSegmentsForPersistence,
+  serializePadsForPersistence,
+} from './rules';
 
 export const DAILY_STORAGE_KEY = 'build_or_bite_daily_v1';
+export const CURRENT_DAILY_SCHEMA_VERSION = 2;
 export const MAX_DAILY_TICKETS = 3;
+export const DAILY_CHECKIN_REWARD = {
+  coins: 25,
+  xp: 30,
+};
+
+export const DEFAULT_BONUS_TASKS: BonusTaskItem[] = [
+  {
+    id: 'bonus_slay_12',
+    title: 'Slay 12 Undead in the Clearing',
+    target: 12,
+    rewardXp: 35,
+  },
+  {
+    id: 'bonus_flare_3',
+    title: 'Cast 3 Lantern Flares',
+    target: 3,
+    rewardXp: 25,
+  },
+];
 
 export const LANTERN_COSMETICS: Record<string, LanternCosmeticSpec> = {
   amber_default: {
@@ -276,14 +309,21 @@ export function createDefaultDailyState(nowMs: number = Date.now()): DailyPersis
     taskProgress[t.id] = 0;
   });
 
+  const bonusTasks = DEFAULT_BONUS_TASKS.map((b) => ({ ...b }));
+  const bonusTaskProgress: Record<string, number> = {};
+  bonusTasks.forEach((b) => {
+    bonusTaskProgress[b.id] = 0;
+  });
+
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_DAILY_SCHEMA_VERSION,
     tickets: MAX_DAILY_TICKETS,
     maxDailyTickets: MAX_DAILY_TICKETS,
     pendingBonusTicketsTomorrow: 0,
     coins: 50,
     xp: 0,
     level: 1,
+    toolTier: 1,
     streak: 0,
     bestStreak: 0,
     lastResetDateUTC: todayUTC,
@@ -291,6 +331,19 @@ export function createDefaultDailyState(nowMs: number = Date.now()): DailyPersis
     tasks,
     taskProgress,
     allTasksBonusClaimed: false,
+    dailyProgressionLocked: false,
+    savedPads: serializePadsForPersistence(createInitialPads()),
+    savedFenceSegments: serializeFenceSegmentsForPersistence(createInitialFenceSegments()),
+    savedResources: {
+      wood: INITIAL_RESOURCES.wood,
+      stone: INITIAL_RESOURCES.stone,
+      food: INITIAL_RESOURCES.food,
+    },
+    checkInEligibleDateUTC: null,
+    lastCheckInClaimedDateUTC: null,
+    bonusTasks,
+    bonusTaskProgress,
+    bonusXpClaimedIds: [],
     cosmetics: ['amber_default'],
     equippedLanternId: 'amber_default',
     unlockedTitles: ['Rookie Ranger'],
@@ -300,18 +353,197 @@ export function createDefaultDailyState(nowMs: number = Date.now()): DailyPersis
 }
 
 /**
+ * Safely migrates older (schemaVersion 1) or partially corrupted daily states to schemaVersion 2
+ * without wiping valid account progression, fort buildings, or resource wallets.
+ */
+export function migrateDailyState(
+  raw: unknown,
+  nowMs: number = Date.now()
+): DailyPersistenceState {
+  const base = createDefaultDailyState(nowMs);
+  if (!raw || typeof raw !== 'object') {
+    return base;
+  }
+  const src = raw as Partial<DailyPersistenceState>;
+
+  const xp = typeof src.xp === 'number' && Number.isFinite(src.xp) && src.xp >= 0 ? src.xp : base.xp;
+  const levelInfo = getLevelForXp(xp);
+  const level =
+    typeof src.level === 'number' && src.level >= 1 ? Math.max(src.level, levelInfo.level) : levelInfo.level;
+  const toolTier =
+    typeof src.toolTier === 'number' && src.toolTier >= 1
+      ? src.toolTier
+      : level >= 3
+      ? 2
+      : 1;
+
+  const restoredPads = restorePadsFromPersistence(src.savedPads, false);
+  const restoredFences = restoreFenceSegmentsFromPersistence(src.savedFenceSegments, false);
+
+  const savedResources =
+    src.savedResources &&
+    typeof src.savedResources === 'object' &&
+    typeof src.savedResources.wood === 'number' &&
+    typeof src.savedResources.stone === 'number' &&
+    typeof src.savedResources.food === 'number'
+      ? {
+          wood: Math.max(0, Math.round(src.savedResources.wood)),
+          stone: Math.max(0, Math.round(src.savedResources.stone)),
+          food: Math.max(0, Math.round(src.savedResources.food)),
+        }
+      : { ...base.savedResources };
+
+  const tasks =
+    Array.isArray(src.tasks) && src.tasks.length === 3
+      ? src.tasks
+      : selectDailyTasksForDate(
+          typeof src.lastResetDateUTC === 'string' ? src.lastResetDateUTC : base.lastResetDateUTC
+        );
+
+  const taskProgress: Record<string, number> = {};
+  tasks.forEach((t) => {
+    const val = src.taskProgress && typeof src.taskProgress[t.id] === 'number' ? src.taskProgress[t.id] : 0;
+    taskProgress[t.id] = Math.max(0, val);
+  });
+
+  const allCompleted = tasks.every((t) => (taskProgress[t.id] ?? 0) >= t.target);
+  const allTasksBonusClaimed = Boolean(src.allTasksBonusClaimed || allCompleted);
+  const dailyProgressionLocked =
+    typeof src.dailyProgressionLocked === 'boolean'
+      ? src.dailyProgressionLocked || allCompleted
+      : allCompleted;
+
+  const bonusTasks =
+    Array.isArray(src.bonusTasks) && src.bonusTasks.length > 0
+      ? src.bonusTasks
+      : base.bonusTasks;
+  const bonusTaskProgress: Record<string, number> = {};
+  bonusTasks.forEach((b) => {
+    const val =
+      src.bonusTaskProgress && typeof src.bonusTaskProgress[b.id] === 'number'
+        ? src.bonusTaskProgress[b.id]
+        : 0;
+    bonusTaskProgress[b.id] = Math.max(0, val);
+  });
+
+  return {
+    schemaVersion: CURRENT_DAILY_SCHEMA_VERSION,
+    tickets:
+      typeof src.tickets === 'number' && Number.isFinite(src.tickets) && src.tickets >= 0
+        ? Math.round(src.tickets)
+        : base.tickets,
+    maxDailyTickets:
+      typeof src.maxDailyTickets === 'number' && src.maxDailyTickets > 0
+        ? src.maxDailyTickets
+        : MAX_DAILY_TICKETS,
+    pendingBonusTicketsTomorrow:
+      typeof src.pendingBonusTicketsTomorrow === 'number' && src.pendingBonusTicketsTomorrow >= 0
+        ? src.pendingBonusTicketsTomorrow
+        : 0,
+    coins:
+      typeof src.coins === 'number' && Number.isFinite(src.coins) && src.coins >= 0
+        ? Math.round(src.coins)
+        : base.coins,
+    xp,
+    level,
+    toolTier,
+    streak:
+      typeof src.streak === 'number' && src.streak >= 0 ? Math.round(src.streak) : 0,
+    bestStreak:
+      typeof src.bestStreak === 'number' && src.bestStreak >= 0
+        ? Math.max(Math.round(src.bestStreak), typeof src.streak === 'number' ? Math.round(src.streak) : 0)
+        : 0,
+    lastResetDateUTC:
+      typeof src.lastResetDateUTC === 'string' && src.lastResetDateUTC.length === 10
+        ? src.lastResetDateUTC
+        : base.lastResetDateUTC,
+    lastPlayedDateUTC:
+      typeof src.lastPlayedDateUTC === 'string' && src.lastPlayedDateUTC.length === 10
+        ? src.lastPlayedDateUTC
+        : null,
+    tasks,
+    taskProgress,
+    allTasksBonusClaimed,
+    dailyProgressionLocked,
+    savedPads: serializePadsForPersistence(restoredPads),
+    savedFenceSegments: serializeFenceSegmentsForPersistence(restoredFences),
+    savedResources,
+    checkInEligibleDateUTC:
+      typeof src.checkInEligibleDateUTC === 'string' ? src.checkInEligibleDateUTC : null,
+    lastCheckInClaimedDateUTC:
+      typeof src.lastCheckInClaimedDateUTC === 'string' ? src.lastCheckInClaimedDateUTC : null,
+    bonusTasks,
+    bonusTaskProgress,
+    bonusXpClaimedIds: Array.isArray(src.bonusXpClaimedIds) ? src.bonusXpClaimedIds : [],
+    cosmetics:
+      Array.isArray(src.cosmetics) && src.cosmetics.length > 0 ? src.cosmetics : base.cosmetics,
+    equippedLanternId:
+      typeof src.equippedLanternId === 'string' && src.equippedLanternId in LANTERN_COSMETICS
+        ? src.equippedLanternId
+        : base.equippedLanternId,
+    unlockedTitles:
+      Array.isArray(src.unlockedTitles) && src.unlockedTitles.length > 0
+        ? src.unlockedTitles
+        : base.unlockedTitles,
+    equippedTitle:
+      typeof src.equippedTitle === 'string' && src.equippedTitle.length > 0
+        ? src.equippedTitle
+        : base.equippedTitle,
+    claimedStreakMilestones: Array.isArray(src.claimedStreakMilestones)
+      ? src.claimedStreakMilestones
+      : [],
+  };
+}
+
+/**
+ * Persists the player's current fort structures, fence segments, and resource wallet
+ * into the DailyPersistenceState. Optionally restores all structures to full maxHp
+ * (used when ending a run or returning to title so combat damage does not permanently erase upgrades).
+ */
+export function saveFortAndResourcesToDailyState(
+  state: DailyPersistenceState,
+  pads: PlacementPad[],
+  fenceSegments: FenceSegment[],
+  resources: Pick<Resources, 'wood' | 'stone' | 'food'>,
+  restoreFullHp = false
+): DailyPersistenceState {
+  const serializedPads = serializePadsForPersistence(pads);
+  const serializedFences = serializeFenceSegmentsForPersistence(fenceSegments);
+
+  const finalPads = restoreFullHp
+    ? serializePadsForPersistence(restorePadsFromPersistence(serializedPads, true))
+    : serializedPads;
+  const finalFences = restoreFullHp
+    ? serializeFenceSegmentsForPersistence(restoreFenceSegmentsFromPersistence(serializedFences, true))
+    : serializedFences;
+
+  return {
+    ...state,
+    savedPads: finalPads,
+    savedFenceSegments: finalFences,
+    savedResources: {
+      wood: Math.max(0, Math.round(resources.wood)),
+      stone: Math.max(0, Math.round(resources.stone)),
+      food: Math.max(0, Math.round(resources.food)),
+    },
+  };
+}
+
+/**
  * Applies the 00:00 UTC daily reset:
  * - Refills tickets to 3 (capped at 3; unused tickets do NOT carry over, plus any bonus ticket earned from yesterday's 3/3 task completion).
- * - Refreshes the 3 daily tasks and resets taskProgress.
+ * - Refreshes the 3 daily tasks, resets taskProgress, and unlocks dailyProgressionLocked.
+ * - Preserves the player's saved fort structures, fence segments (restored to full HP), and resource wallet.
  * - Resets streak to 0 if the player missed a full UTC day.
  */
 export function checkAndApplyDailyReset(
   state: DailyPersistenceState,
   nowMs: number = Date.now()
 ): DailyPersistenceState {
+  const migrated = migrateDailyState(state, nowMs);
   const todayUTC = getUTCDateString(nowMs);
-  if (state.lastResetDateUTC === todayUTC) {
-    return state;
+  if (migrated.lastResetDateUTC === todayUTC) {
+    return migrated;
   }
 
   const tasks = selectDailyTasksForDate(todayUTC);
@@ -320,10 +552,16 @@ export function checkAndApplyDailyReset(
     taskProgress[t.id] = 0;
   });
 
+  const bonusTasks = DEFAULT_BONUS_TASKS.map((b) => ({ ...b }));
+  const bonusTaskProgress: Record<string, number> = {};
+  bonusTasks.forEach((b) => {
+    bonusTaskProgress[b.id] = 0;
+  });
+
   // Check if streak expired (if lastPlayedDateUTC is more than 1 day before todayUTC)
-  let updatedStreak = state.streak;
-  if (state.lastPlayedDateUTC) {
-    const daysSincePlayed = getUTCDayDifference(state.lastPlayedDateUTC, todayUTC);
+  let updatedStreak = migrated.streak;
+  if (migrated.lastPlayedDateUTC) {
+    const daysSincePlayed = getUTCDayDifference(migrated.lastPlayedDateUTC, todayUTC);
     if (daysSincePlayed > 1) {
       updatedStreak = 0;
     }
@@ -332,10 +570,18 @@ export function checkAndApplyDailyReset(
   }
 
   // Unused tickets do NOT carry over (cap base refill at 3, plus any +1 tomorrow bonus earned yesterday)
-  const refilledTickets = MAX_DAILY_TICKETS + (state.pendingBonusTicketsTomorrow || 0);
+  const refilledTickets = MAX_DAILY_TICKETS + (migrated.pendingBonusTicketsTomorrow || 0);
+
+  // Restore saved fort & fences to full HP for the new UTC day while keeping all upgrades & wallet intact
+  const restoredPads = serializePadsForPersistence(
+    restorePadsFromPersistence(migrated.savedPads, true)
+  );
+  const restoredFences = serializeFenceSegmentsForPersistence(
+    restoreFenceSegmentsFromPersistence(migrated.savedFenceSegments, true)
+  );
 
   return {
-    ...state,
+    ...migrated,
     tickets: refilledTickets,
     pendingBonusTicketsTomorrow: 0,
     streak: updatedStreak,
@@ -343,6 +589,12 @@ export function checkAndApplyDailyReset(
     tasks,
     taskProgress,
     allTasksBonusClaimed: false,
+    dailyProgressionLocked: false,
+    savedPads: restoredPads,
+    savedFenceSegments: restoredFences,
+    bonusTasks,
+    bonusTaskProgress,
+    bonusXpClaimedIds: [],
   };
 }
 
@@ -364,6 +616,8 @@ export function consumeTicketForRun(state: DailyPersistenceState): {
 
 /**
  * Updates live task progress during or at the end of a run.
+ * When all 3 core daily tasks reach their targets, immediately sets dailyProgressionLocked = true.
+ * In Free Play mode, core daily tasks do not advance and do not grant repeatable rewards.
  */
 export function recordTaskProgress(
   state: DailyPersistenceState,
@@ -373,12 +627,22 @@ export function recordTaskProgress(
     buildingsBuiltDelta?: number;
     consecutiveNightsSurvived?: number;
     runScore?: number;
-  }
+    zombiesDefeatedDelta?: number;
+  },
+  options?: { isFreePlay?: boolean }
 ): {
   updatedState: DailyPersistenceState;
   newlyCompletedTaskTitles: string[];
   allThreeJustCompleted: boolean;
 } {
+  if (options?.isFreePlay) {
+    return {
+      updatedState: state,
+      newlyCompletedTaskTitles: [],
+      allThreeJustCompleted: false,
+    };
+  }
+
   const nextProgress = { ...state.taskProgress };
   const newlyCompletedTaskTitles: string[] = [];
   let bonusCoinsAdded = 0;
@@ -409,6 +673,24 @@ export function recordTaskProgress(
     }
   }
 
+  // Optional finite bonus tasks (capped once per UTC day, small XP only, no farming resources)
+  const nextBonusProgress = { ...(state.bonusTaskProgress || {}) };
+  const nextBonusClaimed = new Set(state.bonusXpClaimedIds || []);
+  for (const bTask of state.bonusTasks || DEFAULT_BONUS_TASKS) {
+    const prevB = nextBonusProgress[bTask.id] ?? 0;
+    let nextB = prevB;
+    if (bTask.id === 'bonus_slay_12' && event.zombiesDefeatedDelta) {
+      nextB = Math.min(bTask.target, prevB + event.zombiesDefeatedDelta);
+    } else if (bTask.id === 'bonus_flare_3' && event.flaresUsedDelta) {
+      nextB = Math.min(bTask.target, prevB + event.flaresUsedDelta);
+    }
+    nextBonusProgress[bTask.id] = nextB;
+    if (nextB >= bTask.target && !nextBonusClaimed.has(bTask.id)) {
+      nextBonusClaimed.add(bTask.id);
+      bonusXpAdded += bTask.rewardXp;
+    }
+  }
+
   const allCompleted = state.tasks.every((t) => (nextProgress[t.id] ?? 0) >= t.target);
   const allThreeJustCompleted = allCompleted && !state.allTasksBonusClaimed;
 
@@ -431,15 +713,21 @@ export function recordTaskProgress(
     }
   });
 
+  const nextToolTier = Math.max(state.toolTier || 1, levelInfo.level >= 3 ? 2 : 1);
+
   return {
     updatedState: {
       ...state,
       coins: state.coins + bonusCoinsAdded,
       xp: updatedXp,
       level: levelInfo.level,
+      toolTier: nextToolTier,
       taskProgress: nextProgress,
       allTasksBonusClaimed: state.allTasksBonusClaimed || allThreeJustCompleted,
+      dailyProgressionLocked: state.dailyProgressionLocked || allCompleted,
       pendingBonusTicketsTomorrow,
+      bonusTaskProgress: nextBonusProgress,
+      bonusXpClaimedIds: Array.from(nextBonusClaimed),
       cosmetics: Array.from(cosmetics),
       unlockedTitles: Array.from(titles),
     },
@@ -449,8 +737,67 @@ export function recordTaskProgress(
 }
 
 /**
+ * Claims today's Daily Check-In reward once per UTC day after the player has completed
+ * their first non-Free-Play run of the UTC day.
+ */
+export function claimDailyCheckIn(
+  state: DailyPersistenceState,
+  nowMs: number = Date.now()
+): {
+  updatedState: DailyPersistenceState;
+  claimed: boolean;
+  coinsAdded: number;
+  xpAdded: number;
+  reason?: 'not_eligible_yet' | 'already_claimed_today';
+} {
+  const todayUTC = getUTCDateString(nowMs);
+  if (state.lastCheckInClaimedDateUTC === todayUTC) {
+    return {
+      updatedState: state,
+      claimed: false,
+      coinsAdded: 0,
+      xpAdded: 0,
+      reason: 'already_claimed_today',
+    };
+  }
+  if (state.checkInEligibleDateUTC !== todayUTC && state.lastPlayedDateUTC !== todayUTC) {
+    return {
+      updatedState: state,
+      claimed: false,
+      coinsAdded: 0,
+      xpAdded: 0,
+      reason: 'not_eligible_yet',
+    };
+  }
+
+  const newXp = state.xp + DAILY_CHECKIN_REWARD.xp;
+  const levelInfo = getLevelForXp(newXp);
+  const nextToolTier = Math.max(state.toolTier || 1, levelInfo.level >= 3 ? 2 : 1);
+
+  const updatedState: DailyPersistenceState = {
+    ...state,
+    coins: state.coins + DAILY_CHECKIN_REWARD.coins,
+    xp: newXp,
+    level: levelInfo.level,
+    toolTier: nextToolTier,
+    lastCheckInClaimedDateUTC: todayUTC,
+    checkInEligibleDateUTC: todayUTC,
+  };
+
+  return {
+    updatedState,
+    claimed: true,
+    coinsAdded: DAILY_CHECKIN_REWARD.coins,
+    xpAdded: DAILY_CHECKIN_REWARD.xp,
+  };
+}
+
+/**
  * Evaluates end-of-run XP, player level-ups, daily streak (+1 on first run of the UTC day),
  * and 3 / 7 / 30 day streak milestones.
+ * Also restores saved persistent fort structures & fences to full HP so combat damage during
+ * a run never permanently erases structures or upgrades.
+ * In Free Play mode, grants 0 repeatable XP/coins and does not modify streak or daily tasks.
  */
 export function completeRunProgression(
   state: DailyPersistenceState,
@@ -458,6 +805,7 @@ export function completeRunProgression(
     score: number;
     victory: boolean;
     nightsSurvived: number;
+    isFreePlay?: boolean;
     nowMs?: number;
   }
 ): {
@@ -466,6 +814,58 @@ export function completeRunProgression(
 } {
   const nowMs = params.nowMs ?? Date.now();
   const todayUTC = getUTCDateString(nowMs);
+  const isFreePlay = Boolean(params.isFreePlay);
+
+  // Restore saved fort & fences to full HP between runs
+  const restoredSavedPads = serializePadsForPersistence(
+    restorePadsFromPersistence(state.savedPads, true)
+  );
+  const restoredSavedFences = serializeFenceSegmentsForPersistence(
+    restoreFenceSegmentsFromPersistence(state.savedFenceSegments, true)
+  );
+
+  if (isFreePlay) {
+    const levelInfo = getLevelForXp(state.xp);
+    const completedTasksCount = state.tasks.filter(
+      (t) => (state.taskProgress[t.id] ?? 0) >= t.target
+    ).length;
+    const updatedFreeState: DailyPersistenceState = {
+      ...state,
+      savedPads: restoredSavedPads,
+      savedFenceSegments: restoredSavedFences,
+    };
+    const checkInClaimedToday = updatedFreeState.lastCheckInClaimedDateUTC === todayUTC;
+    const checkInAvailableToClaim =
+      !checkInClaimedToday &&
+      (updatedFreeState.checkInEligibleDateUTC === todayUTC ||
+        updatedFreeState.lastPlayedDateUTC === todayUTC);
+
+    return {
+      updatedState: updatedFreeState,
+      summary: {
+        xpGained: 0,
+        coinsGained: 0,
+        previousLevel: state.level,
+        newLevel: state.level,
+        levelProgressPct: levelInfo.progressPct,
+        currentLevelXp: levelInfo.currentLevelXp,
+        nextLevelXp: levelInfo.nextLevelXp,
+        nextRewardLabel: levelInfo.nextRewardLabel,
+        streak: state.streak,
+        streakIncrementedToday: false,
+        ticketsLeft: state.tickets,
+        completedTasksCount,
+        totalTasksCount: state.tasks.length,
+        allTasksBonusClaimed: state.allTasksBonusClaimed,
+        dailyProgressionLocked: state.dailyProgressionLocked,
+        pendingBonusTicketsTomorrow: state.pendingBonusTicketsTomorrow,
+        newUnlocks: [],
+        isFreePlay: true,
+        checkInAvailableToClaim,
+        checkInClaimedToday,
+      },
+    };
+  }
 
   // 1. Update score & survival tasks first
   const taskStep = recordTaskProgress(state, {
@@ -533,15 +933,21 @@ export function completeRunProgression(
   const completedTasksCount = working.tasks.filter(
     (t) => (working.taskProgress[t.id] ?? 0) >= t.target
   ).length;
+  const nextToolTier = Math.max(working.toolTier || 1, levelInfo.level >= 3 ? 2 : 1);
+  const checkInClaimedToday = working.lastCheckInClaimedDateUTC === todayUTC;
 
   const updatedState: DailyPersistenceState = {
     ...working,
     xp: newXp,
     level: levelInfo.level,
+    toolTier: nextToolTier,
     coins: working.coins + extraCoins,
     streak: newStreak,
     bestStreak,
     lastPlayedDateUTC: todayUTC,
+    checkInEligibleDateUTC: todayUTC,
+    savedPads: restoredSavedPads,
+    savedFenceSegments: restoredSavedFences,
     cosmetics: Array.from(cosmetics),
     unlockedTitles: Array.from(titles),
     claimedStreakMilestones: Array.from(claimedMilestones),
@@ -564,8 +970,12 @@ export function completeRunProgression(
       completedTasksCount,
       totalTasksCount: updatedState.tasks.length,
       allTasksBonusClaimed: updatedState.allTasksBonusClaimed,
+      dailyProgressionLocked: updatedState.dailyProgressionLocked,
       pendingBonusTicketsTomorrow: updatedState.pendingBonusTicketsTomorrow,
       newUnlocks,
+      isFreePlay: false,
+      checkInAvailableToClaim: !checkInClaimedToday,
+      checkInClaimedToday,
     },
   };
 }
@@ -600,8 +1010,9 @@ export function loadDailyStateFromStorage(nowMs: number = Date.now()): DailyPers
       saveDailyStateToStorage(initial);
       return initial;
     }
-    const parsed = JSON.parse(raw) as DailyPersistenceState;
-    const resetChecked = checkAndApplyDailyReset(parsed, nowMs);
+    const parsed = JSON.parse(raw);
+    const migrated = migrateDailyState(parsed, nowMs);
+    const resetChecked = checkAndApplyDailyReset(migrated, nowMs);
     const toppedUp: DailyPersistenceState =
       resetChecked.tickets < REVIEW_GRANT_TICKETS
         ? { ...resetChecked, tickets: REVIEW_GRANT_TICKETS }

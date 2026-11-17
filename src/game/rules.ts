@@ -7,7 +7,10 @@ import {
   HeroAnimState,
   PendingConstructionTask,
   PlacementPad,
+  ResourceNodeEntity,
   Resources,
+  SavedFenceState,
+  SavedPadState,
   UpgradePathId,
   ZombieArchetype,
   ZombieEntity,
@@ -548,14 +551,73 @@ export function createInitialFenceSegments(): FenceSegment[] {
 }
 
 export const NIGHT_BUILD_LOCKED_MESSAGE = 'Night has fallen — defend the fort!';
+export const DAILY_PROGRESSION_LOCKED_MESSAGE =
+  "Today's core daily tasks are complete — fort saved! Gathering & construction reopen at 00:00 UTC.";
+export const FREE_PLAY_LOCKED_MESSAGE =
+  'Free Play mode active — resource farming and construction are locked!';
 export const FLARE_NIGHT_LOCKED_MESSAGE = 'Lantern Flare can only be used at night!';
 
 /**
- * Locked gameplay rule: Ranger Rue can only place/build, upgrade, repair, or salvage structures during the Day phase.
- * During the Night phase, construction and upgrade actions are rejected while combat abilities remain active.
+ * Computes balanced, bounded construction durations (in seconds):
+ * - Repairs are fastest (~0.45s - 0.48s)
+ * - Basic structures (palisade, spiketrap, campfire) take ~0.55s
+ * - Mid-tier structures (watchtower, guardtent) take ~0.60s
+ * - Fence build & heavy siege (catapult) take ~0.65s
+ * - Structure & fence upgrades take ~0.68s - 0.70s
+ * - Higher toolTier (>= 2) grants a modest 15% speed boost and never makes construction slower.
  */
-export function canPerformConstructionInPhase(phase: DayNightPhase): boolean {
-  return phase === 'day';
+export function getConstructionDuration(params: {
+  action:
+    | 'build_fence'
+    | 'upgrade_fence'
+    | 'repair_fence'
+    | 'build_pad'
+    | 'upgrade_pad'
+    | 'repair_pad';
+  buildingType?: BuildingType;
+  toolTier?: number;
+}): number {
+  const { action, buildingType, toolTier = 1 } = params;
+  let base = HERO_CONSTRUCTION_DURATION;
+
+  if (action === 'repair_fence') {
+    base = 0.45;
+  } else if (action === 'repair_pad') {
+    base = 0.48;
+  } else if (action === 'build_fence') {
+    base = HERO_CONSTRUCTION_DURATION; // 0.65s
+  } else if (action === 'upgrade_fence') {
+    base = 0.7;
+  } else if (action === 'build_pad') {
+    if (buildingType === 'catapult') {
+      base = 0.65;
+    } else if (buildingType === 'watchtower' || buildingType === 'guardtent') {
+      base = 0.6;
+    } else {
+      base = 0.55;
+    }
+  } else if (action === 'upgrade_pad') {
+    base = buildingType === 'catapult' ? 0.7 : 0.68;
+  }
+
+  const safeTier = Math.max(1, Math.floor(toolTier));
+  const speedMultiplier = safeTier >= 3 ? 0.78 : safeTier === 2 ? 0.85 : 1.0;
+  const scaled = Number((base * speedMultiplier).toFixed(2));
+  return Math.max(0.35, Math.min(1.5, scaled));
+}
+
+/**
+ * Locked gameplay rule: Ranger Rue can only place/build, upgrade, repair, or salvage structures
+ * during the Day phase while today's core daily progression is unlocked and not in Free Play mode.
+ */
+export function canPerformConstructionInPhase(
+  phase: DayNightPhase,
+  dailyLocked = false,
+  isFreePlay = false
+): boolean {
+  if (phase !== 'day') return false;
+  if (dailyLocked || isFreePlay) return false;
+  return true;
 }
 
 /**
@@ -582,21 +644,46 @@ export function advanceFenceSegmentBuild(
   segment: FenceSegment,
   resources: Resources,
   progressDelta: number,
-  phase: DayNightPhase = 'day'
+  phase: DayNightPhase = 'day',
+  dailyLocked = false,
+  isFreePlay = false
 ): {
   updatedSegment: FenceSegment;
   updatedResources: Resources;
   completed: boolean;
   success: boolean;
-  reason?: 'night_locked' | 'insufficient_resources' | 'already_built';
+  reason?:
+    | 'night_locked'
+    | 'daily_locked'
+    | 'free_play_locked'
+    | 'insufficient_resources'
+    | 'already_built';
 } {
-  if (!canPerformConstructionInPhase(phase)) {
+  if (phase !== 'day') {
     return {
       updatedSegment: segment,
       updatedResources: resources,
       completed: false,
       success: false,
       reason: 'night_locked',
+    };
+  }
+  if (isFreePlay) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      completed: false,
+      success: false,
+      reason: 'free_play_locked',
+    };
+  }
+  if (dailyLocked) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      completed: false,
+      success: false,
+      reason: 'daily_locked',
     };
   }
   if (segment.level > 0) {
@@ -646,7 +733,7 @@ export function advanceFenceSegmentBuild(
 }
 
 /**
- * Direct click / button action on a fence segment (allowed only during Day phase):
+ * Direct click / button action on a fence segment (allowed only during Day phase when daily progression is unlocked):
  * - Level 0 -> Builds Level 1 Timber Palisade Fence (15W, 5S)
  * - Damaged Level 1/2 -> Repairs to full HP (8W, 4S)
  * - Full HP Level 1 -> Upgrades to Level 2 Ironbark Spiked Fence (20W, 15S)
@@ -654,21 +741,46 @@ export function advanceFenceSegmentBuild(
 export function buildOrUpgradeFenceSegment(
   segment: FenceSegment,
   resources: Resources,
-  phase: DayNightPhase = 'day'
+  phase: DayNightPhase = 'day',
+  dailyLocked = false,
+  isFreePlay = false
 ): {
   updatedSegment: FenceSegment;
   updatedResources: Resources;
   action: 'built' | 'upgraded' | 'repaired' | 'none';
   success: boolean;
-  reason?: 'night_locked' | 'insufficient_resources' | 'max_level';
+  reason?:
+    | 'night_locked'
+    | 'daily_locked'
+    | 'free_play_locked'
+    | 'insufficient_resources'
+    | 'max_level';
 } {
-  if (!canPerformConstructionInPhase(phase)) {
+  if (phase !== 'day') {
     return {
       updatedSegment: segment,
       updatedResources: resources,
       action: 'none',
       success: false,
       reason: 'night_locked',
+    };
+  }
+  if (isFreePlay) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      action: 'none',
+      success: false,
+      reason: 'free_play_locked',
+    };
+  }
+  if (dailyLocked) {
+    return {
+      updatedSegment: segment,
+      updatedResources: resources,
+      action: 'none',
+      success: false,
+      reason: 'daily_locked',
     };
   }
 
@@ -849,19 +961,42 @@ export function buildStructureOnPad(
   pad: PlacementPad,
   resources: Resources,
   type: BuildingType,
-  phase: DayNightPhase = 'day'
+  phase: DayNightPhase = 'day',
+  dailyLocked = false,
+  isFreePlay = false
 ): {
   updatedPad: PlacementPad;
   updatedResources: Resources;
   success: boolean;
-  reason?: 'night_locked' | 'occupied' | 'insufficient_resources';
+  reason?:
+    | 'night_locked'
+    | 'daily_locked'
+    | 'free_play_locked'
+    | 'occupied'
+    | 'insufficient_resources';
 } {
-  if (!canPerformConstructionInPhase(phase)) {
+  if (phase !== 'day') {
     return {
       updatedPad: pad,
       updatedResources: resources,
       success: false,
       reason: 'night_locked',
+    };
+  }
+  if (isFreePlay) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'free_play_locked',
+    };
+  }
+  if (dailyLocked) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'daily_locked',
     };
   }
   if (pad.building !== null) {
@@ -900,19 +1035,42 @@ export function upgradeStructureOnPad(
   pad: PlacementPad,
   resources: Resources,
   pathId: 'pathA' | 'pathB',
-  phase: DayNightPhase = 'day'
+  phase: DayNightPhase = 'day',
+  dailyLocked = false,
+  isFreePlay = false
 ): {
   updatedPad: PlacementPad;
   updatedResources: Resources;
   success: boolean;
-  reason?: 'night_locked' | 'invalid_pad' | 'insufficient_resources';
+  reason?:
+    | 'night_locked'
+    | 'daily_locked'
+    | 'free_play_locked'
+    | 'invalid_pad'
+    | 'insufficient_resources';
 } {
-  if (!canPerformConstructionInPhase(phase)) {
+  if (phase !== 'day') {
     return {
       updatedPad: pad,
       updatedResources: resources,
       success: false,
       reason: 'night_locked',
+    };
+  }
+  if (isFreePlay) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'free_play_locked',
+    };
+  }
+  if (dailyLocked) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'daily_locked',
     };
   }
   if (!pad.building || pad.building.upgradePath !== null) {
@@ -948,6 +1106,63 @@ export function upgradeStructureOnPad(
   return { updatedPad, updatedResources, success: true };
 }
 
+export function salvageStructureOnPad(
+  pad: PlacementPad,
+  resources: Resources,
+  phase: DayNightPhase = 'day',
+  dailyLocked = false,
+  isFreePlay = false
+): {
+  updatedPad: PlacementPad;
+  updatedResources: Resources;
+  success: boolean;
+  reason?: 'night_locked' | 'daily_locked' | 'free_play_locked' | 'invalid_pad';
+} {
+  if (phase !== 'day') {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'night_locked',
+    };
+  }
+  if (isFreePlay) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'free_play_locked',
+    };
+  }
+  if (dailyLocked) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'daily_locked',
+    };
+  }
+  if (!pad.building) {
+    return {
+      updatedPad: pad,
+      updatedResources: resources,
+      success: false,
+      reason: 'invalid_pad',
+    };
+  }
+  const spec = BUILDING_CATALOG[pad.building.type];
+  const updatedResources: Resources = {
+    ...resources,
+    wood: resources.wood + Math.round(spec.cost.wood * 0.5),
+    stone: resources.stone + Math.round(spec.cost.stone * 0.5),
+  };
+  const updatedPad: PlacementPad = {
+    ...pad,
+    building: null,
+  };
+  return { updatedPad, updatedResources, success: true };
+}
+
 /**
  * Initiates a distinct 'construction' animation state for Ranger Rue when a fence segment is clicked or selected for build/upgrade.
  * The actual build/upgrade is deferred until the construction animation finishes via stepConstructionTask.
@@ -958,26 +1173,56 @@ export function startFenceConstructionTask(params: {
   phase: DayNightPhase;
   currentTask: PendingConstructionTask | null;
   duration?: number;
+  toolTier?: number;
+  dailyLocked?: boolean;
+  isFreePlay?: boolean;
 }): {
   started: boolean;
   heroAnimState: HeroAnimState;
   task: PendingConstructionTask | null;
-  reason?: 'night_locked' | 'busy_constructing' | 'insufficient_resources' | 'max_level';
+  reason?:
+    | 'night_locked'
+    | 'daily_locked'
+    | 'free_play_locked'
+    | 'busy_constructing'
+    | 'insufficient_resources'
+    | 'max_level';
 } {
   const {
     segment,
     resources,
     phase,
     currentTask,
-    duration = HERO_CONSTRUCTION_DURATION,
+    duration,
+    toolTier = 1,
+    dailyLocked = false,
+    isFreePlay = false,
   } = params;
 
-  if (!canPerformConstructionInPhase(phase)) {
+  if (phase !== 'day') {
     return {
       started: false,
       heroAnimState: currentTask ? 'construction' : 'idle',
       task: currentTask,
       reason: 'night_locked',
+    };
+  }
+
+  if (isFreePlay) {
+    return {
+      started: false,
+      heroAnimState: currentTask ? 'construction' : 'idle',
+      task: currentTask,
+      reason: 'free_play_locked',
+    };
+  }
+
+  if (dailyLocked) {
+    return {
+      started: false,
+      heroAnimState: currentTask ? 'construction' : 'idle',
+      task: currentTask,
+      reason: 'daily_locked',
     };
   }
 
@@ -990,7 +1235,10 @@ export function startFenceConstructionTask(params: {
     };
   }
 
+  let fenceAction: 'build_fence' | 'repair_fence' | 'upgrade_fence' = 'build_fence';
+
   if (segment.level === 0) {
+    fenceAction = 'build_fence';
     if (!canAfford(resources, FENCE_BUILD_COST)) {
       return {
         started: false,
@@ -1000,6 +1248,7 @@ export function startFenceConstructionTask(params: {
       };
     }
   } else if (segment.hp < segment.maxHp) {
+    fenceAction = 'repair_fence';
     if (!canAfford(resources, FENCE_REPAIR_COST)) {
       return {
         started: false,
@@ -1009,6 +1258,7 @@ export function startFenceConstructionTask(params: {
       };
     }
   } else if (segment.level === 1) {
+    fenceAction = 'upgrade_fence';
     if (!canAfford(resources, FENCE_UPGRADE_COST)) {
       return {
         started: false,
@@ -1026,6 +1276,9 @@ export function startFenceConstructionTask(params: {
     };
   }
 
+  const resolvedDuration =
+    duration ?? getConstructionDuration({ action: fenceAction, toolTier });
+
   return {
     started: true,
     heroAnimState: 'construction',
@@ -1036,8 +1289,8 @@ export function startFenceConstructionTask(params: {
       targetX: segment.x,
       targetZ: segment.z,
       label: segment.label,
-      remainingTime: duration,
-      totalTime: duration,
+      remainingTime: resolvedDuration,
+      totalTime: resolvedDuration,
     },
   };
 }
@@ -1055,12 +1308,17 @@ export function startPadConstructionTask(params: {
   buildingType?: BuildingType;
   upgradePath?: 'pathA' | 'pathB';
   duration?: number;
+  toolTier?: number;
+  dailyLocked?: boolean;
+  isFreePlay?: boolean;
 }): {
   started: boolean;
   heroAnimState: HeroAnimState;
   task: PendingConstructionTask | null;
   reason?:
     | 'night_locked'
+    | 'daily_locked'
+    | 'free_play_locked'
     | 'busy_constructing'
     | 'insufficient_resources'
     | 'occupied'
@@ -1074,15 +1332,36 @@ export function startPadConstructionTask(params: {
     action,
     buildingType,
     upgradePath,
-    duration = HERO_CONSTRUCTION_DURATION,
+    duration,
+    toolTier = 1,
+    dailyLocked = false,
+    isFreePlay = false,
   } = params;
 
-  if (!canPerformConstructionInPhase(phase)) {
+  if (phase !== 'day') {
     return {
       started: false,
       heroAnimState: currentTask ? 'construction' : 'idle',
       task: currentTask,
       reason: 'night_locked',
+    };
+  }
+
+  if (isFreePlay) {
+    return {
+      started: false,
+      heroAnimState: currentTask ? 'construction' : 'idle',
+      task: currentTask,
+      reason: 'free_play_locked',
+    };
+  }
+
+  if (dailyLocked) {
+    return {
+      started: false,
+      heroAnimState: currentTask ? 'construction' : 'idle',
+      task: currentTask,
+      reason: 'daily_locked',
     };
   }
 
@@ -1096,6 +1375,7 @@ export function startPadConstructionTask(params: {
   }
 
   let label = pad.label;
+  const effectiveType = buildingType ?? pad.building?.type;
 
   if (action === 'build_pad') {
     if (pad.building !== null) {
@@ -1163,6 +1443,14 @@ export function startPadConstructionTask(params: {
     label = `Repair P${pad.id}`;
   }
 
+  const resolvedDuration =
+    duration ??
+    getConstructionDuration({
+      action,
+      buildingType: effectiveType,
+      toolTier,
+    });
+
   return {
     started: true,
     heroAnimState: 'construction',
@@ -1175,8 +1463,8 @@ export function startPadConstructionTask(params: {
       targetX: pad.x,
       targetZ: pad.z,
       label,
-      remainingTime: duration,
-      totalTime: duration,
+      remainingTime: resolvedDuration,
+      totalTime: resolvedDuration,
     },
   };
 }
@@ -1193,6 +1481,8 @@ export function stepConstructionTask(params: {
   fenceSegments: FenceSegment[];
   pads: PlacementPad[];
   resources: Resources;
+  dailyLocked?: boolean;
+  isFreePlay?: boolean;
 }): {
   heroAnimState: HeroAnimState;
   task: PendingConstructionTask | null;
@@ -1204,7 +1494,16 @@ export function stepConstructionTask(params: {
   pads: PlacementPad[];
   resources: Resources;
 } {
-  const { task, dt, phase, fenceSegments, pads, resources } = params;
+  const {
+    task,
+    dt,
+    phase,
+    fenceSegments,
+    pads,
+    resources,
+    dailyLocked = false,
+    isFreePlay = false,
+  } = params;
 
   if (!task) {
     return {
@@ -1217,7 +1516,7 @@ export function stepConstructionTask(params: {
     };
   }
 
-  if (!canPerformConstructionInPhase(phase)) {
+  if (!canPerformConstructionInPhase(phase, dailyLocked, isFreePlay)) {
     return {
       heroAnimState: 'idle',
       task: null,
@@ -1257,7 +1556,7 @@ export function stepConstructionTask(params: {
         resources,
       };
     }
-    const res = buildOrUpgradeFenceSegment(targetSeg, resources, phase);
+    const res = buildOrUpgradeFenceSegment(targetSeg, resources, phase, dailyLocked, isFreePlay);
     if (!res.success) {
       return {
         heroAnimState: 'idle',
@@ -1296,7 +1595,14 @@ export function stepConstructionTask(params: {
   }
 
   if (task.action === 'build_pad' && task.buildingType) {
-    const res = buildStructureOnPad(targetPad, resources, task.buildingType, phase);
+    const res = buildStructureOnPad(
+      targetPad,
+      resources,
+      task.buildingType,
+      phase,
+      dailyLocked,
+      isFreePlay
+    );
     if (!res.success) {
       return {
         heroAnimState: 'idle',
@@ -1319,7 +1625,14 @@ export function stepConstructionTask(params: {
   }
 
   if (task.action === 'upgrade_pad' && task.upgradePath) {
-    const res = upgradeStructureOnPad(targetPad, resources, task.upgradePath, phase);
+    const res = upgradeStructureOnPad(
+      targetPad,
+      resources,
+      task.upgradePath,
+      phase,
+      dailyLocked,
+      isFreePlay
+    );
     if (!res.success) {
       return {
         heroAnimState: 'idle',
@@ -1699,3 +2012,259 @@ export function evaluateGameOutcome(params: {
   }
   return null;
 }
+
+export const FORT_INTERIOR_HALF_EXTENT = FENCE_HALF_EXTENT - 0.85;
+
+/**
+ * Hero can only gather Wood, Stone, and Food during the Day phase when daily progression is unlocked
+ * and not in Free Play mode.
+ */
+export function canGatherResourcesInPhase(
+  phase: DayNightPhase,
+  dailyLocked = false,
+  isFreePlay = false
+): boolean {
+  return phase === 'day' && !dailyLocked && !isFreePlay;
+}
+
+/**
+ * Pure helper for gathering from a clearing resource node, enforcing Day phase,
+ * Daily Progression Lock, and Free Play mode lock.
+ */
+export function gatherFromResourceNode(params: {
+  node: ResourceNodeEntity;
+  resources: Resources;
+  phase: DayNightPhase;
+  dailyLocked?: boolean;
+  isFreePlay?: boolean;
+}): {
+  gathered: boolean;
+  updatedNode: ResourceNodeEntity;
+  updatedResources: Resources;
+  reason?: 'daily_locked' | 'free_play_locked' | 'night_locked' | 'already_harvested';
+} {
+  const { node, resources, phase, dailyLocked = false, isFreePlay = false } = params;
+  if (isFreePlay) {
+    return {
+      gathered: false,
+      updatedNode: node,
+      updatedResources: resources,
+      reason: 'free_play_locked',
+    };
+  }
+  if (dailyLocked) {
+    return {
+      gathered: false,
+      updatedNode: node,
+      updatedResources: resources,
+      reason: 'daily_locked',
+    };
+  }
+  if (phase !== 'day') {
+    return {
+      gathered: false,
+      updatedNode: node,
+      updatedResources: resources,
+      reason: 'night_locked',
+    };
+  }
+  if (node.amount <= 0) {
+    return {
+      gathered: false,
+      updatedNode: node,
+      updatedResources: resources,
+      reason: 'already_harvested',
+    };
+  }
+  const gatherChunk = Math.min(node.amount, 10);
+  const nextAmount = Math.max(0, node.amount - gatherChunk);
+  const updatedNode: ResourceNodeEntity = {
+    ...node,
+    amount: nextAmount,
+    hitFlashTimer: 0.25,
+    respawnTimer: nextAmount <= 0 ? 18 : node.respawnTimer,
+  };
+  const updatedResources: Resources = {
+    ...resources,
+    [node.type]: resources[node.type] + gatherChunk,
+  };
+  return {
+    gathered: true,
+    updatedNode,
+    updatedResources,
+  };
+}
+
+export function serializePadsForPersistence(pads: PlacementPad[]): SavedPadState[] {
+  return pads.map((pad) => ({
+    id: pad.id,
+    building: pad.building
+      ? {
+          type: pad.building.type,
+          upgradePath: pad.building.upgradePath,
+          level: pad.building.level,
+          hp: pad.building.hp,
+          maxHp: pad.building.maxHp,
+        }
+      : null,
+  }));
+}
+
+export function restorePadsFromPersistence(
+  savedPads: SavedPadState[] | undefined | null,
+  restoreFullHp = true
+): PlacementPad[] {
+  const basePads = createInitialPads();
+  if (!Array.isArray(savedPads) || savedPads.length === 0) {
+    return basePads;
+  }
+
+  const byId = new Map<number, SavedPadState>();
+  for (const item of savedPads) {
+    if (item && typeof item.id === 'number') {
+      byId.set(item.id, item);
+    }
+  }
+
+  return basePads.map((pad) => {
+    const saved = byId.get(pad.id);
+    if (!saved || !saved.building) {
+      return pad;
+    }
+    const bType = saved.building.type;
+    if (!bType || !(bType in BUILDING_CATALOG)) {
+      return pad;
+    }
+    const level = saved.building.level === 2 ? 2 : 1;
+    const upgradePath: UpgradePathId =
+      level === 2 &&
+      (saved.building.upgradePath === 'pathA' || saved.building.upgradePath === 'pathB')
+        ? saved.building.upgradePath
+        : null;
+    const stats = getEffectiveBuildingStats(bType, upgradePath);
+    const maxHp = stats.maxHp;
+    const rawHp =
+      typeof saved.building.hp === 'number' && saved.building.hp > 0
+        ? saved.building.hp
+        : maxHp;
+    const hp = restoreFullHp ? maxHp : Math.min(maxHp, rawHp);
+
+    return {
+      ...pad,
+      building: {
+        type: bType,
+        upgradePath,
+        level,
+        hp,
+        maxHp,
+        cooldown: 0,
+      },
+    };
+  });
+}
+
+export function serializeFenceSegmentsForPersistence(
+  segments: FenceSegment[]
+): SavedFenceState[] {
+  return segments.map((seg) => ({
+    id: seg.id,
+    level: seg.level,
+    hp: seg.hp,
+    maxHp: seg.maxHp,
+    buildProgress: seg.buildProgress,
+  }));
+}
+
+export function restoreFenceSegmentsFromPersistence(
+  savedSegments: SavedFenceState[] | undefined | null,
+  restoreFullHp = true
+): FenceSegment[] {
+  const baseSegments = createInitialFenceSegments();
+  if (!Array.isArray(savedSegments) || savedSegments.length === 0) {
+    return baseSegments;
+  }
+
+  const byId = new Map<number, SavedFenceState>();
+  for (const seg of savedSegments) {
+    if (seg && typeof seg.id === 'number') {
+      byId.set(seg.id, seg);
+    }
+  }
+
+  return baseSegments.map((seg) => {
+    const saved = byId.get(seg.id);
+    if (!saved) {
+      return seg;
+    }
+    const level: 0 | 1 | 2 = saved.level === 2 ? 2 : saved.level === 1 ? 1 : 0;
+    if (level === 0) {
+      const progress =
+        typeof saved.buildProgress === 'number'
+          ? Math.max(0, Math.min(0.99, saved.buildProgress))
+          : 0;
+      return {
+        ...seg,
+        level: 0,
+        hp: 0,
+        maxHp: FENCE_LEVEL1_MAX_HP,
+        buildProgress: progress,
+      };
+    }
+    const maxHp = level === 2 ? FENCE_LEVEL2_MAX_HP : FENCE_LEVEL1_MAX_HP;
+    const rawHp = typeof saved.hp === 'number' && saved.hp > 0 ? saved.hp : maxHp;
+    const hp = restoreFullHp ? maxHp : Math.min(maxHp, rawHp);
+    return {
+      ...seg,
+      level,
+      hp,
+      maxHp,
+      buildProgress: 1,
+    };
+  });
+}
+
+/**
+ * Clamps Ranger Rue's position or click-to-move target based on the active phase:
+ * - Day phase: Can roam anywhere inside the clearing moat (radius <= 16.8).
+ * - Night phase: Strictly confined inside the square Fort fence arena
+ *   (|x| <= FORT_INTERIOR_HALF_EXTENT and |z| <= FORT_INTERIOR_HALF_EXTENT).
+ * - Both phases: Keeps hero outside the central Fort lodge footprint (radius >= 3.15).
+ */
+export function clampHeroPositionForPhase(
+  x: number,
+  z: number,
+  phase: DayNightPhase
+): { x: number; z: number } {
+  let nextX = x;
+  let nextZ = z;
+
+  if (phase === 'night') {
+    nextX = Math.max(-FORT_INTERIOR_HALF_EXTENT, Math.min(FORT_INTERIOR_HALF_EXTENT, nextX));
+    nextZ = Math.max(-FORT_INTERIOR_HALF_EXTENT, Math.min(FORT_INTERIOR_HALF_EXTENT, nextZ));
+  } else {
+    const clearDist = Math.hypot(nextX, nextZ);
+    if (clearDist > 16.8) {
+      nextX = (nextX / clearDist) * 16.8;
+      nextZ = (nextZ / clearDist) * 16.8;
+    }
+  }
+
+  const fortDist = Math.hypot(nextX, nextZ);
+  if (fortDist < 3.15) {
+    if (fortDist > 0.001) {
+      nextX = (nextX / fortDist) * 3.15;
+      nextZ = (nextZ / fortDist) * 3.15;
+    } else {
+      nextX = 0;
+      nextZ = 4.5;
+    }
+  }
+
+  if (phase === 'night') {
+    nextX = Math.max(-FORT_INTERIOR_HALF_EXTENT, Math.min(FORT_INTERIOR_HALF_EXTENT, nextX));
+    nextZ = Math.max(-FORT_INTERIOR_HALF_EXTENT, Math.min(FORT_INTERIOR_HALF_EXTENT, nextZ));
+  }
+
+  return { x: nextX, z: nextZ };
+}
+

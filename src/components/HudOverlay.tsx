@@ -10,6 +10,7 @@ import {
   canAfford,
   FENCE_BUILD_COST,
   FENCE_UPGRADE_COST,
+  getConstructionDuration,
   getWaveThreatArchetypes,
   HERO_RUE_PORTRAIT_URL,
   ZOMBIE_CATALOG,
@@ -36,6 +37,8 @@ interface HudOverlayProps {
   onToggleDock: () => void;
   onAdjustZoom?: (delta: number) => void;
   onRefillTicketWithCoins?: () => void;
+  onStartFreePlay?: () => void;
+  onClaimDailyCheckIn?: () => void;
 }
 
 const BUILDING_LIST: BuildingType[] = [
@@ -66,6 +69,8 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onOpenGuide,
   onToggleDock,
   onRefillTicketWithCoins,
+  onStartFreePlay,
+  onClaimDailyCheckIn,
 }) => {
   const [showTasksPopover, setShowTasksPopover] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
@@ -97,6 +102,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   const selectedFence =
     hud.fenceSegments.find((f) => f.id === hud.selectedFenceId) ?? null;
   const isNight = hud.phase === 'night';
+  const isDailyLocked = Boolean(hud.daily.dailyProgressionLocked);
+  const isFreePlay = Boolean(hud.isFreePlay);
+  const isConstructionLocked = isNight || isDailyLocked || isFreePlay;
   const isConstructing =
     hud.heroAnimState === 'construction' && hud.pendingConstruction !== null;
   const constructionPct = hud.pendingConstruction
@@ -116,9 +124,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   const builtFenceCount = hud.fenceSegments.filter((f) => f.level > 0 && f.hp > 0).length;
   const upgradedFenceCount = hud.fenceSegments.filter((f) => f.level === 2 && f.hp > 0).length;
   const canBuildFence =
-    !isNight && !isConstructing && canAfford(hud.resources, FENCE_BUILD_COST);
+    !isConstructionLocked && !isConstructing && canAfford(hud.resources, FENCE_BUILD_COST);
   const canUpgradeFence =
-    !isNight && !isConstructing && canAfford(hud.resources, FENCE_UPGRADE_COST);
+    !isConstructionLocked && !isConstructing && canAfford(hud.resources, FENCE_UPGRADE_COST);
   const fortHpPct = Math.max(0, Math.min(100, (hud.fortHp / hud.fortMaxHp) * 100));
   const fortGhostPct = Math.max(fortHpPct, Math.min(100, (hud.fortGhostHp / hud.fortMaxHp) * 100));
   const isCriticalHp = fortHpPct <= 30;
@@ -128,6 +136,20 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   ).length;
   const levelInfo = getLevelForXp(hud.daily.xp);
   const resetCountdown = getTimeUntilNextUTCReset();
+
+  const hasNoBuildings = hud.pads.every((p) => p.building === null);
+  const canAffordFirstBuild = BUILDING_LIST.some((bType) =>
+    canAfford(hud.resources, BUILDING_CATALOG[bType].cost)
+  );
+  const showNewPlayerBuildGuide =
+    !isConstructionLocked && !isConstructing && hasNoBuildings && canAffordFirstBuild;
+
+  const todayUTC = hud.daily.lastResetDateUTC;
+  const checkInClaimedToday = hud.daily.lastCheckInClaimedDateUTC === todayUTC;
+  const checkInReady =
+    !checkInClaimedToday &&
+    (hud.daily.checkInEligibleDateUTC === todayUTC ||
+      hud.daily.lastPlayedDateUTC === todayUTC);
 
   const flareNightLocked = !isNight;
   const flareOnCooldown = isNight && hud.flareCooldown > 0.05;
@@ -310,13 +332,31 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 {Math.round(hud.score)}
               </span>
             </div>
+
+            {isFreePlay && (
+              <span
+                data-testid="hud-free-play-badge"
+                className="px-2 py-0.5 rounded-md bg-[#0c4a6e] border border-[#38bdf8] text-[9px] font-mono-tabular font-bold text-[#e0f2fe] uppercase tracking-wider"
+              >
+                {tr.freePlayActiveBadge}
+              </span>
+            )}
+
+            {!isFreePlay && isDailyLocked && (
+              <span
+                data-testid="hud-daily-locked-badge"
+                className="px-2 py-0.5 rounded-md bg-[#14532d] border border-[#4ade80] text-[9px] font-mono-tabular font-bold text-[#dcfce7] uppercase tracking-wider"
+              >
+                🔒 3/3 SAVED
+              </span>
+            )}
           </div>
 
           {/* IN-GAME DAILY TASKS & PROGRESSION POPOVER (Appears when user clicks 📋 Tasks) */}
           {showTasksPopover && (
             <div
               data-testid="hud-daily-tasks-panel"
-              className="absolute left-0 top-full mt-1.5 z-40 w-[330px] sm:w-[370px] rounded-xl border border-[#334155] p-3.5 shadow-2xl"
+              className="absolute left-0 top-full mt-1.5 z-40 w-[335px] sm:w-[385px] max-h-[82vh] overflow-y-auto rounded-xl border border-[#334155] p-3.5 shadow-2xl"
               style={{ backgroundColor: 'rgba(13, 19, 28, 0.98)' }}
             >
               {/* Header: Daily Ranger Board + Close */}
@@ -338,6 +378,35 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   {tr.closeLabel}
                 </button>
               </div>
+
+              {/* Daily Progression Lock Banner & Free Play Launch if 3/3 completed */}
+              {isDailyLocked && (
+                <div
+                  data-testid="popover-daily-lock-banner"
+                  className="p-2.5 rounded-lg bg-[#11221c] border border-[#22c55e]/60 text-[11px] text-[#fef3c7] mb-2.5"
+                >
+                  <div className="font-bold text-[#4ade80] mb-0.5">
+                    🔒 {tr.dailyProgressionCompleteTitle}
+                  </div>
+                  <div className="text-[10px] text-[#cbd5e1] mb-2">
+                    {tr.dailyProgressionCompleteDesc}
+                  </div>
+                  {!isFreePlay && onStartFreePlay && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      data-testid="popover-btn-free-play"
+                      onClick={() => {
+                        setShowTasksPopover(false);
+                        onStartFreePlay();
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-lg bg-[#16a34a] hover:bg-[#22c55e] text-[#090d16] font-display font-bold text-xs cursor-pointer transition-colors"
+                    >
+                      {tr.freePlayBtn}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* 3 Daily Tasks with Progress Bar & Reward */}
               <div className="space-y-2 mb-2.5">
@@ -394,6 +463,58 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 </span>
               </div>
 
+              {/* Daily Check-In Status / Claim */}
+              <div
+                data-testid="popover-daily-checkin"
+                className="p-2 rounded-lg bg-[#0b1016] border border-[#1e293b] text-[11px] mb-2.5"
+              >
+                <div className="font-bold text-[#fbbf24] mb-1">🎁 {tr.dailyCheckInTitle}</div>
+                {checkInClaimedToday ? (
+                  <div className="text-[#4ade80] font-semibold text-[10.5px]">
+                    {tr.dailyCheckInClaimedLabel}
+                  </div>
+                ) : checkInReady ? (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    data-testid="hud-btn-claim-checkin"
+                    onClick={() => onClaimDailyCheckIn?.()}
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] font-display font-bold text-xs cursor-pointer"
+                  >
+                    {tr.dailyCheckInClaimBtn}
+                  </button>
+                ) : (
+                  <div className="text-[10px] text-[#94a3b8]">{tr.dailyCheckInPlayFirstDesc}</div>
+                )}
+              </div>
+
+              {/* Optional Finite Bonus Patrols (Small XP) */}
+              {hud.daily.bonusTasks && hud.daily.bonusTasks.length > 0 && (
+                <div className="p-2 rounded-lg bg-[#0b1016] border border-[#1e293b] text-[11px] mb-2.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#38bdf8] mb-1">
+                    ⭐ {tr.bonusTasksTitle}
+                  </div>
+                  <div className="space-y-1">
+                    {hud.daily.bonusTasks.map((bt) => {
+                      const bProg = Math.min(bt.target, hud.daily.bonusTaskProgress?.[bt.id] ?? 0);
+                      const bDone = bProg >= bt.target;
+                      const bTitle = tr.translateTaskTitle(bt.id, bt.title);
+                      return (
+                        <div key={bt.id} className="flex items-center justify-between text-[10.5px]">
+                          <span className={bDone ? 'text-[#4ade80] font-semibold' : 'text-[#cbd5e1]'}>
+                            {bDone ? '✓ ' : '· '}
+                            {bTitle} (+{bt.rewardXp} XP)
+                          </span>
+                          <span className="font-mono-tabular text-[#94a3b8]">
+                            {Math.round(bProg)}/{bt.target}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Ranger Level & Streak Row */}
               <div className="p-2 rounded-lg bg-[#0b1016] border border-[#1e293b] text-[11px] mb-2.5">
                 <div className="flex items-center justify-between mb-1">
@@ -413,7 +534,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </div>
 
               {/* Tonight's Wave Threats (Tucked cleanly inside the popover) */}
-              <div className="pt-2 border-t border-[#1e293b]" data-testid="hud-wave-threats">
+              <div className="pt-2 border-t border-[#1e293b] mb-2" data-testid="hud-wave-threats">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] mb-1">
                   {tr.nightThreatsLabel(hud.dayNumber)}
                 </div>
@@ -438,6 +559,12 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Non-rewarded Community Invite Notice */}
+              <div className="pt-2 border-t border-[#1e293b] text-[10px] text-[#94a3b8]">
+                <strong className="text-[#cbd5e1]">🏕️ {tr.communityInviteTitle}:</strong>{' '}
+                {tr.communityInviteDesc}
               </div>
             </div>
           )}
@@ -732,6 +859,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                       {(() => {
                         const padLabelLoc = tr.translatePadLabel(selectedPad.id, selectedPad.label);
                         if (selectedPad.building === null) {
+                          if (isFreePlay) return `${padLabelLoc} — 🔒 ${tr.freePlayActiveBadge}`;
+                          if (isDailyLocked)
+                            return `${padLabelLoc} — 🔒 ${tr.dailyProgressionCompleteTitle}`;
                           return isNight
                             ? tr.padLockedNightHeader(padLabelLoc)
                             : tr.padChooseBuildHeader(padLabelLoc);
@@ -764,25 +894,45 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     {BUILDING_LIST.map((bType) => {
                       const spec = BUILDING_CATALOG[bType];
                       const bLoc = tr.buildings[bType];
-                      const affordable = !isNight && !isConstructing && canAfford(hud.resources, spec.cost);
+                      const affordable =
+                        !isConstructionLocked &&
+                        !isConstructing &&
+                        canAfford(hud.resources, spec.cost);
+                      const expectedSec = getConstructionDuration({
+                        action: 'build_pad',
+                        buildingType: bType,
+                        toolTier: hud.daily.toolTier,
+                      }).toFixed(2);
+                      const highlightNewPlayer = showNewPlayerBuildGuide && affordable;
                       return (
                         <button
                           key={bType}
                           type="button"
                           tabIndex={-1}
                           aria-disabled={!affordable}
-                          data-night-locked={isNight ? 'true' : 'false'}
+                          data-night-locked={isConstructionLocked ? 'true' : 'false'}
+                          data-new-player-highlight={highlightNewPlayer ? 'true' : 'false'}
                           data-testid={`btn-build-${bType}`}
                           onClick={(e) => {
                             e.currentTarget.blur();
                             onBuildOnPad(bType);
                           }}
-                          className={`p-1.5 rounded-lg border text-left transition-all flex flex-col justify-between min-h-[52px] ${
-                            affordable
+                          className={`relative p-1.5 rounded-lg border text-left transition-all flex flex-col justify-between min-h-[56px] ${
+                            highlightNewPlayer
+                              ? 'bg-[#1e293b] hover:bg-[#263548] border-2 border-[#fbbf24] shadow-[0_0_14px_rgba(251,191,36,0.45)] cursor-pointer'
+                              : affordable
                               ? 'bg-[#161f2c] hover:bg-[#1e293b] border-[#475569] hover:border-[#f59e0b] cursor-pointer shadow-sm'
                               : 'bg-[#0b1016] border-[#1e293b] opacity-55 cursor-not-allowed'
                           }`}
                         >
+                          {highlightNewPlayer && bType === 'palisade' && (
+                            <span
+                              data-testid="new-player-build-indicator"
+                              className=" -top-2 right-1 px-1.5 py-0.2 rounded bg-[#f59e0b] text-[#090d16] text-[8.5px] font-extrabold uppercase tracking-wider shadow"
+                            >
+                              ✨ BUILD
+                            </span>
+                          )}
                           <div>
                             <div className="flex items-center justify-between gap-1 text-[11px] font-bold text-[#fef3c7]">
                               <span className="truncate">{bLoc.name}</span>
@@ -794,12 +944,21 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               {bLoc.shortRole}
                             </div>
                           </div>
-                          <div className="text-[9.5px] font-mono-tabular font-bold text-[#fbbf24] mt-0.5">
-                            {isNight
-                              ? tr.nightLockedShort
-                              : `${spec.cost.wood}W·${spec.cost.stone}S${
-                                  spec.cost.food > 0 ? `·${spec.cost.food}F` : ''
-                                }`}
+                          <div className="flex items-center justify-between gap-1 text-[9.5px] font-mono-tabular font-bold text-[#fbbf24] mt-0.5">
+                            <span>
+                              {isConstructionLocked
+                                ? isNight
+                                  ? tr.nightLockedShort
+                                  : `🔒 ${tr.lockedShort}`
+                                : `${spec.cost.wood}W·${spec.cost.stone}S${
+                                    spec.cost.food > 0 ? `·${spec.cost.food}F` : ''
+                                  }`}
+                            </span>
+                            {!isConstructionLocked && (
+                              <span className="text-[8.5px] text-[#94a3b8] whitespace-nowrap shrink-0">
+                                {tr.buildDurationLabel(expectedSec)}
+                              </span>
+                            )}
                           </div>
                         </button>
                       );
@@ -814,9 +973,23 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     const pathA = spec.paths.pathA;
                     const pathB = spec.paths.pathB;
                     const canPathA =
-                      !isNight && bld.upgradePath === null && canAfford(hud.resources, pathA.cost);
+                      !isConstructionLocked &&
+                      bld.upgradePath === null &&
+                      canAfford(hud.resources, pathA.cost);
                     const canPathB =
-                      !isNight && bld.upgradePath === null && canAfford(hud.resources, pathB.cost);
+                      !isConstructionLocked &&
+                      bld.upgradePath === null &&
+                      canAfford(hud.resources, pathB.cost);
+                    const upgDurationSec = getConstructionDuration({
+                      action: 'upgrade_pad',
+                      buildingType: bld.type,
+                      toolTier: hud.daily.toolTier,
+                    }).toFixed(2);
+                    const repairDurationSec = getConstructionDuration({
+                      action: 'repair_pad',
+                      buildingType: bld.type,
+                      toolTier: hud.daily.toolTier,
+                    }).toFixed(2);
                     return (
                       <div className="flex flex-col gap-1.5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -838,36 +1011,43 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                             <button
                               type="button"
                               tabIndex={-1}
-                              aria-disabled={isNight}
-                              data-night-locked={isNight ? 'true' : 'false'}
+                              aria-disabled={isConstructionLocked}
+                              data-night-locked={isConstructionLocked ? 'true' : 'false'}
+                              data-testid="btn-repair-pad"
                               onClick={(e) => {
                                 e.currentTarget.blur();
                                 onRepairPad();
                               }}
                               className={`px-2 py-0.5 rounded-lg border text-[11px] font-mono-tabular font-semibold transition-colors ${
-                                isNight
+                                isConstructionLocked
                                   ? 'bg-[#0b1016] border-[#1e293b] text-[#64748b] opacity-55 cursor-not-allowed'
                                   : 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#4ade80] cursor-pointer'
                               }`}
                             >
-                              {tr.repairBtn(isNight)}
+                              {tr.repairBtn(isConstructionLocked)}{' '}
+                              {!isConstructionLocked && (
+                                <span className="text-[9px] text-[#94a3b8]">
+                                  ({tr.buildDurationLabel(repairDurationSec)})
+                                </span>
+                              )}
                             </button>
                             <button
                               type="button"
                               tabIndex={-1}
-                              aria-disabled={isNight}
-                              data-night-locked={isNight ? 'true' : 'false'}
+                              aria-disabled={isConstructionLocked}
+                              data-night-locked={isConstructionLocked ? 'true' : 'false'}
+                              data-testid="btn-salvage-pad"
                               onClick={(e) => {
                                 e.currentTarget.blur();
                                 onDemolishPad();
                               }}
                               className={`px-2 py-0.5 rounded-lg border text-[11px] font-semibold transition-colors ${
-                                isNight
+                                isConstructionLocked
                                   ? 'bg-[#0b1016] border-[#1e293b] text-[#64748b] opacity-55 cursor-not-allowed'
                                   : 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#f87171] cursor-pointer'
                               }`}
                             >
-                              {tr.salvageBtn(isNight)}
+                              {tr.salvageBtn(isConstructionLocked)}
                             </button>
                           </div>
                         </div>
@@ -878,7 +1058,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               type="button"
                               tabIndex={-1}
                               aria-disabled={!canPathA}
-                              data-night-locked={isNight ? 'true' : 'false'}
+                              data-night-locked={isConstructionLocked ? 'true' : 'false'}
                               data-testid="btn-upgrade-pathA"
                               onClick={(e) => {
                                 e.currentTarget.blur();
@@ -892,13 +1072,20 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                             >
                               <div className="flex items-center justify-between text-xs font-bold text-[#fef3c7]">
                                 <span>{tr.upgradePathAHeader(bLoc.paths.pathA.name)}</span>
+                                {!isConstructionLocked && (
+                                  <span className="text-[9.5px] font-mono-tabular text-[#94a3b8]">
+                                    {tr.buildDurationLabel(upgDurationSec)}
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[10.5px] text-[#cbd5e1] truncate">
                                 {bLoc.paths.pathA.tagline}
                               </div>
                               <div className="text-[10px] font-mono-tabular font-bold text-[#fbbf24]">
-                                {isNight
-                                  ? tr.nightLockedShort
+                                {isConstructionLocked
+                                  ? isNight
+                                    ? tr.nightLockedShort
+                                    : `🔒 ${tr.lockedShort}`
                                   : `${pathA.cost.wood}W · ${pathA.cost.stone}S · ${pathA.cost.food}F`}
                               </div>
                             </button>
@@ -907,7 +1094,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               type="button"
                               tabIndex={-1}
                               aria-disabled={!canPathB}
-                              data-night-locked={isNight ? 'true' : 'false'}
+                              data-night-locked={isConstructionLocked ? 'true' : 'false'}
                               data-testid="btn-upgrade-pathB"
                               onClick={(e) => {
                                 e.currentTarget.blur();
@@ -921,13 +1108,20 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                             >
                               <div className="flex items-center justify-between text-xs font-bold text-[#fef3c7]">
                                 <span>{tr.upgradePathBHeader(bLoc.paths.pathB.name)}</span>
+                                {!isConstructionLocked && (
+                                  <span className="text-[9.5px] font-mono-tabular text-[#94a3b8]">
+                                    {tr.buildDurationLabel(upgDurationSec)}
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[10.5px] text-[#cbd5e1] truncate">
                                 {bLoc.paths.pathB.tagline}
                               </div>
                               <div className="text-[10px] font-mono-tabular font-bold text-[#38bdf8]">
-                                {isNight
-                                  ? tr.nightLockedShort
+                                {isConstructionLocked
+                                  ? isNight
+                                    ? tr.nightLockedShort
+                                    : `🔒 ${tr.lockedShort}`
                                   : `${pathB.cost.wood}W · ${pathB.cost.stone}S · ${pathB.cost.food}F`}
                               </div>
                             </button>
@@ -951,6 +1145,23 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   })()
                 )}
               </div>
+            )}
+
+            {/* NEW-PLAYER BUILD INDICATOR TOOLTIP (Guides players when they can afford a building and have 0 placed) */}
+            {showNewPlayerBuildGuide && !selectedPad && (
+              <button
+                type="button"
+                tabIndex={-1}
+                data-testid="new-player-build-tooltip"
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  onSelectPad(1);
+                }}
+                className="px-3 py-1 rounded-full bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] border-2 border-[#fef08a] text-[11px] font-display font-extrabold tracking-wide shadow-[0_0_18px_rgba(245,158,11,0.55)] cursor-pointer flex items-center gap-1.5 animate-bounce"
+              >
+                <span>{tr.newPlayerBuildHint}</span>
+                <span className="text-xs">▾</span>
+              </button>
             )}
 
             {/* 2. ULTRA-COMPACT FLOATING BOTTOM PILL */}
@@ -1000,11 +1211,11 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 type="button"
                 tabIndex={-1}
                 aria-disabled={
-                  isNight ||
+                  isConstructionLocked ||
                   isConstructing ||
                   (builtFenceCount < hud.fenceSegments.length ? !canBuildFence : !canUpgradeFence)
                 }
-                data-night-locked={isNight ? 'true' : 'false'}
+                data-night-locked={isConstructionLocked ? 'true' : 'false'}
                 data-constructing={isConstructing ? 'true' : 'false'}
                 data-testid="btn-build-fence"
                 onClick={(e) => {
@@ -1012,7 +1223,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   onBuildNextFence();
                 }}
                 className={`shrink-0 px-2 py-1 rounded-lg border text-left font-mono-tabular transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                  isNight
+                  isConstructionLocked
                     ? 'bg-[#0b1016] border-[#1e293b] text-[#64748b] opacity-55 cursor-not-allowed'
                     : isConstructing
                     ? 'bg-[#78350f] border-[#fbbf24] text-[#fef3c7] cursor-wait'
@@ -1026,7 +1237,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 }`}
               >
                 <span className="text-[11px] font-bold">
-                  {isNight
+                  {isConstructionLocked
                     ? tr.fenceNightLockedBtn(builtFenceCount, hud.fenceSegments.length)
                     : isConstructing
                     ? `🔨 ${constructionPct}%`
@@ -1036,7 +1247,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     ? tr.fenceBuildBtn(builtFenceCount, hud.fenceSegments.length)
                     : tr.fenceUpgradeBtn}
                 </span>
-                {!isNight && (
+                {!isConstructionLocked && (
                   <span className="text-[9.5px] text-[#fbbf24] hidden sm:inline">
                     {builtFenceCount < hud.fenceSegments.length ? '15W·5S' : '20W·15S'}
                   </span>
@@ -1055,12 +1266,14 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     ? (tr.buildings[p.building!.type]?.name ??
                       BUILDING_CATALOG[p.building!.type].name)
                     : '';
+                  const highlightPad1 = showNewPlayerBuildGuide && !selectedPad && p.id === 1;
                   return (
                     <button
                       key={p.id}
                       type="button"
                       tabIndex={-1}
                       data-testid={`btn-select-pad-${p.id}`}
+                      data-new-player-highlight={highlightPad1 ? 'true' : 'false'}
                       onClick={(e) => {
                         e.currentTarget.blur();
                         onSelectPad(isSelected ? null : p.id);
@@ -1068,17 +1281,21 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                       title={
                         hasBld
                           ? `Pad #${p.id}: ${bldNameLoc}`
+                          : highlightPad1
+                          ? `${tr.newPlayerBuildHint} (Pad #${p.id}: ${padLabelLoc})`
                           : `Pad #${p.id} (${padLabelLoc})`
                       }
                       className={`px-1.5 py-1 rounded-lg border text-[10.5px] font-mono-tabular font-bold cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
                         isSelected
                           ? 'bg-[#f59e0b] border-[#fef08a] text-[#090d16] shadow-md'
+                          : highlightPad1
+                          ? 'bg-[#f59e0b]/25 border-2 border-[#fbbf24] text-[#fef08a] shadow-[0_0_12px_rgba(251,191,36,0.45)]'
                           : hasBld
                           ? 'bg-[#14532d]/85 border-[#4ade80] text-[#86efac] hover:bg-[#166534]'
                           : 'bg-[#161f2c] border-[#334155] text-[#fef3c7] hover:border-[#f59e0b]'
                       }`}
                     >
-                      P{p.id}
+                      {highlightPad1 ? '✨P1' : `P${p.id}`}
                       {hasBld ? '✓' : ''}
                     </button>
                   );

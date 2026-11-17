@@ -16,6 +16,8 @@ interface ModalsProps {
   onCloseGuide: () => void;
   onResume: () => void;
   onRestart: () => void;
+  onStartFreePlay: () => void;
+  onClaimDailyCheckIn: () => void;
   onReturnTitle: () => void;
   onOpenGuide: () => void;
   onFinishRunEarly: () => void;
@@ -30,6 +32,8 @@ export const Modals: React.FC<ModalsProps> = ({
   onCloseGuide,
   onResume,
   onRestart,
+  onStartFreePlay,
+  onClaimDailyCheckIn,
   onReturnTitle,
   onOpenGuide,
   onFinishRunEarly,
@@ -55,6 +59,11 @@ export const Modals: React.FC<ModalsProps> = ({
     (t) => (daily.taskProgress[t.id] ?? 0) >= t.target
   ).length;
   const resetCountdown = getTimeUntilNextUTCReset();
+  const todayUTC = daily.lastResetDateUTC;
+  const checkInClaimedToday = daily.lastCheckInClaimedDateUTC === todayUTC;
+  const checkInReady =
+    !checkInClaimedToday &&
+    (daily.checkInEligibleDateUTC === todayUTC || daily.lastPlayedDateUTC === todayUTC);
 
   return (
     <>
@@ -183,6 +192,13 @@ export const Modals: React.FC<ModalsProps> = ({
               </button>
               <button
                 type="button"
+                onClick={onStartFreePlay}
+                className="w-full py-2 px-4 rounded-lg bg-[#14532d] hover:bg-[#166534] border border-[#4ade80] text-[#fef3c7] font-semibold text-xs cursor-pointer transition-colors"
+              >
+                {tr.freePlayBtn}
+              </button>
+              <button
+                type="button"
                 onClick={onOpenGuide}
                 className="w-full py-2 px-4 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] text-[#e2dacb] font-medium text-xs cursor-pointer transition-colors"
               >
@@ -230,12 +246,22 @@ export const Modals: React.FC<ModalsProps> = ({
           aria-modal="true"
           aria-labelledby="gameover-modal-title"
         >
-          <div className="w-full max-w-xl rounded-xl bg-[#131b26] border border-[#334155] p-6 md:p-7 shadow-2xl text-[#f4efe6] my-auto">
+          <div className="w-full max-w-2xl rounded-xl bg-[#131b26] border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6] my-auto">
             {/* Result Header */}
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="text-xs uppercase tracking-widest font-semibold text-[#f59e0b]">
-                {hud.runOutcome === 'victory' ? tr.victoryHeaderBadge : tr.defeatHeaderBadge}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-widest font-semibold text-[#f59e0b]">
+                  {hud.runOutcome === 'victory' ? tr.victoryHeaderBadge : tr.defeatHeaderBadge}
+                </span>
+                {summary?.isFreePlay && (
+                  <span
+                    data-testid="result-free-play-badge"
+                    className="px-2 py-0.5 rounded bg-[#0c4a6e] border border-[#38bdf8] text-[10px] font-mono-tabular font-bold text-[#e0f2fe]"
+                  >
+                    {tr.freePlayActiveBadge}
+                  </span>
+                )}
+              </div>
               <span className="text-xs font-mono-tabular text-[#94a3b8]">
                 {tr.runTimeLabel(formatTime(hud.elapsedRunSeconds))}
               </span>
@@ -243,7 +269,7 @@ export const Modals: React.FC<ModalsProps> = ({
 
             <h2
               id="gameover-modal-title"
-              className="text-3xl font-display font-extrabold text-[#fef3c7] mb-1"
+              className="text-2xl sm:text-3xl font-display font-extrabold text-[#fef3c7] mb-1"
             >
               {hud.runOutcome === 'victory' ? tr.victoryTitle : tr.defeatTitle}
             </h2>
@@ -252,7 +278,7 @@ export const Modals: React.FC<ModalsProps> = ({
             </p>
 
             {/* Primary 4-Tile Result Strip: Score, XP Gained, Streak, Tickets Left */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4 p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3.5 p-3 rounded-lg bg-[#0b1016] border border-[#1e293b]">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
                   {tr.scoreLabel}
@@ -273,7 +299,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   +{summary ? summary.xpGained : 0} XP
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
-                  +{summary ? summary.coinsGained : 0}
+                  +{summary ? summary.coinsGained : 0} Coins
                 </div>
               </div>
 
@@ -302,9 +328,38 @@ export const Modals: React.FC<ModalsProps> = ({
               </div>
             </div>
 
+            {/* Daily Check-In Reward Card (Revealed after first completed run of the UTC day) */}
+            <div
+              data-testid="result-daily-checkin"
+              className="p-3 rounded-lg bg-[#0b1016] border border-[#f59e0b]/60 mb-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5"
+            >
+              <div>
+                <div className="text-xs font-display font-bold text-[#fbbf24]">
+                  🎁 {tr.dailyCheckInTitle}
+                </div>
+                <div className="text-[11px] text-[#cbd5e1]">
+                  {checkInClaimedToday
+                    ? tr.dailyCheckInClaimedLabel
+                    : checkInReady
+                    ? tr.dailyCheckInReadyDesc
+                    : tr.dailyCheckInPlayFirstDesc}
+                </div>
+              </div>
+              {checkInReady && (
+                <button
+                  type="button"
+                  data-testid="btn-claim-daily-checkin"
+                  onClick={onClaimDailyCheckIn}
+                  className="px-3.5 py-2 rounded-lg bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] font-display font-bold text-xs cursor-pointer shrink-0 shadow-md"
+                >
+                  {tr.dailyCheckInClaimBtn}
+                </button>
+              )}
+            </div>
+
             {/* Level Progress Bar & Unlocks */}
-            <div className="p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-4">
-              <div className="flex items-center justify-between text-xs mb-1.5">
+            <div className="p-3 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-3.5">
+              <div className="flex items-center justify-between text-xs mb-1">
                 <span className="font-bold text-[#fef3c7]">
                   {tr.playerLevelLabel(levelInfo.level, daily.equippedTitle)}
                 </span>
@@ -312,7 +367,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   {levelInfo.currentLevelXp} / {levelInfo.nextLevelXp} XP ({levelInfo.progressPct}%)
                 </span>
               </div>
-              <div className="w-full h-2.5 rounded bg-[#131b26] overflow-hidden mb-1.5">
+              <div className="w-full h-2 rounded bg-[#131b26] overflow-hidden mb-1">
                 <div
                   className="h-full bg-[#38bdf8] transition-all duration-300"
                   style={{ width: `${levelInfo.progressPct}%` }}
@@ -331,8 +386,8 @@ export const Modals: React.FC<ModalsProps> = ({
             </div>
 
             {/* Daily Tasks Completed Summary */}
-            <div className="p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-4">
-              <div className="flex items-center justify-between text-xs mb-2">
+            <div className="p-3 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-3.5">
+              <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="font-bold uppercase tracking-wider text-[#f59e0b]">
                   {tr.dailyTasksCompletedTitle(completedTasksCount, daily.tasks.length)}
                 </span>
@@ -340,7 +395,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   {daily.allTasksBonusClaimed ? tr.allThreeDoneMsg : tr.completeAllThreeMsg}
                 </span>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {daily.tasks.map((task) => {
                   const prog = daily.taskProgress[task.id] ?? 0;
                   const done = prog >= task.target;
@@ -360,8 +415,41 @@ export const Modals: React.FC<ModalsProps> = ({
               </div>
             </div>
 
+            {/* 3-Way Persistence & Reset Breakdown (Saved Permanently vs Resets For Run vs Locked Until 00:00 UTC) */}
+            <div
+              data-testid="result-persistence-breakdown"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3.5 text-left"
+            >
+              <div className="p-2.5 rounded-lg bg-[#0d1f18] border border-[#22c55e]/50">
+                <div className="text-[10.5px] font-bold text-[#4ade80] mb-0.5">
+                  {tr.savedPermanentlyTitle}
+                </div>
+                <div className="text-[10px] text-[#cbd5e1] leading-snug">
+                  {tr.savedPermanentlyDesc}
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-[#0b1016] border border-[#38bdf8]/40">
+                <div className="text-[10.5px] font-bold text-[#38bdf8] mb-0.5">
+                  {tr.resetsNextRunTitle}
+                </div>
+                <div className="text-[10px] text-[#cbd5e1] leading-snug">
+                  {tr.resetsNextRunDesc}
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-[#1c160d] border border-[#f59e0b]/50">
+                <div className="text-[10.5px] font-bold text-[#fbbf24] mb-0.5">
+                  {tr.lockedUntilUtcTitle}
+                </div>
+                <div className="text-[10px] text-[#cbd5e1] leading-snug">
+                  {tr.lockedUntilUtcDesc}
+                </div>
+              </div>
+            </div>
+
             {/* Re-Engagement Line */}
-            <div className="p-3 rounded-lg bg-[#161f2c] border border-[#334155] text-xs text-[#fef3c7] mb-5 flex items-center justify-between gap-2">
+            <div className="p-2.5 rounded-lg bg-[#161f2c] border border-[#334155] text-xs text-[#fef3c7] mb-4 flex items-center justify-between gap-2">
               <span>{tr.comeBackTomorrowMsg(resetCountdown, daily.streak)}</span>
               {daily.pendingBonusTicketsTomorrow > 0 && (
                 <span className="font-mono-tabular text-[#4ade80] font-bold shrink-0">
@@ -371,7 +459,7 @@ export const Modals: React.FC<ModalsProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
                 data-start="true"
@@ -380,7 +468,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   e.currentTarget.blur();
                   onRestart();
                 }}
-                className={`flex-1 py-3.5 px-5 rounded-lg font-display font-bold text-base transition-colors whitespace-nowrap ${
+                className={`flex-1 py-3 px-4 rounded-lg font-display font-bold text-sm sm:text-base transition-colors whitespace-nowrap ${
                   daily.tickets > 0
                     ? 'bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] cursor-pointer'
                     : 'bg-[#1e293b] text-[#64748b] cursor-not-allowed'
@@ -393,8 +481,20 @@ export const Modals: React.FC<ModalsProps> = ({
 
               <button
                 type="button"
+                data-testid="btn-result-free-play"
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  onStartFreePlay();
+                }}
+                className="py-3 px-4 rounded-lg bg-[#14532d] hover:bg-[#166534] border border-[#4ade80] text-[#fef3c7] font-display font-bold text-xs sm:text-sm cursor-pointer whitespace-nowrap"
+              >
+                {tr.freePlayBtn}
+              </button>
+
+              <button
+                type="button"
                 onClick={onRefillTicketWithCoins}
-                className="py-3.5 px-4 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer whitespace-nowrap"
+                className="py-3 px-3.5 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer whitespace-nowrap"
               >
                 {tr.addReviewTicketsBtn}
               </button>
@@ -402,7 +502,7 @@ export const Modals: React.FC<ModalsProps> = ({
               <button
                 type="button"
                 onClick={onReturnTitle}
-                className="py-3.5 px-5 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] text-[#cbd5e1] font-medium text-sm cursor-pointer transition-colors whitespace-nowrap"
+                className="py-3 px-4 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] text-[#cbd5e1] font-medium text-xs sm:text-sm cursor-pointer transition-colors whitespace-nowrap"
               >
                 {tr.titleScreenBtn}
               </button>
@@ -575,29 +675,31 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* State Schema Section */}
             <div className="mb-5">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#f59e0b] mb-2">
-                2. State Schema (build_or_bite_daily_v1)
+                2. State Schema (build_or_bite_daily_v1 · Schema v2)
               </h3>
               <pre className="p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b] text-xs font-mono-tabular text-[#cbd5e1] overflow-x-auto">
 {`interface DailyPersistenceState {
-  schemaVersion: 1;
+  schemaVersion: 2;                 // Migrates cleanly from v1 without losing progression
   tickets: number;                  // Refills to 3 at 00:00 UTC (unused do NOT carry over)
   maxDailyTickets: number;          // 3
   pendingBonusTicketsTomorrow: number; // +1 earned when completing all 3 daily tasks
-  coins: number;                    // Earned from tasks, runs, level-ups & streak milestones
+  coins: number;                    // Earned from tasks, runs, check-in, level-ups & milestones
   xp: number;                       // Cumulative player XP
-  level: number;                    // Unlocks Lantern colors & Ranger titles at Lv 2, 3, 4, 5
-  streak: number;                   // +1 on first completed run per UTC day; resets if day missed
+  level: number;                    // Unlocks Lantern colors, titles & Tool Tier 2 at Lv 3+
+  toolTier: number;                 // 1 (Base) -> 2 (15% faster construction at Level 3+)
+  streak: number;                   // +1 on first completed run per UTC day
   bestStreak: number;
   lastResetDateUTC: string;         // Strict UTC "YYYY-MM-DD" for ticket & task reset
-  lastPlayedDateUTC: string | null; // Strict UTC "YYYY-MM-DD" for streak verification
-  tasks: DailyTaskItem[];           // 3 daily tasks drawn deterministically per UTC date
+  lastPlayedDateUTC: string | null;
+  tasks: DailyTaskItem[];           // 3 core daily tasks per UTC date
   taskProgress: Record<string, number>;
   allTasksBonusClaimed: boolean;
-  cosmetics: string[];              // Unlocked lantern colors (e.g. "amber_default", "emerald_bog")
-  equippedLanternId: string;
-  unlockedTitles: string[];
-  equippedTitle: string;
-  claimedStreakMilestones: number[]; // [3, 7, 30] day milestone claims
+  dailyProgressionLocked: boolean;  // Locks farming/building after 3/3 tasks until 00:00 UTC
+  savedPads: SavedPadState[];       // Persistent fort buildings & upgrade paths across runs/days
+  savedFenceSegments: SavedFenceState[]; // Persistent outer fence segments across runs/days
+  savedResources: { wood: number; stone: number; food: number }; // Persistent resource wallet
+  checkInEligibleDateUTC: string | null;
+  lastCheckInClaimedDateUTC: string | null;
 }`}
               </pre>
             </div>

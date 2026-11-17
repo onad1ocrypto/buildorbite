@@ -32,8 +32,10 @@ import {
   buildStructureOnPad,
   calculateRunScore,
   canAfford,
+  canGatherResourcesInPhase,
   canPerformConstructionInPhase,
   canTriggerLanternFlare,
+  clampHeroPositionForPhase,
   computeZombieEffectiveSpeed,
   createInitialFenceSegments,
   createInitialPads,
@@ -52,6 +54,9 @@ import {
   LANTERN_FLARE_RADIUS,
   MAX_DAYS,
   NIGHT_BUILD_LOCKED_MESSAGE,
+  restoreFenceSegmentsFromPersistence,
+  restorePadsFromPersistence,
+  salvageStructureOnPad,
   startFenceConstructionTask,
   startPadConstructionTask,
   stepConstructionTask,
@@ -60,6 +65,7 @@ import {
 } from '../game/rules';
 import {
   checkAndApplyDailyReset,
+  claimDailyCheckIn,
   completeRunProgression,
   consumeTicketForRun,
   grantReviewTickets,
@@ -67,6 +73,7 @@ import {
   loadDailyStateFromStorage,
   recordTaskProgress,
   saveDailyStateToStorage,
+  saveFortAndResourcesToDailyState,
 } from '../game/dailySystem';
 import {
   BuildingType,
@@ -90,10 +97,12 @@ import {
 
 export interface GameControllerApi {
   startGame: () => void;
+  startFreePlay: () => void;
   restartGame: () => void;
   returnToTitle: () => void;
   togglePause: () => void;
   finishRunEarly: () => void;
+  claimDailyCheckInReward: () => void;
   equipLantern: (lanternId: string) => void;
   equipTitle: (title: string) => void;
   refillTicketWithCoins: () => void;
@@ -1263,6 +1272,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let dailyState: DailyPersistenceState = loadDailyStateFromStorage();
     let lastRunSummary: RunCompletionSummary | null = null;
     let nightsSurvivedThisRun = 0;
+    let isFreePlay = false;
 
     function applyEquippedLanternVisuals() {
       const spec =
@@ -1278,21 +1288,51 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
     applyEquippedLanternVisuals();
 
+    function persistFortAndWallet() {
+      if (isFreePlay) return;
+      dailyState = saveFortAndResourcesToDailyState(
+        dailyState,
+        pads,
+        fenceSegments,
+        resources,
+        true
+      );
+      saveDailyStateToStorage(dailyState);
+    }
+
     function applyTaskEvent(event: {
       woodCollectedDelta?: number;
       flaresUsedDelta?: number;
       buildingsBuiltDelta?: number;
       consecutiveNightsSurvived?: number;
       runScore?: number;
+      zombiesDefeatedDelta?: number;
     }) {
-      const res = recordTaskProgress(dailyState, event);
+      if (isFreePlay) return;
+      const wasLocked = dailyState.dailyProgressionLocked;
+      const res = recordTaskProgress(dailyState, event, { isFreePlay });
       dailyState = res.updatedState;
       saveDailyStateToStorage(dailyState);
       for (const title of res.newlyCompletedTaskTitles) {
         addCallout(`Task Done: ${title}!`, rueX, 2.7, rueZ, '#4ade80', 1.8);
       }
-      if (res.allThreeJustCompleted) {
-        addCallout('All 3 Daily Tasks Done! +100 Coins & +1 Ticket Tomorrow!', rueX, 3.2, rueZ, '#fbbf24', 2.4);
+      if (res.allThreeJustCompleted || (!wasLocked && dailyState.dailyProgressionLocked)) {
+        const tr = TRANSLATIONS[langRef.current];
+        if (pendingConstruction) {
+          pendingConstruction = null;
+          heroAnimState = 'idle';
+          document.body.dataset.heroAnim = heroAnimState;
+        }
+        persistFortAndWallet();
+        setBanner(tr.dailyLockedBanner, 5.0);
+        addCallout(
+          'All 3 Daily Tasks Done! Fort Saved & Free Play Open!',
+          rueX,
+          3.2,
+          rueZ,
+          '#fbbf24',
+          2.6
+        );
       }
     }
 
@@ -1313,7 +1353,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let phaseTimeRemaining = DAY_DURATION_SECONDS;
     let fortHp = FORT_MAX_HP;
     let fortGhostHp = FORT_MAX_HP;
-    let resources: Resources = { ...INITIAL_RESOURCES };
+    let resources: Resources = {
+      wood: dailyState.savedResources?.wood ?? INITIAL_RESOURCES.wood,
+      stone: dailyState.savedResources?.stone ?? INITIAL_RESOURCES.stone,
+      food: dailyState.savedResources?.food ?? INITIAL_RESOURCES.food,
+      tickets: dailyState.tickets,
+    };
     let score = 0;
     let bestScore = 0;
     let zombiesDefeated = 0;
@@ -1348,9 +1393,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let constructionSparkTimer = 0;
     document.body.dataset.heroAnim = heroAnimState;
 
-    // Placement Pads (8 Inner Weapon Pads) & Outer 12-Segment Square Fence
-    let pads: PlacementPad[] = createInitialPads();
-    let fenceSegments: FenceSegment[] = createInitialFenceSegments();
+    // Placement Pads (8 Inner Weapon Pads) & Outer 12-Segment Square Fence restored from persistent fort state
+    let pads: PlacementPad[] = restorePadsFromPersistence(dailyState.savedPads, true);
+    let fenceSegments: FenceSegment[] = restoreFenceSegmentsFromPersistence(
+      dailyState.savedFenceSegments,
+      true
+    );
     const padMeshesMap = new Map<number, THREE.Group>();
     const buildingMeshesMap = new Map<number, THREE.Group>();
     const fenceMeshesMap = new Map<number, THREE.Group>();
@@ -1487,8 +1535,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const now = performance.now();
       if (now - lastNightLockedNoticeTime < 450) return;
       lastNightLockedNoticeTime = now;
-      setBanner(NIGHT_BUILD_LOCKED_MESSAGE, 2.8);
-      addCallout(NIGHT_BUILD_LOCKED_MESSAGE, rueX, 2.3, rueZ, '#f87171', 1.4);
+      const tr = TRANSLATIONS[langRef.current];
+      if (isFreePlay) {
+        setBanner(tr.freePlayLockedBanner, 3.0);
+        addCallout('Free Play: Combat Only!', rueX, 2.3, rueZ, '#38bdf8', 1.4);
+      } else if (dailyState.dailyProgressionLocked) {
+        setBanner(tr.dailyLockedBanner, 3.5);
+        addCallout('Daily Progression Complete (00:00 UTC)', rueX, 2.3, rueZ, '#fbbf24', 1.4);
+      } else {
+        setBanner(NIGHT_BUILD_LOCKED_MESSAGE, 2.8);
+        addCallout(NIGHT_BUILD_LOCKED_MESSAGE, rueX, 2.3, rueZ, '#f87171', 1.4);
+      }
       syncHud(true);
     }
 
@@ -1577,12 +1634,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     function beginNightPhase(earlyBonus = false) {
       if (phase === 'night') return;
       phase = 'night';
+      moveTarget = null;
+      moveTargetAlpha = 0;
+      (moveTargetRing.material as THREE.MeshBasicMaterial).opacity = 0;
+      const clampedHero = clampHeroPositionForPhase(rueX, rueZ, 'night');
+      rueX = clampedHero.x;
+      rueZ = clampedHero.z;
+      rueRig.group.position.set(rueX, 0, rueZ);
       if (pendingConstruction) {
         pendingConstruction = null;
         heroAnimState = 'idle';
         document.body.dataset.heroAnim = heroAnimState;
       }
-      if (earlyBonus) {
+      if (earlyBonus && !isFreePlay) {
         resources = { ...resources, tickets: resources.tickets + 1 };
         addCallout('+1 Early Night Ticket!', rueX, 2.2, rueZ, '#fbbf24', 1.8);
       }
@@ -1612,7 +1676,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       phase = 'day';
       phaseTimeRemaining = DAY_DURATION_SECONDS;
 
-      // Replenish resource nodes & grant Guard Tent Path B bounty
+      // Replenish resource nodes & heal surviving structures
       resourceNodes.forEach((n) => {
         n.amount = n.maxAmount;
         n.respawnTimer = 0;
@@ -1637,16 +1701,34 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       });
       rebuildFenceVisuals();
-      resources = {
-        wood: resources.wood + bonusWood,
-        stone: resources.stone + 15,
-        food: resources.food + bonusFood,
-        tickets: dailyState.tickets,
-      };
-      setBanner(
-        `Dawn of Day ${dayNumber}: +${bonusWood}W +15S +${bonusFood}F! Build before nightfall!`,
-        4.5
-      );
+
+      if (!isFreePlay && !dailyState.dailyProgressionLocked) {
+        resources = {
+          wood: resources.wood + bonusWood,
+          stone: resources.stone + 15,
+          food: resources.food + bonusFood,
+          tickets: dailyState.tickets,
+        };
+        dailyState = {
+          ...dailyState,
+          savedResources: {
+            wood: resources.wood,
+            stone: resources.stone,
+            food: resources.food,
+          },
+        };
+        saveDailyStateToStorage(dailyState);
+        setBanner(
+          `Dawn of Day ${dayNumber}: +${bonusWood}W +15S +${bonusFood}F! Build before nightfall!`,
+          4.5
+        );
+      } else {
+        const tr = TRANSLATIONS[langRef.current];
+        setBanner(
+          isFreePlay ? tr.freePlayLockedBanner : tr.dailyLockedBanner,
+          4.5
+        );
+      }
       syncHud(true);
     }
 
@@ -1668,10 +1750,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         score,
         victory: outcome === 'victory',
         nightsSurvived: nightsSurvivedThisRun,
+        isFreePlay,
       });
       dailyState = completion.updatedState;
       lastRunSummary = completion.summary;
       saveDailyStateToStorage(dailyState);
+
+      // Restore persistent fort & fences to full HP in scene so combat damage never permanently erases structures
+      pads = restorePadsFromPersistence(dailyState.savedPads, true);
+      rebuildPadVisuals();
+      fenceSegments = restoreFenceSegmentsFromPersistence(dailyState.savedFenceSegments, true);
+      rebuildFenceVisuals();
 
       screenState = 'gameover';
       document.body.dataset.state = 'gameover';
@@ -1679,19 +1768,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       syncHud(true);
     }
 
-    function resetRunState(targetScreen: GameScreenState) {
+    function resetRunState(targetScreen: GameScreenState, freePlayMode = false) {
       dailyState = checkAndApplyDailyReset(dailyState);
       if (targetScreen === 'playing') {
-        const ticketCheck = consumeTicketForRun(dailyState);
-        if (!ticketCheck.allowed) {
-          screenState = 'title';
-          document.body.dataset.state = 'title';
-          setBanner('No Daily Tickets remaining today! Wait for 00:00 UTC reset or exchange 50 Coins.', 4.0);
-          syncHud(true);
-          return;
+        if (!freePlayMode) {
+          const ticketCheck = consumeTicketForRun(dailyState);
+          if (!ticketCheck.allowed) {
+            screenState = 'title';
+            document.body.dataset.state = 'title';
+            setBanner('No Daily Tickets remaining today! Play Free Play / Demo or wait for 00:00 UTC.', 4.0);
+            syncHud(true);
+            return;
+          }
+          dailyState = ticketCheck.updatedState;
+          saveDailyStateToStorage(dailyState);
         }
-        dailyState = ticketCheck.updatedState;
-        saveDailyStateToStorage(dailyState);
+        isFreePlay = freePlayMode;
+      } else {
+        isFreePlay = false;
       }
 
       screenState = targetScreen;
@@ -1703,7 +1797,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       phaseTimeRemaining = DAY_DURATION_SECONDS;
       fortHp = FORT_MAX_HP;
       fortGhostHp = FORT_MAX_HP;
-      resources = { ...INITIAL_RESOURCES, tickets: dailyState.tickets };
+      resources = {
+        wood: dailyState.savedResources?.wood ?? INITIAL_RESOURCES.wood,
+        stone: dailyState.savedResources?.stone ?? INITIAL_RESOURCES.stone,
+        food: dailyState.savedResources?.food ?? INITIAL_RESOURCES.food,
+        tickets: dailyState.tickets,
+      };
       score = 0;
       zombiesDefeated = 0;
       flareCooldown = 0;
@@ -1739,10 +1838,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       callouts = [];
 
-      pads = createInitialPads();
+      // Restore persistent fort structures & fence segments to full HP for the new run
+      pads = restorePadsFromPersistence(dailyState.savedPads, true);
       rebuildPadVisuals();
 
-      fenceSegments = createInitialFenceSegments();
+      fenceSegments = restoreFenceSegmentsFromPersistence(dailyState.savedFenceSegments, true);
       rebuildFenceVisuals();
 
       resourceNodes.forEach((n) => {
@@ -1752,7 +1852,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (m) m.visible = true;
       });
 
-      setBanner('Day 1 (-1 Ticket): Gather Wood, Stone & Food, or click a Pad to build!', 4.5);
+      const tr = TRANSLATIONS[langRef.current];
+      if (isFreePlay) {
+        setBanner(tr.freePlayLockedBanner, 4.5);
+      } else if (dailyState.dailyProgressionLocked) {
+        setBanner(tr.dailyLockedBanner, 4.5);
+      } else {
+        setBanner(tr.dayStartBanner(1), 4.5);
+      }
       syncHud(true);
     }
 
@@ -1762,16 +1869,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        resetRunState('playing');
+        resetRunState('playing', false);
+      },
+      startFreePlay: () => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        resetRunState('playing', true);
       },
       restartGame: () => {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        resetRunState('playing');
+        resetRunState('playing', false);
       },
       returnToTitle: () => {
-        resetRunState('title');
+        resetRunState('title', false);
       },
       togglePause: () => {
         if (screenState === 'playing') {
@@ -1791,6 +1904,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           finalizeRunOutcome(fortHp > 0 && dayNumber >= MAX_DAYS ? 'victory' : 'defeat');
         }
       },
+      claimDailyCheckInReward: () => {
+        const res = claimDailyCheckIn(dailyState);
+        if (!res.claimed) return;
+        dailyState = res.updatedState;
+        if (lastRunSummary) {
+          const todayUTC = dailyState.lastCheckInClaimedDateUTC;
+          lastRunSummary = {
+            ...lastRunSummary,
+            checkInAvailableToClaim: false,
+            checkInClaimedToday: Boolean(todayUTC),
+          };
+        }
+        saveDailyStateToStorage(dailyState);
+        soundFX.playBuild(true);
+        syncHud(true);
+      },
       equipLantern: (lanternId: string) => {
         if (!dailyState.cosmetics.includes(lanternId)) return;
         dailyState = { ...dailyState, equippedLanternId: lanternId };
@@ -1808,7 +1937,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         dailyState = grantReviewTickets(dailyState, 10);
         resources = { ...resources, tickets: dailyState.tickets };
         saveDailyStateToStorage(dailyState);
-        setBanner(`+10 Review Tickets Added! (${dailyState.tickets} Tickets Available)`, 2.6);
+        const tr = TRANSLATIONS[langRef.current];
+        setBanner(tr.addedReviewTicketsBanner(dailyState.tickets), 2.6);
         if (screenState === 'playing') {
           addCallout('+10 Tickets!', rueX, 2.3, rueZ, '#fbbf24', 1.4);
         }
@@ -1849,7 +1979,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       buildNextFence: () => {
         if (screenState !== 'playing') return;
-        if (!canPerformConstructionInPhase(phase)) {
+        if (!canPerformConstructionInPhase(phase, dailyState.dailyProgressionLocked, isFreePlay)) {
           notifyNightBuildLocked();
           return;
         }
@@ -1864,7 +1994,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const targetSeg = selectedSeg ?? findNextFenceSegmentForHero(rueX, rueZ, fenceSegments);
 
         if (!targetSeg) {
-          setBanner('All 12 Square Fence segments are already at maximum level!', 2.5);
+          const tr = TRANSLATIONS[langRef.current];
+          setBanner(tr.allFencesMaxBanner, 2.5);
           syncHud(true);
           return;
         }
@@ -1874,18 +2005,26 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           resources,
           phase,
           currentTask: pendingConstruction,
+          dailyLocked: dailyState.dailyProgressionLocked,
+          isFreePlay,
+          toolTier: dailyState.toolTier,
         });
 
         if (!startRes.started) {
+          const tr = TRANSLATIONS[langRef.current];
+          if (startRes.reason === 'daily_locked' || startRes.reason === 'free_play_locked') {
+            notifyNightBuildLocked();
+            return;
+          }
           if (startRes.reason === 'busy_constructing') {
             setBanner(
-              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              tr.busyConstructingBanner(pendingConstruction?.label ?? 'a structure'),
               2.2
             );
           } else if (startRes.reason === 'insufficient_resources') {
-            setBanner('Not enough Wood or Stone to build or upgrade that fence segment!', 2.5);
+            setBanner(tr.notEnoughResourcesBanner, 2.5);
           } else if (startRes.reason === 'max_level') {
-            setBanner('That fence segment is already at maximum level!', 2.2);
+            setBanner(tr.allFencesMaxBanner, 2.2);
           }
           syncHud(true);
           return;
@@ -1909,7 +2048,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       buildOnSelectedPad: (type) => {
         if (screenState !== 'playing') return;
-        if (!canPerformConstructionInPhase(phase)) {
+        if (!canPerformConstructionInPhase(phase, dailyState.dailyProgressionLocked, isFreePlay)) {
           notifyNightBuildLocked();
           return;
         }
@@ -1927,10 +2066,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           currentTask: pendingConstruction,
           action: 'build_pad',
           buildingType: type,
+          dailyLocked: dailyState.dailyProgressionLocked,
+          isFreePlay,
+          toolTier: dailyState.toolTier,
         });
 
         if (!startRes.started) {
           const tr = TRANSLATIONS[langRef.current];
+          if (startRes.reason === 'daily_locked' || startRes.reason === 'free_play_locked') {
+            notifyNightBuildLocked();
+            return;
+          }
           if (startRes.reason === 'busy_constructing') {
             setBanner(
               tr.busyConstructingBanner(pendingConstruction?.label ?? 'a structure'),
@@ -1962,7 +2108,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       upgradeSelectedPad: (pathId) => {
         if (screenState !== 'playing') return;
-        if (!canPerformConstructionInPhase(phase)) {
+        if (!canPerformConstructionInPhase(phase, dailyState.dailyProgressionLocked, isFreePlay)) {
           notifyNightBuildLocked();
           return;
         }
@@ -1977,10 +2123,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           currentTask: pendingConstruction,
           action: 'upgrade_pad',
           upgradePath: pathId,
+          dailyLocked: dailyState.dailyProgressionLocked,
+          isFreePlay,
+          toolTier: dailyState.toolTier,
         });
 
         if (!startRes.started) {
           const tr = TRANSLATIONS[langRef.current];
+          if (startRes.reason === 'daily_locked' || startRes.reason === 'free_play_locked') {
+            notifyNightBuildLocked();
+            return;
+          }
           if (startRes.reason === 'busy_constructing') {
             setBanner(
               tr.busyConstructingBanner(pendingConstruction?.label ?? 'a structure'),
@@ -2013,7 +2166,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       repairSelectedPad: () => {
         if (screenState !== 'playing') return;
-        if (!canPerformConstructionInPhase(phase)) {
+        if (!canPerformConstructionInPhase(phase, dailyState.dailyProgressionLocked, isFreePlay)) {
           notifyNightBuildLocked();
           return;
         }
@@ -2028,21 +2181,30 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           phase,
           currentTask: pendingConstruction,
           action: 'repair_pad',
+          dailyLocked: dailyState.dailyProgressionLocked,
+          isFreePlay,
+          toolTier: dailyState.toolTier,
         });
 
         if (!startRes.started) {
+          const tr = TRANSLATIONS[langRef.current];
+          if (startRes.reason === 'daily_locked' || startRes.reason === 'free_play_locked') {
+            notifyNightBuildLocked();
+            return;
+          }
           if (startRes.reason === 'busy_constructing') {
             setBanner(
-              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              tr.busyConstructingBanner(pendingConstruction?.label ?? 'a structure'),
               2.2
             );
           } else if (startRes.reason === 'insufficient_resources') {
-            setBanner('Need 10 Wood & 5 Stone to repair!', 2.0);
+            setBanner(tr.notEnoughResourcesBanner, 2.0);
           }
           syncHud(true);
           return;
         }
 
+        const tr = TRANSLATIONS[langRef.current];
         selectRingMesh.position.set(targetPad.x, 0.08, targetPad.z);
         selectRingMesh.visible = true;
         moveTarget = { x: targetPad.x * 0.82, z: targetPad.z * 0.82 };
@@ -2054,26 +2216,37 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         document.body.dataset.heroAnim = heroAnimState;
         constructionSparkTimer = 0.12;
         soundFX.playGatherHit('wood');
-        setBanner(`Repairing Pad #${targetPad.id}...`, 1.4);
+        setBanner(tr.repairingPadBanner(targetPad.id), 1.4);
         syncHud(true);
       },
       demolishSelectedPad: () => {
         if (screenState !== 'playing') return;
-        if (!canPerformConstructionInPhase(phase)) {
+        if (!canPerformConstructionInPhase(phase, dailyState.dailyProgressionLocked, isFreePlay)) {
           notifyNightBuildLocked();
           return;
         }
         if (selectedPadId === null) return;
         const targetPad = pads.find((p) => p.id === selectedPadId);
         if (!targetPad || !targetPad.building) return;
-        const spec = BUILDING_CATALOG[targetPad.building.type];
-        resources = {
-          ...resources,
-          wood: resources.wood + Math.round(spec.cost.wood * 0.5),
-          stone: resources.stone + Math.round(spec.cost.stone * 0.5),
-        };
-        targetPad.building = null;
+        const salvRes = salvageStructureOnPad(
+          targetPad,
+          resources,
+          phase,
+          dailyState.dailyProgressionLocked,
+          isFreePlay
+        );
+        if (!salvRes.success) {
+          notifyNightBuildLocked();
+          return;
+        }
+        const refundWood = salvRes.updatedResources.wood - resources.wood;
+        const refundStone = salvRes.updatedResources.stone - resources.stone;
+        resources = salvRes.updatedResources;
+        pads = pads.map((p) => (p.id === targetPad.id ? salvRes.updatedPad : p));
+        persistFortAndWallet();
         rebuildPadVisuals();
+        const tr = TRANSLATIONS[langRef.current];
+        setBanner(tr.salvagedStructureBanner(targetPad.id, refundWood, refundStone), 2.4);
         addCallout('Salvaged!', targetPad.x, 1.8, targetPad.z, '#f87171');
         syncHud(true);
       },
@@ -2286,7 +2459,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (pad) {
           const tr = TRANSLATIONS[langRef.current];
           const padLabelLoc = tr.translatePadLabel(pad.id, pad.label);
-          if (phase === 'night') {
+          if (phase === 'night' || dailyState.dailyProgressionLocked || isFreePlay) {
             notifyNightBuildLocked();
           } else if (pad.building === null) {
             setBanner(
@@ -2306,10 +2479,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         return;
       }
 
-      // 2. Clicking a Resource Node walks Rue to gather that resource
+      // 2. Clicking a Resource Node walks Rue to gather that resource (Day only; locked at Night or Daily Lock or Free Play)
       const nodeHit = hits.find((h) => h.object.userData?.kind === 'node');
       if (nodeHit) {
         isDraggingGround = false;
+        if (!canGatherResourcesInPhase(phase, dailyState.dailyProgressionLocked, isFreePlay)) {
+          notifyNightBuildLocked();
+          return;
+        }
         const nodeId = nodeHit.object.userData.nodeId as number;
         const node = resourceNodes.find((n) => n.id === nodeId);
         if (node) {
@@ -2331,7 +2508,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           moveTarget = { x: seg.x * 0.84, z: seg.z * 0.84 };
           moveTargetRing.position.set(seg.x * 0.84, 0.06, seg.z * 0.84);
           moveTargetAlpha = 0.85;
-          if (phase === 'night') {
+          if (phase === 'night' || dailyState.dailyProgressionLocked || isFreePlay) {
             notifyNightBuildLocked();
           } else {
             const tr = TRANSLATIONS[langRef.current];
@@ -2345,15 +2522,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         return;
       }
 
-      // 4. Ground click / touch -> Click-to-Move & Continuous Touch Drag-to-Move
+      // 4. Ground click / touch -> Click-to-Move & Continuous Touch Drag-to-Move (clamped inside fort at Night)
       isDraggingGround = true;
       const groundPoint = hits[0].point;
-      const clampedR = Math.min(16.8, Math.hypot(groundPoint.x, groundPoint.z));
-      const angle = Math.atan2(groundPoint.z, groundPoint.x);
-      const gx = Math.cos(angle) * clampedR;
-      const gz = Math.sin(angle) * clampedR;
-      moveTarget = { x: gx, z: gz };
-      moveTargetRing.position.set(gx, 0.06, gz);
+      const clampedTarget = clampHeroPositionForPhase(groundPoint.x, groundPoint.z, phase);
+      moveTarget = { x: clampedTarget.x, z: clampedTarget.z };
+      moveTargetRing.position.set(clampedTarget.x, 0.06, clampedTarget.z);
       moveTargetAlpha = 0.85;
     };
 
@@ -2370,12 +2544,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const hits = raycaster.intersectObjects([outerGround, clearingDisc], false);
       if (hits.length > 0) {
         const groundPoint = hits[0].point;
-        const clampedR = Math.min(16.8, Math.hypot(groundPoint.x, groundPoint.z));
-        const angle = Math.atan2(groundPoint.z, groundPoint.x);
-        const gx = Math.cos(angle) * clampedR;
-        const gz = Math.sin(angle) * clampedR;
-        moveTarget = { x: gx, z: gz };
-        moveTargetRing.position.set(gx, 0.06, gz);
+        const clampedTarget = clampHeroPositionForPhase(groundPoint.x, groundPoint.z, phase);
+        moveTarget = { x: clampedTarget.x, z: clampedTarget.z };
+        moveTargetRing.position.set(clampedTarget.x, 0.06, clampedTarget.z);
         moveTargetAlpha = 0.65;
       }
     };
@@ -2460,11 +2631,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ...dailyState,
           tasks: dailyState.tasks.map((t) => ({ ...t })),
           taskProgress: { ...dailyState.taskProgress },
+          savedPads: dailyState.savedPads.map((sp) => ({
+            ...sp,
+            building: sp.building ? { ...sp.building } : null,
+          })),
+          savedFenceSegments: dailyState.savedFenceSegments.map((sf) => ({ ...sf })),
+          savedResources: { ...dailyState.savedResources },
+          bonusTasks: (dailyState.bonusTasks || []).map((bt) => ({ ...bt })),
+          bonusTaskProgress: { ...(dailyState.bonusTaskProgress || {}) },
+          bonusXpClaimedIds: [...(dailyState.bonusXpClaimedIds || [])],
           cosmetics: [...dailyState.cosmetics],
           unlockedTitles: [...dailyState.unlockedTitles],
           claimedStreakMilestones: [...dailyState.claimedStreakMilestones],
         },
         lastRunSummary,
+        isFreePlay,
       });
     }
     syncHud(true);
@@ -2793,25 +2974,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (moveLen > 0.01) {
         const nx = moveX / moveLen;
         const nz = moveZ / moveLen;
-        let nextX = rueX + nx * rueSpeed * dt;
-        let nextZ = rueZ + nz * rueSpeed * dt;
+        const rawNextX = rueX + nx * rueSpeed * dt;
+        const rawNextZ = rueZ + nz * rueSpeed * dt;
+        const clampedPos = clampHeroPositionForPhase(rawNextX, rawNextZ, phase);
 
-        // Avoid walking inside the central Fort lodge (radius 3.1)
-        const fortDist = Math.hypot(nextX, nextZ);
-        if (fortDist < 3.15 && fortDist > 0.001) {
-          nextX = (nextX / fortDist) * 3.15;
-          nextZ = (nextZ / fortDist) * 3.15;
-        }
-        // Clamp to clearing radius
-        const clearDist = Math.hypot(nextX, nextZ);
-        if (clearDist > 16.8) {
-          nextX = (nextX / clearDist) * 16.8;
-          nextZ = (nextZ / clearDist) * 16.8;
-        }
-
-        const stepDist = Math.hypot(nextX - rueX, nextZ - rueZ);
-        rueX = nextX;
-        rueZ = nextZ;
+        const stepDist = Math.hypot(clampedPos.x - rueX, clampedPos.z - rueZ);
+        rueX = clampedPos.x;
+        rueZ = clampedPos.z;
         rueWalkPhase += stepDist * 3.4;
 
         const desiredYaw = Math.atan2(nx, nz);
@@ -2819,7 +2988,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
         rueRotationY += diff * Math.min(1, dt * 14);
+      } else if (phase === 'night') {
+        const clampedPos = clampHeroPositionForPhase(rueX, rueZ, 'night');
+        rueX = clampedPos.x;
+        rueZ = clampedPos.z;
       }
+      document.body.dataset.rueX = rueX.toFixed(2);
+      document.body.dataset.rueZ = rueZ.toFixed(2);
+      document.body.dataset.phase = phase;
 
       // Step deferred 'construction' animation state machine if active
       if (pendingConstruction !== null) {
@@ -2830,6 +3006,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           fenceSegments,
           pads,
           resources,
+          dailyLocked: dailyState.dailyProgressionLocked,
+          isFreePlay,
         });
         pendingConstruction = cStep.task;
         heroAnimState = cStep.heroAnimState;
@@ -2840,6 +3018,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           fenceSegments = cStep.fenceSegments;
           pads = cStep.pads;
           resources = cStep.resources;
+          persistFortAndWallet();
           selectRingMesh.scale.setScalar(1);
 
           if (doneTask.targetKind === 'fence') {
@@ -2976,7 +3155,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // 2. Resource Node Gathering (Day or Night when Rue is close to a node)
+      // 2. Resource Node Gathering (Day ONLY — at Night hero is confined inside the fort and cannot gather)
       if (rueGatherCooldown > 0) {
         rueGatherCooldown = Math.max(0, rueGatherCooldown - dt);
       }
@@ -3001,7 +3180,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
         const dNode = Math.hypot(node.x - rueX, node.z - rueZ);
-        if (dNode <= 2.45 && rueGatherCooldown <= 0 && node.amount > 0) {
+        if (
+          canGatherResourcesInPhase(phase, dailyState.dailyProgressionLocked, isFreePlay) &&
+          dNode <= 2.45 &&
+          rueGatherCooldown <= 0 &&
+          node.amount > 0
+        ) {
           rueGatherCooldown = 0.48;
           rueHammerSwingTimer = 1.0;
           node.hitFlashTimer = 0.14;
@@ -3011,6 +3195,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ...resources,
             [node.type]: resources[node.type] + yieldAmt,
           };
+          dailyState = {
+            ...dailyState,
+            savedResources: {
+              wood: resources.wood,
+              stone: resources.stone,
+              food: resources.food,
+            },
+          };
+          saveDailyStateToStorage(dailyState);
           score += 12;
           if (node.type === 'wood') {
             applyTaskEvent({ woodCollectedDelta: yieldAmt, runScore: score });
@@ -3304,10 +3497,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             const spec = ZOMBIE_CATALOG[z.type];
             zombiesDefeated++;
             score += spec.scoreValue;
-            resources = {
-              ...resources,
-              tickets: resources.tickets + spec.ticketReward,
-            };
+            if (!isFreePlay) {
+              resources = {
+                ...resources,
+                tickets: resources.tickets + spec.ticketReward,
+              };
+              applyTaskEvent({ zombiesDefeatedDelta: 1, runScore: score });
+            }
             spawnParticles(z.x, 0.8, z.z, 14, 0xa3e635, 4.5);
             addCallout(`+${spec.scoreValue} PTS`, z.x, 1.8, z.z, '#4ade80', 1.1);
             if (zMesh) {

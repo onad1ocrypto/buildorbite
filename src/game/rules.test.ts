@@ -9,7 +9,10 @@ import {
   buildStructureOnPad,
   calculateRunScore,
   canAfford,
+  canGatherResourcesInPhase,
+  canPerformConstructionInPhase,
   canTriggerLanternFlare,
+  clampHeroPositionForPhase,
   computeZombieEffectiveSpeed,
   createInitialFenceSegments,
   createInitialPads,
@@ -17,17 +20,25 @@ import {
   FENCE_HALF_EXTENT,
   findBlockingFenceSegment,
   findNextFenceSegmentForHero,
+  FORT_INTERIOR_HALF_EXTENT,
+  gatherFromResourceNode,
+  getConstructionDuration,
   getEffectiveBuildingStats,
   getWaveComposition,
   HERO_CONSTRUCTION_DURATION,
   INITIAL_RESOURCES,
+  restoreFenceSegmentsFromPersistence,
+  restorePadsFromPersistence,
+  salvageStructureOnPad,
+  serializeFenceSegmentsForPersistence,
+  serializePadsForPersistence,
   startFenceConstructionTask,
   startPadConstructionTask,
   stepConstructionTask,
   upgradeStructureOnPad,
   ZOMBIE_CATALOG,
 } from './rules';
-import { ZombieEntity } from './types';
+import { ResourceNodeEntity, ZombieEntity } from './types';
 
 function makeZombie(overrides: Partial<ZombieEntity>): ZombieEntity {
   return {
@@ -541,4 +552,169 @@ test('Hero construction animation state: clicking a segment or pad enters constr
   assert.equal(finishUpgradeStep.pads[0].building?.level, 2);
 });
 
+test('Night phase confines Hero inside the fort fence arena and locks resource gathering', () => {
+  // Day phase: Hero can roam outside the fence (e.g. x=13, z=0) and gather resources
+  assert.equal(canGatherResourcesInPhase('day'), true);
+  const dayPos = clampHeroPositionForPhase(13, 0, 'day');
+  assert.equal(dayPos.x, 13);
+  assert.equal(dayPos.z, 0);
+
+  // Night phase: Hero cannot gather resources and is strictly clamped inside the fort fence perimeter
+  assert.equal(canGatherResourcesInPhase('night'), false);
+  const nightPos = clampHeroPositionForPhase(13, -12, 'night');
+  assert.equal(nightPos.x, FORT_INTERIOR_HALF_EXTENT);
+  assert.equal(nightPos.z, -FORT_INTERIOR_HALF_EXTENT);
+  assert.equal(Math.abs(nightPos.x) < FENCE_HALF_EXTENT, true);
+  assert.equal(Math.abs(nightPos.z) < FENCE_HALF_EXTENT, true);
+});
+
+test('Daily progression lock and Free Play mode strictly reject gathering, building, upgrading, repairing, and salvaging while preserving Lantern Flare and combat', () => {
+  const pads = createInitialPads();
+  const fences = createInitialFenceSegments();
+  const nodes: ResourceNodeEntity[] = [
+    {
+      id: 1,
+      type: 'wood',
+      name: 'Timber Pile',
+      x: -14,
+      z: -8,
+      amount: 30,
+      maxAmount: 30,
+      hitFlashTimer: 0,
+      respawnTimer: 0,
+    },
+  ];
+  const res = { wood: 200, stone: 200, food: 200, tickets: 3 };
+
+  // Build one structure during normal day play first so we can test upgrade & salvage locks
+  const normalBuild = buildStructureOnPad(pads[0], res, 'watchtower', 'day', false, false);
+  assert.equal(normalBuild.success, true);
+  const builtPad = normalBuild.updatedPad;
+
+  // 1. Daily progression locked (after 3/3 core daily tasks complete)
+  assert.equal(canPerformConstructionInPhase('day', true, false), false);
+  assert.equal(canGatherResourcesInPhase('day', true, false), false);
+
+  const lockedGather = gatherFromResourceNode({
+    node: nodes[0],
+    resources: res,
+    phase: 'day',
+    dailyLocked: true,
+    isFreePlay: false,
+  });
+  assert.equal(lockedGather.gathered, false);
+  assert.equal(lockedGather.reason, 'daily_locked');
+  assert.deepEqual(lockedGather.updatedResources, res);
+
+  const lockedBuild = buildStructureOnPad(pads[1], res, 'palisade', 'day', true, false);
+  assert.equal(lockedBuild.success, false);
+  assert.equal(lockedBuild.reason, 'daily_locked');
+
+  const lockedUpgrade = upgradeStructureOnPad(builtPad, res, 'pathA', 'day', true, false);
+  assert.equal(lockedUpgrade.success, false);
+  assert.equal(lockedUpgrade.reason, 'daily_locked');
+
+  const lockedSalvage = salvageStructureOnPad(builtPad, res, 'day', true, false);
+  assert.equal(lockedSalvage.success, false);
+  assert.equal(lockedSalvage.reason, 'daily_locked');
+
+  const lockedTask = startPadConstructionTask({
+    pad: pads[1],
+    resources: res,
+    phase: 'day',
+    currentTask: null,
+    action: 'build_pad',
+    buildingType: 'palisade',
+    dailyLocked: true,
+    isFreePlay: false,
+  });
+  assert.equal(lockedTask.started, false);
+  assert.equal(lockedTask.reason, 'daily_locked');
+
+  // 2. Free Play / Demo mode lock
+  assert.equal(canPerformConstructionInPhase('day', false, true), false);
+  assert.equal(canGatherResourcesInPhase('day', false, true), false);
+
+  const freeGather = gatherFromResourceNode({
+    node: nodes[0],
+    resources: res,
+    phase: 'day',
+    dailyLocked: false,
+    isFreePlay: true,
+  });
+  assert.equal(freeGather.gathered, false);
+  assert.equal(freeGather.reason, 'free_play_locked');
+
+  const freeBuild = buildStructureOnPad(pads[1], res, 'catapult', 'day', false, true);
+  assert.equal(freeBuild.success, false);
+  assert.equal(freeBuild.reason, 'free_play_locked');
+
+  const freeFenceTask = startFenceConstructionTask({
+    segment: fences.find((f) => f.level === 0)!,
+    resources: res,
+    phase: 'day',
+    currentTask: null,
+    dailyLocked: false,
+    isFreePlay: true,
+  });
+  assert.equal(freeFenceTask.started, false);
+  assert.equal(freeFenceTask.reason, 'free_play_locked');
+
+  // 3. Normal day salvage succeeds when unlocked
+  const unlockedSalvage = salvageStructureOnPad(builtPad, normalBuild.updatedResources, 'day', false, false);
+  assert.equal(unlockedSalvage.success, true);
+  assert.equal(unlockedSalvage.updatedPad.building, null);
+  assert.equal(unlockedSalvage.updatedResources.wood > normalBuild.updatedResources.wood, true);
+
+  // 4. Lantern Flare and hero combat remain available even when daily progression is locked
+  assert.equal(canTriggerLanternFlare('night', 0).allowed, true);
+});
+
+test('Construction timer hierarchy scales by structure complexity and toolTier speed bonus', () => {
+  const repairTime = getConstructionDuration({ action: 'repair_pad', buildingType: 'watchtower', toolTier: 1 });
+  const basicBuildTime = getConstructionDuration({ action: 'build_pad', buildingType: 'palisade', toolTier: 1 });
+  const midBuildTime = getConstructionDuration({ action: 'build_pad', buildingType: 'watchtower', toolTier: 1 });
+  const heavyBuildTime = getConstructionDuration({ action: 'build_pad', buildingType: 'catapult', toolTier: 1 });
+  const upgradeTime = getConstructionDuration({ action: 'upgrade_pad', buildingType: 'watchtower', toolTier: 1 });
+
+  assert.equal(repairTime < basicBuildTime, true);
+  assert.equal(basicBuildTime < midBuildTime, true);
+  assert.equal(midBuildTime < heavyBuildTime, true);
+  assert.equal(heavyBuildTime < upgradeTime, true);
+
+  // Higher toolTier (Tier 2 Master Hammer) makes construction faster, never slower
+  const tier2HeavyBuildTime = getConstructionDuration({ action: 'build_pad', buildingType: 'catapult', toolTier: 2 });
+  assert.equal(tier2HeavyBuildTime < heavyBuildTime, true);
+});
+
+test('Persistent fort serialization and restoration preserves built structures and restores full maxHp for new runs', () => {
+  const pads = createInitialPads();
+  const fences = createInitialFenceSegments();
+  const res = { wood: 300, stone: 300, food: 300, tickets: 3 };
+
+  const built = buildStructureOnPad(pads[0], res, 'catapult', 'day');
+  const upgraded = upgradeStructureOnPad(built.updatedPad, built.updatedResources, 'pathA', 'day');
+  // Simulate combat damage reducing HP during a run
+  upgraded.updatedPad.building!.hp = 45;
+  pads[0] = upgraded.updatedPad;
+
+  const fenceBuilt = buildOrUpgradeFenceSegment(fences.find((f) => f.level === 0)!, res, 'day');
+  fenceBuilt.updatedSegment.hp = 50; // Damaged in combat
+  fences[fenceBuilt.updatedSegment.id - 1] = fenceBuilt.updatedSegment;
+
+  const savedPads = serializePadsForPersistence(pads);
+  const savedFences = serializeFenceSegmentsForPersistence(fences);
+
+  const restoredPads = restorePadsFromPersistence(savedPads, true);
+  const restoredFences = restoreFenceSegmentsFromPersistence(savedFences, true);
+
+  assert.equal(restoredPads[0].building?.type, 'catapult');
+  assert.equal(restoredPads[0].building?.upgradePath, 'pathA');
+  assert.equal(restoredPads[0].building?.level, 2);
+  assert.equal(restoredPads[0].building?.hp, restoredPads[0].building?.maxHp);
+
+  const restoredSeg = restoredFences.find((f) => f.id === fenceBuilt.updatedSegment.id)!;
+  assert.equal(restoredSeg.level, 1);
+  assert.equal(restoredSeg.hp, restoredSeg.maxHp);
+});
 

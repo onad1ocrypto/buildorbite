@@ -194,6 +194,32 @@ export interface UiTranslations {
   controlNightDesc: string;
   controlZoomDesc: string;
 
+  // New Player Build Indicator & Persistent Fort / Daily Lock / Free Play / Check-In
+  newPlayerBuildHint: string;
+  dailyLockedBanner: string;
+  freePlayLockedBanner: string;
+  dailyProgressionCompleteTitle: string;
+  dailyProgressionCompleteDesc: string;
+  freePlayBtn: string;
+  freePlayActiveBadge: string;
+  freePlayNoRewardsNote: string;
+  dailyCheckInTitle: string;
+  dailyCheckInReadyDesc: string;
+  dailyCheckInClaimBtn: string;
+  dailyCheckInClaimedLabel: string;
+  dailyCheckInPlayFirstDesc: string;
+  bonusTasksTitle: string;
+  communityInviteTitle: string;
+  communityInviteDesc: string;
+  savedPermanentlyTitle: string;
+  savedPermanentlyDesc: string;
+  resetsNextRunTitle: string;
+  resetsNextRunDesc: string;
+  lockedUntilUtcTitle: string;
+  lockedUntilUtcDesc: string;
+  buildDurationLabel: (sec: string) => string;
+  salvagedStructureBanner: (padId: number, wood: number, stone: number) => string;
+
   // Dynamic Task & Cosmetic Translators
   translateTaskTitle: (taskId: string, fallback: string) => string;
   translatePadLabel: (padId: number, fallback: string) => string;
@@ -1019,6 +1045,13 @@ const TASK_TITLES: Record<LanguageCode, Record<string, string>> = {
     collect_20_wood: 'Gather 20 Wood from forest timber nodes',
     use_3_flares: 'Cast 3 Lantern Fire Flares at night',
     score_600_pts: 'Reach 600+ Run Score',
+    score_800: 'Score 800+ in one run',
+    collect_wood_20: 'Collect 20 wood',
+    use_flare_5: 'Use Lantern Flare 5 times',
+    build_5: 'Build 5 buildings',
+    survive_2: 'Survive 2 nights in a row',
+    bonus_slay_12: 'Slay 12 Undead in the Clearing',
+    bonus_flare_3: 'Cast 3 Lantern Flares',
   },
   id: {
     build_5_structures: 'Bangun 5 bangunan pertahanan atau pagar',
@@ -1026,6 +1059,13 @@ const TASK_TITLES: Record<LanguageCode, Record<string, string>> = {
     collect_20_wood: 'Kumpulkan 20 Kayu dari hutan',
     use_3_flares: 'Gunakan 3 Lantern Fire Flare saat malam',
     score_600_pts: 'Capai skor 600+ dalam satu permainan',
+    score_800: 'Capai skor 800+ dalam satu permainan',
+    collect_wood_20: 'Kumpulkan 20 Kayu',
+    use_flare_5: 'Gunakan Lantern Flare 5 kali',
+    build_5: 'Bangun 5 bangunan pertahanan',
+    survive_2: 'Bertahan hidup melewati 2 malam berturut-turut',
+    bonus_slay_12: 'Kalahkan 12 Zombie di Area Hutan',
+    bonus_flare_3: 'Gunakan 3 Lantern Flare',
   },
   zh: {
     build_5_structures: '建造 5 座防御建筑或围栏',
@@ -1033,6 +1073,13 @@ const TASK_TITLES: Record<LanguageCode, Record<string, string>> = {
     collect_20_wood: '从森林木材点收集 20 木材',
     use_3_flares: '在夜晚释放 3 次提灯烈焰闪光',
     score_600_pts: '单局得分达到 600 分以上',
+    score_800: '单局得分达到 800 分以上',
+    collect_wood_20: '收集 20 木材',
+    use_flare_5: '使用 5 次提灯烈焰闪光',
+    build_5: '建造 5 座防御建筑',
+    survive_2: '单局连续存活 2 个夜晚',
+    bonus_slay_12: '在空地击败 12 只亡灵',
+    bonus_flare_3: '释放 3 次提灯闪光',
   },
   vi: {
     build_5_structures: 'Xây 5 công trình phòng thủ hoặc hàng rào',
@@ -1040,6 +1087,13 @@ const TASK_TITLES: Record<LanguageCode, Record<string, string>> = {
     collect_20_wood: 'Thu thập 20 Gỗ từ rừng',
     use_3_flares: 'Dùng 3 lần Pháo Sáng Đèn Lồng vào ban đêm',
     score_600_pts: 'Đạt 600+ điểm trong một lượt chơi',
+    score_800: 'Đạt 800+ điểm trong một lượt chơi',
+    collect_wood_20: 'Thu thập 20 Gỗ',
+    use_flare_5: 'Sử dụng Pháo Sáng Đèn Lồng 5 lần',
+    build_5: 'Xây 5 công trình phòng thủ',
+    survive_2: 'Sống sót qua 2 đêm liên tiếp',
+    bonus_slay_12: 'Tiêu diệt 12 Zombie tại Rừng Quang',
+    bonus_flare_3: 'Sử dụng 3 lần Pháo Sáng Đèn Lồng',
   },
   ru: {
     build_5_structures: 'Постройте 5 защитных сооружений или заборов',
@@ -1047,6 +1101,13 @@ const TASK_TITLES: Record<LanguageCode, Record<string, string>> = {
     collect_20_wood: 'Соберите 20 ед. дерева в лесу',
     use_3_flares: 'Используйте вспышку фонаря 3 раза ночью',
     score_600_pts: 'Наберите 600+ очков за забег',
+    score_800: 'Наберите 800+ очков за один забег',
+    collect_wood_20: 'Соберите 20 ед. дерева',
+    use_flare_5: 'Используйте вспышку фонаря 5 раз',
+    build_5: 'Постройте 5 сооружений',
+    survive_2: 'Переживите 2 ночи подряд',
+    bonus_slay_12: 'Победите 12 мертвецов на поляне',
+    bonus_flare_3: 'Используйте 3 вспышки фонаря',
   },
 };
 
@@ -1289,6 +1350,37 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlNightDesc: 'Enter / N: Start Night early (+1 Bonus Ticket) · P: Pause',
     controlZoomDesc: 'Mouse Scroll Wheel (PC) or Two-Finger Pinch (Mobile) to Zoom In / Out',
 
+    newPlayerBuildHint: '✨ Ready to Build! Click P1 or a Build Pad to place your first defense',
+    dailyLockedBanner:
+      "🔒 Today's construction progression is complete! Your fort & resources are saved until 00:00 UTC. Combat & Free Play remain open!",
+    freePlayLockedBanner:
+      '🎮 Free Play / Demo Mode: Combat & Lantern Flare are active; resource farming & construction are disabled.',
+    dailyProgressionCompleteTitle: 'Fort Saved · Daily Construction Complete',
+    dailyProgressionCompleteDesc:
+      'All 3 daily tasks are complete! Gathering, building, and upgrades are locked until 00:00 UTC. Defend your saved fort in Free Play!',
+    freePlayBtn: '🎮 Free Play / Demo (0 Tickets)',
+    freePlayActiveBadge: 'FREE PLAY · DEMO',
+    freePlayNoRewardsNote: 'Free Play uses your saved fort with 0 Ticket cost (no farming or repeatable XP/Coins).',
+    dailyCheckInTitle: 'Daily Ranger Check-In',
+    dailyCheckInReadyDesc: 'First run of the UTC day complete! Claim your daily check-in supply cache:',
+    dailyCheckInClaimBtn: '🎁 Claim Daily Check-In (+25 Coins · +30 XP)',
+    dailyCheckInClaimedLabel: '✓ Daily Check-In Claimed Today (+25 Coins · +30 XP)',
+    dailyCheckInPlayFirstDesc: 'Complete 1 standard run today to unlock your Daily Check-In reward.',
+    bonusTasksTitle: 'Optional Daily Bonus Patrols (Small XP)',
+    communityInviteTitle: 'Ranger Campfire Community',
+    communityInviteDesc: 'Share fort layouts & wave strategies with fellow wardens at r/BuildOrBite',
+    savedPermanentlyTitle: '✓ Saved Permanently Across Runs & UTC Days',
+    savedPermanentlyDesc:
+      'Fort structures & upgrade paths (restored to full HP), Wood/Stone/Food wallet, Level, XP, Coins & Cosmetics.',
+    resetsNextRunTitle: '↻ Resets For Each New Run',
+    resetsNextRunDesc:
+      'Undead waves, active projectiles, temporary run score, and Day/Night wave timers.',
+    lockedUntilUtcTitle: '🔒 Locked After 3/3 Daily Tasks Until 00:00 UTC',
+    lockedUntilUtcDesc:
+      'New resource gathering, building, upgrades, repairs & salvage (Hero combat & Free Play stay open).',
+    buildDurationLabel: (sec) => `⏱ ${sec}s`,
+    salvagedStructureBanner: (id, w, s) => `Salvaged Pad P${id} (+${w} Wood, +${s} Stone refunded)`,
+
     translateTaskTitle: (id, fb) => TASK_TITLES.en[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.en[id] ?? fb,
     translateLanternName: (id, fb) => LANTERN_NAMES.en[id] ?? fb,
@@ -1433,6 +1525,37 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlNightDesc: 'Enter / N: Mulai Malam lebih awal (+1 Tiket) · P: Jeda',
     controlZoomDesc: 'Scroll Mouse (PC) atau Cubit 2 Jari (HP) untuk Zoom In / Out',
 
+    newPlayerBuildHint: '✨ Siap Membangun! Klik P1 atau Titik Build untuk memasang pertahanan pertamamu',
+    dailyLockedBanner:
+      '🔒 Progres pembangunan hari ini selesai! Benteng & resource tersimpan hingga 00:00 UTC. Mode Tempur & Free Play tetap terbuka!',
+    freePlayLockedBanner:
+      '🎮 Mode Free Play / Demo: Pertarungan & Flare aktif; cari resource & bangun dikunci.',
+    dailyProgressionCompleteTitle: 'Benteng Tersimpan · Progres Harian Selesai',
+    dailyProgressionCompleteDesc:
+      'Ke-3 misi harian selesai! Pengumpulan resource & pembangunan dikunci hingga 00:00 UTC. Pertahankan bentengmu di Free Play!',
+    freePlayBtn: '🎮 Free Play / Demo (0 Tiket)',
+    freePlayActiveBadge: 'FREE PLAY · DEMO',
+    freePlayNoRewardsNote: 'Free Play memakai benteng tersimpan tanpa tiket (tanpa farming resource/XP berulang).',
+    dailyCheckInTitle: 'Check-In Harian Ranger',
+    dailyCheckInReadyDesc: 'Permainan pertama hari ini selesai! Klaim hadiah Check-In harianmu:',
+    dailyCheckInClaimBtn: '🎁 Klaim Check-In Harian (+25 Koin · +30 XP)',
+    dailyCheckInClaimedLabel: '✓ Check-In Harian Sudah Diklaim Hari Ini (+25 Koin · +30 XP)',
+    dailyCheckInPlayFirstDesc: 'Selesaikan 1 permainan hari ini untuk membuka hadiah Check-In Harian.',
+    bonusTasksTitle: 'Patroli Bonus Opsional (XP Tambahan)',
+    communityInviteTitle: 'Komunitas Api Unggun Ranger',
+    communityInviteDesc: 'Bagikan susunan benteng & strategi bertahan di r/BuildOrBite',
+    savedPermanentlyTitle: '✓ Tersimpan Permanen Antar Run & Reset Harian',
+    savedPermanentlyDesc:
+      'Bangunan & upgrade benteng (HP pulih penuh), dompet Kayu/Batu/Makanan, Level, XP, Koin & Kosmetik.',
+    resetsNextRunTitle: '↻ Direset Setiap Permainan Baru',
+    resetsNextRunDesc:
+      'Gelombang zombie, proyektil aktif, skor sementara permainan, dan waktu Siang/Malam.',
+    lockedUntilUtcTitle: '🔒 Dikunci Setelah 3/3 Misi Harian Hingga 00:00 UTC',
+    lockedUntilUtcDesc:
+      'Mengumpulkan resource, membangun, upgrade, perbaiki & bongkar (Pertarungan Hero & Free Play tetap aktif).',
+    buildDurationLabel: (sec) => `⏱ ${sec}d`,
+    salvagedStructureBanner: (id, w, s) => `Pad P${id} dibongkar (+${w} Kayu, +${s} Batu kembali)`,
+
     translateTaskTitle: (id, fb) => TASK_TITLES.id[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.id[id] ?? fb,
     translateLanternName: (id, fb) => LANTERN_NAMES.id[id] ?? fb,
@@ -1572,6 +1695,36 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlBuildDesc: '点击任意建造点 (P1–P8)：打开 6 种防御建筑选择菜单',
     controlNightDesc: 'Enter / N：提前入夜 (+1 奖励门票) · P：暂停',
     controlZoomDesc: '鼠标滚轮 (电脑) 或 双指捏合 (手机)：缩放镜头',
+
+    newPlayerBuildHint: '✨ 资源充足！点击 P1 或建造点放置你的第一座防御建筑',
+    dailyLockedBanner:
+      '🔒 今日建造进度已完成！堡垒与资源已保存至 00:00 UTC。战斗与自由试玩模式依然开放！',
+    freePlayLockedBanner:
+      '🎮 自由试玩 / 演示模式：战斗与提灯闪光可用；采集与建造已禁用。',
+    dailyProgressionCompleteTitle: '堡垒已保存 · 今日建造任务全部完成',
+    dailyProgressionCompleteDesc:
+      '全部 3 项每日任务已完成！采集、建造与升级将锁定至 00:00 UTC。可随时进入自由试玩模式防守你的堡垒！',
+    freePlayBtn: '🎮 自由试玩 / 演示 (0 门票)',
+    freePlayActiveBadge: '自由试玩 · 演示',
+    freePlayNoRewardsNote: '自由试玩使用已保存的堡垒，不消耗门票（无资源采集与重复经验/金币）。',
+    dailyCheckInTitle: '每日游侠签到',
+    dailyCheckInReadyDesc: '今日首局挑战已完成！立即领取你的每日签到补给：',
+    dailyCheckInClaimBtn: '🎁 领取每日签到 (+25 金币 · +30 经验)',
+    dailyCheckInClaimedLabel: '✓ 今日签到奖励已领取 (+25 金币 · +30 经验)',
+    dailyCheckInPlayFirstDesc: '今日完成 1 局标准挑战即可解锁每日签到奖励。',
+    bonusTasksTitle: '可选额外巡逻目标 (小额经验)',
+    communityInviteTitle: '游侠营火社区',
+    communityInviteDesc: '在 r/BuildOrBite 与其他守卫者分享你的堡垒布局与防守战术',
+    savedPermanentlyTitle: '✓ 跨局与跨日永久保存',
+    savedPermanentlyDesc:
+      '堡垒建筑与升级路线（耐久自动回满）、木材/石料/食物钱包、等级、经验、金币与外观。',
+    resetsNextRunTitle: '↻ 每局新挑战重置',
+    resetsNextRunDesc: '亡灵波次、场上弹射物、单局临时得分以及昼夜波次计时器。',
+    lockedUntilUtcTitle: '🔒 完成 3/3 每日任务后锁定至 00:00 UTC',
+    lockedUntilUtcDesc:
+      '采集资源、建造、升级、修复与拆除（英雄战斗与自由试玩依然开放）。',
+    buildDurationLabel: (sec) => `⏱ ${sec}秒`,
+    salvagedStructureBanner: (id, w, s) => `已拆除 P${id} 建筑 (返还 +${w} 木材, +${s} 石料)`,
 
     translateTaskTitle: (id, fb) => TASK_TITLES.zh[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.zh[id] ?? fb,
@@ -1714,6 +1867,36 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlNightDesc: 'Enter / N: Bắt đầu Đêm sớm (+1 Vé thưởng) · P: Tạm dừng',
     controlZoomDesc: 'Con lăn chuột (PC) hoặc Chụm 2 ngón tay (Điện thoại) để Phóng to / Thu nhỏ',
 
+    newPlayerBuildHint: '✨ Đủ tài nguyên! Nhấn P1 hoặc Bệ Xây để đặt công trình phòng thủ đầu tiên',
+    dailyLockedBanner:
+      '🔒 Tiến độ xây dựng hôm nay đã hoàn tất! Pháo đài & tài nguyên đã được lưu đến 00:00 UTC. Chiến đấu & Chơi Tự Do vẫn mở!',
+    freePlayLockedBanner:
+      '🎮 Chế độ Chơi Tự Do / Demo: Chiến đấu & Pháo sáng hoạt động; thu thập & xây dựng bị khóa.',
+    dailyProgressionCompleteTitle: 'Pháo Đài Đã Lưu · Hoàn Tất Tiến Độ Ngày',
+    dailyProgressionCompleteDesc:
+      'Đã xong cả 3 nhiệm vụ ngày! Thu thập, xây dựng & nâng cấp khóa đến 00:00 UTC. Hãy bảo vệ pháo đài trong Chơi Tự Do!',
+    freePlayBtn: '🎮 Chơi Tự Do / Demo (0 Vé)',
+    freePlayActiveBadge: 'CHƠI TỰ DO · DEMO',
+    freePlayNoRewardsNote: 'Chơi Tự Do dùng pháo đài đã lưu với 0 Vé (không cày tài nguyên hay XP/Xu lặp lại).',
+    dailyCheckInTitle: 'Điểm Danh Kiểm Lâm Hàng Ngày',
+    dailyCheckInReadyDesc: 'Đã hoàn thành lượt chơi đầu tiên trong ngày! Nhận quà điểm danh ngay:',
+    dailyCheckInClaimBtn: '🎁 Nhận Quà Điểm Danh (+25 Xu · +30 XP)',
+    dailyCheckInClaimedLabel: '✓ Đã Nhận Quà Điểm Danh Hôm Nay (+25 Xu · +30 XP)',
+    dailyCheckInPlayFirstDesc: 'Hoàn thành 1 lượt chơi tiêu chuẩn hôm nay để mở khóa Điểm Danh.',
+    bonusTasksTitle: 'Nhiệm Vụ Tuần Tra Phụ (Thêm XP)',
+    communityInviteTitle: 'Cộng Đồng Lửa Trại Kiểm Lâm',
+    communityInviteDesc: 'Chia sẻ cách bố trí pháo đài & chiến thuật tại r/BuildOrBite',
+    savedPermanentlyTitle: '✓ Lưu Vĩnh Viễn Qua Các Lượt & Ngày UTC',
+    savedPermanentlyDesc:
+      'Công trình & nhánh nâng cấp pháo đài (hồi đầy HP), ví Gỗ/Đá/Thức ăn, Cấp độ, XP, Xu & Trang phục.',
+    resetsNextRunTitle: '↻ Đặt Lại Khi Bắt Đầu Lượt Mới',
+    resetsNextRunDesc: 'Đợt zombie, đạn đang bay, điểm số tạm thời và đồng hồ Ngày/Đêm.',
+    lockedUntilUtcTitle: '🔒 Khóa Sau Khi Xong 3/3 Nhiệm Vụ Đến 00:00 UTC',
+    lockedUntilUtcDesc:
+      'Thu thập tài nguyên, xây mới, nâng cấp, sửa chữa & tháo dỡ (Chiến đấu & Chơi Tự Do vẫn mở).',
+    buildDurationLabel: (sec) => `⏱ ${sec}s`,
+    salvagedStructureBanner: (id, w, s) => `Đã tháo dỡ Bệ P${id} (+${w} Gỗ, +${s} Đá hoàn lại)`,
+
     translateTaskTitle: (id, fb) => TASK_TITLES.vi[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.vi[id] ?? fb,
     translateLanternName: (id, fb) => LANTERN_NAMES.vi[id] ?? fb,
@@ -1854,6 +2037,36 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlBuildDesc: 'Нажмите на любую площадку (P1–P8), чтобы открыть меню выбора из 6 построек',
     controlNightDesc: 'Enter / N — начать ночь досрочно (+1 билет) · P — пауза',
     controlZoomDesc: 'Колесо мыши (ПК) или щипок двумя пальцами (телефон) — приближение и отдаление',
+
+    newPlayerBuildHint: '✨ Ресурсов достаточно! Нажмите P1 или площадку, чтобы построить первую защиту',
+    dailyLockedBanner:
+      '🔒 Дневной прогресс строительства завершен! Форт и ресурсы сохранены до 00:00 UTC. Бой и Свободная игра открыты!',
+    freePlayLockedBanner:
+      '🎮 Свободная игра / Демо: Бой и вспышка фонаря активны; сбор ресурсов и стройка отключены.',
+    dailyProgressionCompleteTitle: 'Форт сохранен · Дневной прогресс завершен',
+    dailyProgressionCompleteDesc:
+      'Все 3 задания выполнены! Сбор ресурсов, постройка и улучшения закрыты до 00:00 UTC. Защищайте свой форт в Свободной игре!',
+    freePlayBtn: '🎮 Свободная игра / Демо (0 билетов)',
+    freePlayActiveBadge: 'СВОБОДНАЯ ИГРА · ДЕМО',
+    freePlayNoRewardsNote: 'Свободная игра использует ваш сохраненный форт за 0 билетов (без фарма ресурсов и опыта).',
+    dailyCheckInTitle: 'Ежедневная отметка рейнджера',
+    dailyCheckInReadyDesc: 'Первый забег за день завершен! Заберите ежедневную награду:',
+    dailyCheckInClaimBtn: '🎁 Забрать награду дня (+25 монет · +30 опыта)',
+    dailyCheckInClaimedLabel: '✓ Награда дня уже получена сегодня (+25 монет · +30 опыта)',
+    dailyCheckInPlayFirstDesc: 'Завершите 1 стандартный забег сегодня, чтобы открыть награду дня.',
+    bonusTasksTitle: 'Дополнительные патрули (бонусный опыт)',
+    communityInviteTitle: 'Сообщество у костра рейнджеров',
+    communityInviteDesc: 'Делитесь схемами фортов и тактикой обороны в r/BuildOrBite',
+    savedPermanentlyTitle: '✓ Сохраняется навсегда между забегами и днями UTC',
+    savedPermanentlyDesc:
+      'Постройки и улучшения форта (с полным ОЗ), запас дерева/камня/еды, уровень, опыт, монеты и декор.',
+    resetsNextRunTitle: '↻ Сбрасывается в каждом новом забеге',
+    resetsNextRunDesc: 'Волны зомби, снаряды, временный счет забега и таймеры дня/ночи.',
+    lockedUntilUtcTitle: '🔒 Закрыто после 3/3 заданий дня до 00:00 UTC',
+    lockedUntilUtcDesc:
+      'Сбор ресурсов, постройка, улучшения, починка и снос (бой героя и Свободная игра доступны).',
+    buildDurationLabel: (sec) => `⏱ ${sec}с`,
+    salvagedStructureBanner: (id, w, s) => `Разобрана площадка P${id} (+${w} дерева, +${s} камня)`,
 
     translateTaskTitle: (id, fb) => TASK_TITLES.ru[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.ru[id] ?? fb,

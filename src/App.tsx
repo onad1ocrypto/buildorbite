@@ -11,13 +11,13 @@ import {
   saveLanguageToStorage,
 } from './game/i18n';
 import {
-  createInitialFenceSegments,
-  createInitialPads,
   DAY_DURATION_SECONDS,
   FORT_MAX_HP,
   INITIAL_RESOURCES,
   LANTERN_FLARE_COOLDOWN,
   MAX_DAYS,
+  restoreFenceSegmentsFromPersistence,
+  restorePadsFromPersistence,
 } from './game/rules';
 import { BuildingType, HudSnapshot } from './game/types';
 
@@ -46,7 +46,12 @@ export default function App() {
       fortHp: FORT_MAX_HP,
       fortMaxHp: FORT_MAX_HP,
       fortGhostHp: FORT_MAX_HP,
-      resources: { ...INITIAL_RESOURCES, tickets: initialDaily.tickets },
+      resources: {
+        wood: initialDaily.savedResources?.wood ?? INITIAL_RESOURCES.wood,
+        stone: initialDaily.savedResources?.stone ?? INITIAL_RESOURCES.stone,
+        food: initialDaily.savedResources?.food ?? INITIAL_RESOURCES.food,
+        tickets: initialDaily.tickets,
+      },
       score: 0,
       bestScore: 0,
       zombiesRemaining: 0,
@@ -56,8 +61,8 @@ export default function App() {
       flareMaxCooldown: LANTERN_FLARE_COOLDOWN,
       selectedPadId: null,
       selectedFenceId: null,
-      pads: createInitialPads(),
-      fenceSegments: createInitialFenceSegments(),
+      pads: restorePadsFromPersistence(initialDaily.savedPads, true),
+      fenceSegments: restoreFenceSegmentsFromPersistence(initialDaily.savedFenceSegments, true),
       bossActive: false,
       bossName: 'Baron Blight',
       bossHp: 0,
@@ -72,6 +77,7 @@ export default function App() {
       pendingConstruction: null,
       daily: initialDaily,
       lastRunSummary: null,
+      isFreePlay: false,
     };
   });
 
@@ -106,6 +112,8 @@ export default function App() {
       {hud.screen === 'title' && !showGuide && (
         <TitleScreen
           onStartGame={() => controllerRef.current?.startGame()}
+          onStartFreePlay={() => controllerRef.current?.startFreePlay()}
+          onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
           onOpenGuide={() => setShowGuide(true)}
           bestScore={hud.bestScore}
           daily={hud.daily}
@@ -144,6 +152,8 @@ export default function App() {
         onToggleDock={() => controllerRef.current?.toggleDock()}
         onAdjustZoom={(delta) => controllerRef.current?.adjustZoom(delta)}
         onRefillTicketWithCoins={() => controllerRef.current?.refillTicketWithCoins()}
+        onStartFreePlay={() => controllerRef.current?.startFreePlay()}
+        onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
       />
 
       {/* Pause, Unified End Screen Result Card, and Schema/Guide Modals */}
@@ -155,6 +165,8 @@ export default function App() {
         onCloseGuide={() => setShowGuide(false)}
         onResume={() => controllerRef.current?.togglePause()}
         onRestart={() => controllerRef.current?.restartGame()}
+        onStartFreePlay={() => controllerRef.current?.startFreePlay()}
+        onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
         onReturnTitle={() => controllerRef.current?.returnToTitle()}
         onOpenGuide={() => setShowGuide(true)}
         onFinishRunEarly={() => controllerRef.current?.finishRunEarly()}
