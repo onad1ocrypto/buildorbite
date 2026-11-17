@@ -1930,22 +1930,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         });
 
         if (!startRes.started) {
+          const tr = TRANSLATIONS[langRef.current];
           if (startRes.reason === 'busy_constructing') {
             setBanner(
-              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              tr.busyConstructingBanner(pendingConstruction?.label ?? 'a structure'),
               2.2
             );
           } else if (startRes.reason === 'insufficient_resources') {
-            setBanner('Not enough resources to build that structure!', 2.5);
+            setBanner(tr.notEnoughResourcesBanner, 2.5);
           }
           syncHud(true);
           return;
         }
 
-        selectedPadId = targetPad.id;
+        const tr = TRANSLATIONS[langRef.current];
+        const bName = tr.buildings[type]?.name ?? BUILDING_CATALOG[type].name;
+        selectedPadId = null;
         selectedFenceId = null;
-        selectRingMesh.position.set(targetPad.x, 0.08, targetPad.z);
-        selectRingMesh.visible = true;
+        selectRingMesh.visible = false;
         moveTarget = { x: targetPad.x * 0.82, z: targetPad.z * 0.82 };
         moveTargetRing.position.set(targetPad.x * 0.82, 0.06, targetPad.z * 0.82);
         moveTargetAlpha = 0.85;
@@ -1955,7 +1957,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         document.body.dataset.heroAnim = heroAnimState;
         constructionSparkTimer = 0.12;
         soundFX.playGatherHit('wood');
-        setBanner(`Constructing ${BUILDING_CATALOG[type].name} on Pad #${targetPad.id}...`, 1.4);
+        setBanner(tr.constructingStructureBanner(bName, targetPad.id), 1.4);
         syncHud(true);
       },
       upgradeSelectedPad: (pathId) => {
@@ -1978,20 +1980,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         });
 
         if (!startRes.started) {
+          const tr = TRANSLATIONS[langRef.current];
           if (startRes.reason === 'busy_constructing') {
             setBanner(
-              `Ranger Rue is constructing ${pendingConstruction?.label ?? 'a structure'} — wait for the animation to finish!`,
+              tr.busyConstructingBanner(pendingConstruction?.label ?? 'a structure'),
               2.2
             );
           } else if (startRes.reason === 'insufficient_resources') {
-            setBanner('Need more Wood, Stone, or Food for that upgrade!', 2.5);
+            setBanner(tr.notEnoughResourcesBanner, 2.5);
           }
           syncHud(true);
           return;
         }
 
-        selectRingMesh.position.set(targetPad.x, 0.08, targetPad.z);
-        selectRingMesh.visible = true;
+        const tr = TRANSLATIONS[langRef.current];
+        const upName =
+          tr.buildings[targetPad.building.type]?.paths[pathId].name ??
+          BUILDING_CATALOG[targetPad.building.type].paths[pathId].name;
+        selectedPadId = null;
+        selectRingMesh.visible = false;
         moveTarget = { x: targetPad.x * 0.82, z: targetPad.z * 0.82 };
         moveTargetRing.position.set(targetPad.x * 0.82, 0.06, targetPad.z * 0.82);
         moveTargetAlpha = 0.85;
@@ -2001,8 +2008,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         document.body.dataset.heroAnim = heroAnimState;
         constructionSparkTimer = 0.12;
         soundFX.playGatherHit('stone');
-        const upName = BUILDING_CATALOG[targetPad.building.type].paths[pathId].name;
-        setBanner(`Upgrading to ${upName} on Pad #${targetPad.id}...`, 1.4);
+        setBanner(tr.upgradingStructureBanner(upName, targetPad.id), 1.4);
         syncHud(true);
       },
       repairSelectedPad: () => {
@@ -3738,20 +3744,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (phase === 'day') {
           const tr = TRANSLATIONS[langRef.current];
           for (const pad of pads) {
-            _projVec.set(pad.x, pad.building ? 2.15 : 0.95, pad.z).project(camera);
+            const isSel = pad.id === selectedPadId;
+            _projVec.set(pad.x, pad.building ? 1.85 : isSel ? 0.85 : 0.28, pad.z).project(camera);
             if (_projVec.z >= -1 && _projVec.z <= 1) {
               const sxNum = (_projVec.x + 1) * 0.5 * w;
               const syNum = (-_projVec.y + 1) * 0.5 * h;
               if (syNum < 82 || syNum > h - 84) continue;
               const sx = sxNum.toFixed(0);
               const sy = syNum.toFixed(0);
-              const isSel = pad.id === selectedPadId;
               const padStyle = isSel
                 ? 'border-[#fbbf24] text-[#090d16] bg-[#fbbf24]'
                 : pad.building
                 ? 'border-[#4ade80]/70 text-[#86efac]'
-                : 'border-[#f59e0b]/70 text-[#fef3c7]';
-              const padBg = isSel ? '' : 'background:rgba(13,19,28,0.86);';
+                : 'border-[#f59e0b]/60 text-[#fde68a]';
+              const padBg = isSel ? '' : 'background:rgba(13,19,28,0.82);';
               const bldLocName = pad.building
                 ? (tr.buildings[pad.building.type]?.shortName ?? BUILDING_CATALOG[pad.building.type].name)
                 : '';
@@ -3759,9 +3765,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 ? `P${pad.id} · ${bldLocName}`
                 : isSel
                 ? tr.padSelectedWorldBadge(pad.id)
-                : tr.padEmptyWorldBadge(pad.id);
+                : `P${pad.id}`;
               htmlParts.push(
-                `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-100%);${padBg}" class="px-1.5 py-0.5 rounded border ${padStyle} text-[8.5px] font-mono-tabular font-bold tracking-wider whitespace-nowrap pointer-events-none shadow">${padText}</div>`
+                `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-50%);${padBg}" class="px-1.5 py-0.5 rounded border ${padStyle} text-[8.5px] font-mono-tabular font-bold tracking-wider whitespace-nowrap pointer-events-none shadow">${padText}</div>`
               );
             }
           }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { getLevelForXp, getTimeUntilNextUTCReset } from '../game/dailySystem';
 import {
   LANGUAGE_OPTIONS,
@@ -35,7 +35,12 @@ export const Modals: React.FC<ModalsProps> = ({
   onFinishRunEarly,
   onRefillTicketWithCoins,
 }) => {
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+
   const tr = TRANSLATIONS[lang];
+  const currentLangOpt =
+    LANGUAGE_OPTIONS.find((o) => o.code === lang) ?? LANGUAGE_OPTIONS[0];
+
   const formatTime = (sec: number) => {
     const total = Math.max(0, Math.round(sec));
     const m = Math.floor(total / 60);
@@ -62,66 +67,90 @@ export const Modals: React.FC<ModalsProps> = ({
           aria-modal="true"
           aria-labelledby="pause-modal-title"
         >
-          <div className="w-full max-w-md rounded-xl bg-[#131b26] border border-[#334155] p-6 shadow-2xl text-[#f4efe6]">
-            <h2 id="pause-modal-title" className="text-2xl font-display font-bold text-[#fef3c7] mb-1">
-              {tr.ui.pauseTitle}
-            </h2>
-            <p className="text-sm text-[#94a3b8] mb-3">
-              {tr.ui.pauseSubtitle(hud.dayNumber, hud.maxDays, Math.round(hud.fortHp), hud.fortMaxHp)}
-            </p>
+          <div className="w-full max-w-md rounded-xl bg-[#131b26] border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6]">
+            {/* Header + Click-to-Open Language Dropdown */}
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div>
+                <h2 id="pause-modal-title" className="text-xl font-display font-bold text-[#fef3c7]">
+                  {tr.campPausedTitle}
+                </h2>
+                <p className="text-xs text-[#94a3b8]">
+                  {tr.campPausedDesc}
+                </p>
+              </div>
 
-            {/* 5-Language Switcher inside Pause Modal */}
-            <div className="flex flex-wrap items-center gap-1.5 mb-4 p-2 rounded-lg bg-[#0b1016] border border-[#1e293b]">
-              <span className="text-[11px] font-bold text-[#94a3b8] mr-1">
-                🌐 {tr.ui.languageLabel}:
-              </span>
-              {LANGUAGE_OPTIONS.map((opt) => (
+              <div className="relative">
                 <button
-                  key={opt.code}
                   type="button"
-                  onClick={() => onSelectLanguage(opt.code)}
-                  className={`px-2 py-0.5 rounded text-xs font-semibold cursor-pointer ${
-                    lang === opt.code
-                      ? 'bg-[#f59e0b] text-[#090d16] font-bold'
-                      : 'bg-[#161f2c] text-[#cbd5e1] hover:bg-[#1e293b]'
-                  }`}
+                  onClick={() => setLangDropdownOpen((v) => !v)}
+                  className="px-2.5 py-1 rounded-lg bg-[#0b1016] hover:bg-[#1e293b] border border-[#334155] text-xs font-semibold text-[#fef3c7] flex items-center gap-1.5 cursor-pointer"
                 >
-                  {opt.shortLabel}
+                  <span>🌐</span>
+                  <span className="text-[#fbbf24] font-bold">{currentLangOpt.shortLabel}</span>
+                  <span className="text-[10px] text-[#94a3b8]">{langDropdownOpen ? '▴' : '▾'}</span>
                 </button>
-              ))}
+                {langDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-40 w-40 rounded-xl bg-[#0b1016] border border-[#334155] p-1 shadow-2xl flex flex-col gap-0.5">
+                    {LANGUAGE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.code}
+                        type="button"
+                        onClick={() => {
+                          onSelectLanguage(opt.code);
+                          setLangDropdownOpen(false);
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold text-left flex items-center justify-between cursor-pointer ${
+                          lang === opt.code
+                            ? 'bg-[#f59e0b] text-[#090d16] font-bold'
+                            : 'text-[#cbd5e1] hover:bg-[#1e293b]'
+                        }`}
+                      >
+                        <span>{opt.nativeName}</span>
+                        <span className="font-mono-tabular text-[10px]">{opt.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-4 p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+            <div className="grid grid-cols-3 gap-2.5 mb-3.5 p-3 rounded-lg bg-[#0b1016] border border-[#1e293b]">
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-[#94a3b8]">Day / Wave</div>
-                <div className="text-lg font-mono-tabular font-bold text-[#fef3c7]">
+                <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
+                  {tr.dayWaveLabel}
+                </div>
+                <div className="text-base font-mono-tabular font-bold text-[#fef3c7]">
                   {hud.dayNumber} / {hud.maxDays}
                 </div>
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-[#94a3b8]">{tr.ui.fortHp}</div>
-                <div className="text-lg font-mono-tabular font-bold text-[#4ade80]">
+                <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
+                  {tr.fortHpLabel}
+                </div>
+                <div className="text-base font-mono-tabular font-bold text-[#4ade80]">
                   {Math.round(hud.fortHp)}
                 </div>
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-[#94a3b8]">{tr.ui.score}</div>
-                <div className="text-lg font-mono-tabular font-bold text-[#fbbf24]">
+                <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
+                  {tr.runScoreLabel}
+                </div>
+                <div className="text-base font-mono-tabular font-bold text-[#fbbf24]">
                   {Math.round(hud.score)}
                 </div>
               </div>
             </div>
 
             {/* Live Daily Task Progress in Pause Menu */}
-            <div className="mb-5 p-3 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+            <div className="mb-4 p-3 rounded-lg bg-[#0b1016] border border-[#1e293b]">
               <div className="text-[11px] font-bold uppercase tracking-wider text-[#f59e0b] mb-1.5">
-                {tr.ui.tasksLabel} ({completedTasksCount}/{daily.tasks.length})
+                📋 {tr.tasksLabel} ({completedTasksCount}/{daily.tasks.length})
               </div>
               <div className="space-y-1">
                 {daily.tasks.map((t) => {
                   const p = daily.taskProgress[t.id] ?? 0;
                   const done = p >= t.target;
-                  const locTitle = tr.dailyTaskTitles[t.id] ?? t.title;
+                  const locTitle = tr.translateTaskTitle(t.id, t.title);
                   return (
                     <div key={t.id} className="flex items-center justify-between text-xs">
                       <span className={done ? 'text-[#4ade80] font-semibold' : 'text-[#cbd5e1]'}>
@@ -141,50 +170,50 @@ export const Modals: React.FC<ModalsProps> = ({
               <button
                 type="button"
                 onClick={onResume}
-                className="w-full py-3 px-4 rounded-lg bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] font-display font-bold text-base cursor-pointer transition-colors"
+                className="w-full py-2.5 px-4 rounded-lg bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] font-display font-bold text-sm cursor-pointer transition-colors"
               >
-                {tr.ui.resumeBtn}
+                {tr.resumeDefenseBtn}
               </button>
               <button
                 type="button"
                 onClick={onFinishRunEarly}
-                className="w-full py-2.5 px-4 rounded-lg bg-[#1e293b] hover:bg-[#334155] border border-[#475569] text-[#fef3c7] font-semibold text-xs cursor-pointer transition-colors"
+                className="w-full py-2 px-4 rounded-lg bg-[#1e293b] hover:bg-[#334155] border border-[#475569] text-[#fef3c7] font-semibold text-xs cursor-pointer transition-colors"
               >
-                {tr.ui.finishRunBtn}
+                {tr.endRunEarlyBtn}
               </button>
               <button
                 type="button"
                 onClick={onOpenGuide}
-                className="w-full py-2.5 px-4 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] text-[#e2dacb] font-medium text-xs cursor-pointer transition-colors"
+                className="w-full py-2 px-4 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] text-[#e2dacb] font-medium text-xs cursor-pointer transition-colors"
               >
-                {tr.ui.bestiaryGuideBtn}
+                {tr.howToRunBtn}
               </button>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 <button
                   type="button"
                   disabled={daily.tickets <= 0}
                   onClick={onRestart}
-                  className={`py-2 px-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                  className={`py-2 px-2 rounded-lg border text-xs font-medium transition-colors ${
                     daily.tickets > 0
                       ? 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#cbd5e1] cursor-pointer'
                       : 'bg-[#090d14] border-[#1e293b] text-[#475569] cursor-not-allowed'
                   }`}
                 >
-                  {tr.ui.restartRunBtn(daily.tickets)}
+                  {tr.restartBtn}
                 </button>
                 <button
                   type="button"
                   onClick={onRefillTicketWithCoins}
-                  className="py-2 px-2.5 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer transition-colors"
+                  className="py-2 px-2 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer transition-colors"
                 >
-                  {tr.ui.addReviewTicketsBtn}
+                  {tr.addReviewTicketsBtn}
                 </button>
                 <button
                   type="button"
                   onClick={onReturnTitle}
-                  className="py-2 px-2.5 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] text-[#cbd5e1] font-medium text-xs cursor-pointer transition-colors"
+                  className="py-2 px-2 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] text-[#cbd5e1] font-medium text-xs cursor-pointer transition-colors"
                 >
-                  {tr.ui.returnTitleBtn}
+                  {tr.titleScreenBtn}
                 </button>
               </div>
             </div>
@@ -205,59 +234,64 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* Result Header */}
             <div className="flex items-center justify-between gap-2 mb-1">
               <span className="text-xs uppercase tracking-widest font-semibold text-[#f59e0b]">
-                {hud.runOutcome === 'victory' ? tr.ui.victoryBanner : tr.ui.defeatBanner}
+                {hud.runOutcome === 'victory' ? tr.victoryHeaderBadge : tr.defeatHeaderBadge}
               </span>
               <span className="text-xs font-mono-tabular text-[#94a3b8]">
-                {formatTime(hud.elapsedRunSeconds)}
+                {tr.runTimeLabel(formatTime(hud.elapsedRunSeconds))}
               </span>
             </div>
 
             <h2
               id="gameover-modal-title"
-              className="text-3xl font-display font-extrabold text-[#fef3c7] mb-3"
+              className="text-3xl font-display font-extrabold text-[#fef3c7] mb-1"
             >
-              {hud.runOutcome === 'victory' ? tr.ui.victoryHeadline : tr.ui.defeatHeadline}
+              {hud.runOutcome === 'victory' ? tr.victoryTitle : tr.defeatTitle}
             </h2>
+            <p className="text-xs text-[#94a3b8] mb-3">
+              {hud.runOutcome === 'victory' ? tr.victoryDesc : tr.defeatDesc}
+            </p>
 
             {/* Primary 4-Tile Result Strip: Score, XP Gained, Streak, Tickets Left */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4 p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b]">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
-                  {tr.ui.finalScoreLabel}
+                  {tr.scoreLabel}
                 </div>
                 <div className="text-xl font-mono-tabular font-bold text-[#fbbf24]" data-testid="result-score">
                   {Math.round(hud.score)}
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
-                  {tr.ui.best}: {Math.round(hud.bestScore)}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">XP</div>
-                <div className="text-xl font-mono-tabular font-bold text-[#38bdf8]" data-testid="result-xp">
-                  +{summary ? summary.xpGained : 0} XP
-                </div>
-                <div className="text-[10px] text-[#64748b] font-mono-tabular">
-                  +{summary ? summary.coinsGained : 0} {tr.ui.coins}
+                  {tr.bestScoreLabel}: {Math.round(hud.bestScore)}
                 </div>
               </div>
 
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
-                  {tr.ui.streak}
+                  {tr.xpGainedLabel}
+                </div>
+                <div className="text-xl font-mono-tabular font-bold text-[#38bdf8]" data-testid="result-xp">
+                  +{summary ? summary.xpGained : 0} XP
+                </div>
+                <div className="text-[10px] text-[#64748b] font-mono-tabular">
+                  +{summary ? summary.coinsGained : 0}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
+                  {tr.dailyStreakLabel}
                 </div>
                 <div className="text-xl font-mono-tabular font-bold text-[#4ade80]" data-testid="result-streak">
                   {daily.streak}d
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
-                  {tr.ui.milestonesLabel}: 3/7/30d
+                  {tr.milestonesLabel}
                 </div>
               </div>
 
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
-                  {tr.ui.ticketsLeftLabel}
+                  {tr.ticketsLeftLabel}
                 </div>
                 <div className="text-xl font-mono-tabular font-bold text-[#f59e0b]" data-testid="result-tickets">
                   {daily.tickets} / {daily.maxDailyTickets}
@@ -272,7 +306,7 @@ export const Modals: React.FC<ModalsProps> = ({
             <div className="p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-4">
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="font-bold text-[#fef3c7]">
-                  {tr.ui.levelRangerLabel(levelInfo.level, daily.xp)} · {daily.equippedTitle}
+                  {tr.playerLevelLabel(levelInfo.level, daily.equippedTitle)}
                 </span>
                 <span className="font-mono-tabular text-[#38bdf8]">
                   {levelInfo.currentLevelXp} / {levelInfo.nextLevelXp} XP ({levelInfo.progressPct}%)
@@ -285,12 +319,13 @@ export const Modals: React.FC<ModalsProps> = ({
                 />
               </div>
               <div className="text-[11px] text-[#94a3b8]">
-                {tr.ui.nextUnlockLabel}: <span className="text-[#cbd5e1]">{levelInfo.nextRewardLabel}</span>
+                {tr.nextLevelRewardLabel}:{' '}
+                <span className="text-[#cbd5e1]">{levelInfo.nextRewardLabel}</span>
               </div>
 
               {summary && summary.newUnlocks.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-[#1e293b] text-xs text-[#fbbf24] font-semibold">
-                  {summary.newUnlocks.join(' · ')}
+                  {tr.newUnlocksEarnedLabel}: {summary.newUnlocks.join(' · ')}
                 </div>
               )}
             </div>
@@ -299,17 +334,17 @@ export const Modals: React.FC<ModalsProps> = ({
             <div className="p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-4">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold uppercase tracking-wider text-[#f59e0b]">
-                  {tr.ui.dailyTaskProgressHeader} ({completedTasksCount} / {daily.tasks.length})
+                  {tr.dailyTasksCompletedTitle(completedTasksCount, daily.tasks.length)}
                 </span>
                 <span className="font-mono-tabular text-[11px] text-[#4ade80]">
-                  {daily.allTasksBonusClaimed ? tr.ui.claimedLabel : `${completedTasksCount}/3`}
+                  {daily.allTasksBonusClaimed ? tr.allThreeDoneMsg : tr.completeAllThreeMsg}
                 </span>
               </div>
               <div className="space-y-1.5">
                 {daily.tasks.map((task) => {
                   const prog = daily.taskProgress[task.id] ?? 0;
                   const done = prog >= task.target;
-                  const locTitle = tr.dailyTaskTitles[task.id] ?? task.title;
+                  const locTitle = tr.translateTaskTitle(task.id, task.title);
                   return (
                     <div key={task.id} className="flex items-center justify-between text-xs">
                       <span className={done ? 'text-[#4ade80] font-semibold' : 'text-[#cbd5e1]'}>
@@ -327,12 +362,10 @@ export const Modals: React.FC<ModalsProps> = ({
 
             {/* Re-Engagement Line */}
             <div className="p-3 rounded-lg bg-[#161f2c] border border-[#334155] text-xs text-[#fef3c7] mb-5 flex items-center justify-between gap-2">
-              <span>
-                {tr.ui.nextResetInLabel}: <strong className="text-[#fbbf24] font-mono-tabular">{resetCountdown}</strong>
-              </span>
+              <span>{tr.comeBackTomorrowMsg(resetCountdown, daily.streak)}</span>
               {daily.pendingBonusTicketsTomorrow > 0 && (
                 <span className="font-mono-tabular text-[#4ade80] font-bold shrink-0">
-                  +{daily.pendingBonusTicketsTomorrow} Bonus
+                  {tr.bonusQueuedLabel(daily.pendingBonusTicketsTomorrow)}
                 </span>
               )}
             </div>
@@ -354,8 +387,8 @@ export const Modals: React.FC<ModalsProps> = ({
                 }`}
               >
                 {daily.tickets > 0
-                  ? tr.ui.playAgainBtn(daily.tickets)
-                  : tr.ui.noTicketsRemainingBtn}
+                  ? tr.playAgainBtn(daily.tickets)
+                  : tr.noTicketsBtn(daily.maxDailyTickets)}
               </button>
 
               <button
@@ -363,7 +396,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 onClick={onRefillTicketWithCoins}
                 className="py-3.5 px-4 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer whitespace-nowrap"
               >
-                {tr.ui.addReviewTicketsBtn}
+                {tr.addReviewTicketsBtn}
               </button>
 
               <button
@@ -371,7 +404,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 onClick={onReturnTitle}
                 className="py-3.5 px-5 rounded-lg bg-[#161f2c] hover:bg-[#1e293b] border border-[#334155] text-[#cbd5e1] font-medium text-sm cursor-pointer transition-colors whitespace-nowrap"
               >
-                {tr.ui.titleHubBtn}
+                {tr.titleScreenBtn}
               </button>
             </div>
           </div>
@@ -391,35 +424,56 @@ export const Modals: React.FC<ModalsProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e293b] pb-4 mb-5">
               <div>
                 <h2 id="guide-modal-title" className="text-2xl font-display font-bold text-[#fef3c7]">
-                  {tr.ui.guideModalTitle}
+                  {tr.guideModalTitle}
                 </h2>
                 <p className="text-xs text-[#94a3b8]">
-                  {tr.ui.guideModalSubtitle}
+                  {tr.guideModalSubtitle}
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#0b1016] border border-[#334155]">
-                  {LANGUAGE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.code}
-                      type="button"
-                      onClick={() => onSelectLanguage(opt.code)}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono-tabular font-bold cursor-pointer ${
-                        lang === opt.code
-                          ? 'bg-[#f59e0b] text-[#090d16]'
-                          : 'text-[#cbd5e1] hover:bg-[#1e293b]'
-                      }`}
-                    >
-                      {opt.shortLabel}
-                    </button>
-                  ))}
+                {/* Click-to-Open Language Dropdown in Guide Modal */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setLangDropdownOpen((v) => !v)}
+                    className="px-3 py-1.5 rounded-lg bg-[#0b1016] hover:bg-[#161f2c] border border-[#334155] text-xs font-semibold text-[#fef3c7] flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>🌐</span>
+                    <span className="text-[#fbbf24] font-bold">
+                      {currentLangOpt.shortLabel} · {currentLangOpt.nativeName}
+                    </span>
+                    <span className="text-[10px] text-[#94a3b8]">{langDropdownOpen ? '▴' : '▾'}</span>
+                  </button>
+                  {langDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl bg-[#0b1016] border border-[#334155] p-1 shadow-2xl flex flex-col gap-0.5">
+                      {LANGUAGE_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.code}
+                          type="button"
+                          onClick={() => {
+                            onSelectLanguage(opt.code);
+                            setLangDropdownOpen(false);
+                          }}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold text-left flex items-center justify-between cursor-pointer ${
+                            lang === opt.code
+                              ? 'bg-[#f59e0b] text-[#090d16] font-bold'
+                              : 'text-[#cbd5e1] hover:bg-[#1e293b]'
+                          }`}
+                        >
+                          <span>{opt.nativeName}</span>
+                          <span className="font-mono-tabular text-[10px]">{opt.shortLabel}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
                 <button
                   type="button"
                   onClick={onCloseGuide}
                   className="px-3.5 py-1.5 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-sm font-medium text-[#e2dacb] cursor-pointer"
                 >
-                  {tr.ui.guideCloseBtn}
+                  {tr.closeLabel}
                 </button>
               </div>
             </div>
@@ -427,7 +481,7 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* Hero & Zombie Bestiary with Canonical Concept Art */}
             <div className="mb-6">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#f59e0b] mb-2.5">
-                1. {tr.ui.tabBestiary}
+                {tr.bestiarySectionTitle}
               </h3>
 
               {/* Hero Reference Card: Ranger Rue */}
@@ -440,17 +494,14 @@ export const Modals: React.FC<ModalsProps> = ({
                 <div className="flex-1 text-left">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-0.5">
                     <span className="font-display font-bold text-sm text-[#fbbf24]">
-                      Ranger Rue{' '}
-                      <span className="text-xs font-normal text-[#cbd5e1]">
-                        · {tr.ui.heroSubtitle}
-                      </span>
+                      Ranger Rue
                     </span>
                     <span className="text-[10px] font-mono-tabular text-[#fef3c7] bg-[#161f2c] px-2 py-0.5 rounded border border-[#334155]">
-                      Skill: Lantern Flare [Space]
+                      Lantern Flare [Space]
                     </span>
                   </div>
                   <p className="text-xs text-[#e2dacb] leading-snug mb-1">
-                    {tr.ui.heroDescription}
+                    {tr.tagline}
                   </p>
                 </div>
               </div>
@@ -508,12 +559,11 @@ export const Modals: React.FC<ModalsProps> = ({
                             </span>
                           </div>
                           <p className="text-xs text-[#e2dacb] leading-snug mb-1">
-                            <strong className="text-[#fef3c7]">{tr.ui.traitLabel}:</strong>{' '}
                             {zLoc.specialTrait}
                           </p>
                         </div>
                         <p className="text-[11px] text-[#4ade80] leading-snug">
-                          <strong>{tr.ui.counterLabel}:</strong> {zLoc.tacticalCounter}
+                          {zLoc.tacticalCounter}
                         </p>
                       </div>
                     </div>
@@ -525,7 +575,7 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* State Schema Section */}
             <div className="mb-5">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#f59e0b] mb-2">
-                2. {tr.ui.tabSchema} (build_or_bite_daily_v1)
+                2. State Schema (build_or_bite_daily_v1)
               </h3>
               <pre className="p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b] text-xs font-mono-tabular text-[#cbd5e1] overflow-x-auto">
 {`interface DailyPersistenceState {
@@ -555,13 +605,14 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* Controls Reference */}
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#f59e0b] mb-2">
-                3. {tr.ui.tabHowToRun}
+                {tr.controlsSectionTitle}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-[#0b1016] p-3.5 rounded-lg border border-[#1e293b]">
-                <div><strong className="text-[#fbbf24]">WASD / Arrows / Click:</strong> Move &amp; gather</div>
-                <div><strong className="text-[#fbbf24]">Spacebar:</strong> Cast Fire Lantern Flare (Night only · slow + knockback)</div>
-                <div><strong className="text-[#fbbf24]">Keys 1–6:</strong> Build or choose Upgrade Path A/B</div>
-                <div><strong className="text-[#fbbf24]">Enter / N / P:</strong> Start Night early [N] · Pause [P]</div>
+                <div><strong className="text-[#fbbf24]">WASD / Arrows / Click:</strong> {tr.controlMoveDesc}</div>
+                <div><strong className="text-[#fbbf24]">Spacebar:</strong> {tr.controlFlareDesc}</div>
+                <div><strong className="text-[#fbbf24]">Keys 1–6:</strong> {tr.controlBuildDesc}</div>
+                <div><strong className="text-[#fbbf24]">Enter / N / P:</strong> {tr.controlNightDesc}</div>
+                <div className="sm:col-span-2"><strong className="text-[#fbbf24]">Mouse Wheel / Pinch:</strong> {tr.controlZoomDesc}</div>
               </div>
             </div>
           </div>
