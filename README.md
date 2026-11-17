@@ -2,7 +2,7 @@
 
 **A 3D dark-comedy forest-fort defense game: build by day, survive the night.**
 
-> **Status:** playable web prototype with an initial Reddit Devvit Web integration. The Devvit client/server build compiles; Reddit identity-scoped Redis saves and server-side daily ticket checks are implemented, but the app has not yet been playtested in Reddit or reviewed against event submission rules. It is **not ready for submission yet**.
+> **Status:** playable web prototype with a Reddit Devvit Web integration. Reddit identity-scoped Redis saves, server-side daily ticket checks, and server-calculated XP/coin/task/check-in rewards are implemented. The app has not yet been playtested in Reddit or reviewed against event submission rules, so it is **not ready for submission yet**.
 
 ## Game overview
 
@@ -48,7 +48,7 @@ The intended tone is spooky but funny. The game supports desktop keyboard/mouse 
 
 The current standalone web game stores player progression in browser `localStorage` (including `build_or_bite_daily_v1`). This is local to the browser/site origin, is not an account system, and is not authoritative against client-side tampering. New local profiles start at 0 XP / Level 1; migration preserves progression from older browser saves.
 
-The Devvit client bootstraps from a Redis profile namespaced to Reddit's server-provided user ID and syncs the daily game save back to the server. The server separately counts run starts by Reddit user and UTC date and enforces the three-ticket daily cap; the browser cannot reset that counter or select another user's key. No username/password or external database login is used. Other gameplay rewards and save fields are still submitted by the client, so they are persistent and account-scoped but are not yet fully server-authoritative. Reddit playtesting remains unfinished.
+The Devvit client bootstraps from a Redis profile namespaced to Reddit's server-provided user ID. The server counts run starts per player and UTC date, enforces the three-ticket cap, and calculates XP, coins, daily task rewards, streaks, and check-in rewards. Client profile saves cannot set those progression fields; run rewards are bounded and run/event requests are idempotency-protected. Fort layout and resource-wallet snapshots are still client-submitted save data with basic bounds, not a server-simulated economy. No username/password or external database login is used. Reddit playtesting remains unfinished.
 
 ## Technology
 
@@ -73,7 +73,7 @@ Useful checks:
 
 ```bash
 npm run lint
-npx tsx --test src/game/dailySystem.test.ts src/game/rules.test.ts src/game/i18n.test.ts
+npx tsx --test src/server/playerPolicy.test.ts src/game/dailySystem.test.ts src/game/rules.test.ts src/game/i18n.test.ts
 npm run build
 npm run build:devvit
 ```

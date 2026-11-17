@@ -1322,6 +1322,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // 3. Mutable Simulation & Daily Persistence State
     let dailyState: DailyPersistenceState = loadDailyStateFromStorage();
+    let activeRunId: string | null = null;
+    let serverProgressQueue: Promise<void> = Promise.resolve();
+    let serverCompletionQueue: Promise<void> = Promise.resolve();
     let lastRunSummary: RunCompletionSummary | null = null;
     let nightsSurvivedThisRun = 0;
     const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
@@ -1379,6 +1382,26 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }) {
       if (devTestMode) return;
       const wasLocked = dailyState.dailyProgressionLocked;
+      if (isDevvitRuntime && activeRunId) {
+        const eventId =
+          typeof window.crypto?.randomUUID === 'function'
+            ? window.crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
+        const runId = activeRunId;
+        serverProgressQueue = serverProgressQueue.then(async () => {
+          try {
+            const response = await fetch('/api/progress/event', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ runId, eventId, event }),
+            });
+            if (!response.ok) throw new Error(`Progress endpoint returned ${response.status}`);
+          } catch (error) {
+            console.error('Build or Bite progress sync failed.', error);
+          }
+        });
+      }
       const res = recordTaskProgress(dailyState, event, { isDevTestMode: devTestMode });
       dailyState = res.updatedState;
       saveDailyStateToStorage(dailyState);
@@ -1818,6 +1841,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     function finalizeRunOutcome(outcome: 'victory' | 'defeat') {
+      if (screenState === 'gameover') return;
+      const completedRunId = isDevvitRuntime ? activeRunId : null;
       runOutcome = outcome;
       if (outcome === 'victory') {
         nightsSurvivedThisRun = MAX_DAYS;
@@ -1854,6 +1879,54 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       document.body.dataset.state = 'gameover';
       soundFX.playOutcome(outcome === 'victory');
       syncHud(true);
+
+      if (completedRunId) {
+        activeRunId = null;
+        const completionPayload = {
+          runId: completedRunId,
+          score,
+          victory: outcome === 'victory',
+          nightsSurvived: nightsSurvivedThisRun,
+          daily: dailyState,
+        };
+        serverCompletionQueue = (async () => {
+          await serverProgressQueue;
+          try {
+            const response = await fetch('/api/runs/complete', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(completionPayload),
+            });
+            if (!response.ok) throw new Error(`Run completion endpoint returned ${response.status}`);
+            const result = (await response.json()) as {
+              daily?: DailyPersistenceState;
+              summary?: RunCompletionSummary;
+            };
+            if (!result.daily || !result.summary) throw new Error('Invalid run completion response.');
+            dailyState = result.daily;
+            lastRunSummary = result.summary;
+            saveDailyStateToStorage(dailyState);
+            syncHud(true);
+          } catch (error) {
+            console.error('Build or Bite run rewards could not be synchronized.', error);
+            try {
+              const profileResponse = await fetch('/api/profile', { credentials: 'same-origin' });
+              if (profileResponse.ok) {
+                const profile = (await profileResponse.json()) as { daily?: DailyPersistenceState };
+                if (profile.daily) {
+                  dailyState = profile.daily;
+                  saveDailyStateToStorage(dailyState);
+                }
+              }
+            } catch {
+              // Keep the current in-memory summary until the player can retry by reopening the app.
+            }
+            setBanner('Run rewards could not be verified. Your Reddit save will be checked when you reload.', 5.0);
+            syncHud(true);
+          }
+        })();
+      }
     }
 
     function resetRunState(
@@ -1974,6 +2047,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         resetRunState('playing', false);
         return;
       }
+      await serverCompletionQueue;
 
       const runId =
         typeof window.crypto?.randomUUID === 'function'
@@ -2020,10 +2094,41 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ),
           lastResetDateUTC: result.utcDate ?? dailyState.lastResetDateUTC,
         };
+        activeRunId = runId;
         resetRunState('playing', false, true);
       } catch {
         setBanner('Ticket status could not be verified. Reload the game before trying again.', 5.0);
         syncHud(true);
+      }
+    }
+
+    async function claimServerCheckIn() {
+      try {
+        const response = await fetch('/api/check-in/claim', {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+        const result = (await response.json()) as {
+          claimed?: boolean;
+          daily?: DailyPersistenceState;
+        };
+        if (!response.ok || result.claimed !== true || !result.daily) {
+          setBanner('Daily Check-In is not available yet.', 3.5);
+          return;
+        }
+        dailyState = result.daily;
+        if (lastRunSummary) {
+          lastRunSummary = {
+            ...lastRunSummary,
+            checkInAvailableToClaim: false,
+            checkInClaimedToday: true,
+          };
+        }
+        saveDailyStateToStorage(dailyState);
+        soundFX.playBuild(true);
+        syncHud(true);
+      } catch {
+        setBanner('Daily Check-In could not be verified. Please try again.', 4.0);
       }
     }
 
@@ -2079,6 +2184,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       },
       claimDailyCheckInReward: () => {
+        if (isDevvitRuntime && !devTestMode) {
+          void claimServerCheckIn();
+          return;
+        }
         const res = claimDailyCheckIn(dailyState, Date.now(), { isDevTestMode: devTestMode });
         if (!res.claimed) return;
         dailyState = res.updatedState;
