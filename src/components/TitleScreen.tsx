@@ -20,7 +20,6 @@ interface TitleScreenProps {
   daily: DailyPersistenceState;
   onEquipLantern: (lanternId: string) => void;
   onEquipTitle: (title: string) => void;
-  onRefillTicketWithCoins: () => void;
   lang: LanguageCode;
   onSelectLanguage: (lang: LanguageCode) => void;
 }
@@ -37,7 +36,6 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   daily,
   onEquipLantern,
   onEquipTitle,
-  onRefillTicketWithCoins,
   lang,
   onSelectLanguage,
 }) => {
@@ -229,7 +227,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             }`}
           >
             {devTestMode
-              ? '🧪 DEV TEST RUN (No Ticket)'
+              ? '🧪 DEMO / TEST RUN (No Ticket)'
               : daily.tickets > 0
               ? tr.playRunBtn(daily.tickets)
               : tr.noTicketsBtn(daily.maxDailyTickets)}
@@ -260,24 +258,12 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 e.currentTarget.blur();
                 onStartDevTestRun();
               }}
-              title="DEV QA Mode: Launches an isolated test run without spending tickets, bypassing daily progression lock while preserving Day/Night rules."
+              title="Isolated Demo / Test Mode: Test gathering, building, and combat with 0 tickets spent and zero effect on your saved profile."
               className="px-4 py-3.5 rounded-xl bg-[#422006]/95 hover:bg-[#713f12] border border-[#f59e0b] text-[#fde68a] font-display font-bold text-xs tracking-wide transition-colors whitespace-nowrap shrink-0 shadow-md cursor-pointer"
             >
-              🧪 Test Run (DEV QA · No Ticket)
+              🧪 Demo / Test Run (No Ticket)
             </button>
           )}
-
-          <button
-            type="button"
-            data-testid="btn-add-tickets"
-            onClick={(e) => {
-              e.currentTarget.blur();
-              onRefillTicketWithCoins();
-            }}
-            className="px-3.5 py-3.5 rounded-xl bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer whitespace-nowrap shrink-0 shadow-md"
-          >
-            {tr.addReviewTicketsBtn}
-          </button>
 
           <button
             type="button"

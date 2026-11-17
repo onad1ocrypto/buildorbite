@@ -504,10 +504,10 @@ export function migrateDailyState(
     toolTier,
     streak:
       typeof src.streak === 'number' && src.streak >= 0 ? Math.round(src.streak) : 0,
-    bestStreak:
-      typeof src.bestStreak === 'number' && src.bestStreak >= 0
-        ? Math.max(Math.round(src.bestStreak), typeof src.streak === 'number' ? Math.round(src.streak) : 0)
-        : 0,
+    bestStreak: Math.max(
+      typeof src.bestStreak === 'number' && src.bestStreak >= 0 ? Math.round(src.bestStreak) : 0,
+      typeof src.streak === 'number' && src.streak >= 0 ? Math.round(src.streak) : 0
+    ),
     lastResetDateUTC,
     lastPlayedDateUTC,
     tasks,
@@ -622,8 +622,8 @@ export function checkAndApplyDailyReset(
     updatedStreak = 0;
   }
 
-  // Unused tickets do NOT carry over (cap base refill at 3, plus any +1 tomorrow bonus earned yesterday)
-  const refilledTickets = MAX_DAILY_TICKETS + (migrated.pendingBonusTicketsTomorrow || 0);
+  // Unused tickets do NOT carry over and normal players never exceed MAX_DAILY_TICKETS (3) per UTC day
+  const refilledTickets = MAX_DAILY_TICKETS;
 
   // Restore saved fort & fences to full HP for the new UTC day while keeping all upgrades & wallet intact
   const restoredPads = serializePadsForPersistence(
@@ -636,6 +636,8 @@ export function checkAndApplyDailyReset(
   return {
     ...migrated,
     tickets: refilledTickets,
+    ticketsUsedTodayUTC: 0,
+    maxDailyTickets: MAX_DAILY_TICKETS,
     pendingBonusTicketsTomorrow: 0,
     streak: updatedStreak,
     lastResetDateUTC: todayUTC,
@@ -655,13 +657,29 @@ export function consumeTicketForRun(state: DailyPersistenceState): {
   updatedState: DailyPersistenceState;
   allowed: boolean;
 } {
-  if (state.tickets <= 0) {
-    return { updatedState: state, allowed: false };
+  const prevUsed =
+    typeof state.ticketsUsedTodayUTC === 'number' && Number.isFinite(state.ticketsUsedTodayUTC)
+      ? Math.max(0, Math.min(MAX_DAILY_TICKETS, Math.round(state.ticketsUsedTodayUTC)))
+      : Math.max(0, MAX_DAILY_TICKETS - Math.min(MAX_DAILY_TICKETS, Math.max(0, state.tickets)));
+  const remaining = computeRemainingDailyTickets(prevUsed, state.tickets);
+
+  if (remaining <= 0) {
+    return {
+      updatedState: {
+        ...state,
+        tickets: 0,
+        ticketsUsedTodayUTC: MAX_DAILY_TICKETS,
+      },
+      allowed: false,
+    };
   }
+  const nextUsed = Math.min(MAX_DAILY_TICKETS, prevUsed + 1);
+  const nextTickets = computeRemainingDailyTickets(nextUsed, remaining - 1);
   return {
     updatedState: {
       ...state,
-      tickets: state.tickets - 1,
+      tickets: nextTickets,
+      ticketsUsedTodayUTC: nextUsed,
     },
     allowed: true,
   };
@@ -1148,7 +1166,7 @@ export function loadDevTestFortFromStorage(
   const defaultSnapshot: DevTestFortSnapshot = {
     savedPads: serializePadsForPersistence(restorePadsFromPersistence(fallbackState.savedPads, true)),
     savedFenceSegments: serializeFenceSegmentsForPersistence(
-      restoreFenceSegmentsForPersistence(fallbackState.savedFenceSegments, true)
+      restoreFenceSegmentsFromPersistence(fallbackState.savedFenceSegments, true)
     ),
     savedResources: {
       wood: fallbackState.savedResources?.wood ?? INITIAL_RESOURCES.wood,
@@ -1200,7 +1218,7 @@ export function saveDevTestFortToStorage(
         restorePadsFromPersistence(serializePadsForPersistence(pads), true)
       ),
       savedFenceSegments: serializeFenceSegmentsForPersistence(
-        restoreFenceSegmentsForPersistence(serializeFenceSegmentsForPersistence(fenceSegments), true)
+        restoreFenceSegmentsFromPersistence(serializeFenceSegmentsForPersistence(fenceSegments), true)
       ),
       savedResources: {
         wood: Math.max(0, Math.round(resources.wood)),

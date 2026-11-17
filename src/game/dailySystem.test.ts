@@ -4,18 +4,27 @@ import {
   canShowDevTestControl,
   checkAndApplyDailyReset,
   claimDailyCheckIn,
+  clearDevTestFortFromStorage,
   completeRunProgression,
+  computeRemainingDailyTickets,
   consumeTicketForRun,
   createDefaultDailyState,
   CURRENT_DAILY_SCHEMA_VERSION,
   DAILY_CHECKIN_REWARD,
+  DAILY_STORAGE_KEY,
+  DEV_TEST_FORT_STORAGE_KEY,
   getUTCDateString,
   grantReviewTickets,
   isDevelopmentTestMode,
+  LEGACY_TICKET_BACKUP_KEY,
+  loadDailyStateFromStorage,
+  loadDevTestFortFromStorage,
+  MAX_DAILY_TICKETS,
   shouldConsumeTicketForStart,
   shouldLockDailyProgression,
   migrateDailyState,
   recordTaskProgress,
+  saveDevTestFortToStorage,
   saveFortAndResourcesToDailyState,
 } from './dailySystem';
 import {
@@ -31,24 +40,33 @@ import {
 } from './rules';
 import { ResourceNodeEntity } from './types';
 
-test('developer test mode and UI control require a development build and support both in-app Test Run and ?devTest=1', () => {
+test('demo/test mode is enabled in Dev and Vercel Preview (?devTest=1, ?demo=1, or button) and strictly blocked in Production', () => {
   // UI control visibility
   assert.equal(canShowDevTestControl(true), true);
-  assert.equal(canShowDevTestControl(false), false);
+  assert.equal(canShowDevTestControl(false, 'preview'), true);
+  assert.equal(canShowDevTestControl(false, 'production'), false);
+  assert.equal(canShowDevTestControl(false, ''), false);
+  assert.equal(canShowDevTestControl(true, 'production'), false);
 
-  // URL flag activation in dev build
+  // URL flag activation in dev build and Vercel Preview
   assert.equal(isDevelopmentTestMode(true, '?devTest=1'), true);
+  assert.equal(isDevelopmentTestMode(true, '?demo=1'), true);
+  assert.equal(isDevelopmentTestMode(false, '?demo=1', false, 'preview'), true);
+  assert.equal(isDevelopmentTestMode(false, '?devTest=1', false, 'preview'), true);
   assert.equal(isDevelopmentTestMode(true, '?devTest=0'), false);
   assert.equal(isDevelopmentTestMode(true, ''), false);
 
-  // In-app manual Test Run button activation in dev build (no URL edit required)
+  // In-app manual Demo/Test Run button activation in dev & preview builds
   assert.equal(isDevelopmentTestMode(true, '', true), true);
+  assert.equal(isDevelopmentTestMode(false, '', true, 'preview'), true);
   assert.equal(isDevelopmentTestMode(true, '?devTest=0', true), true);
 
-  // Strictly disabled in production builds even if URL flag or manual trigger is passed
-  assert.equal(isDevelopmentTestMode(false, '?devTest=1', false), false);
-  assert.equal(isDevelopmentTestMode(false, '', true), false);
-  assert.equal(isDevelopmentTestMode(false, '?devTest=1', true), false);
+  // Strictly disabled in production builds even if URL flags or manual trigger are passed
+  assert.equal(isDevelopmentTestMode(false, '?devTest=1', false, 'production'), false);
+  assert.equal(isDevelopmentTestMode(false, '?demo=1', false, 'production'), false);
+  assert.equal(isDevelopmentTestMode(false, '', true, 'production'), false);
+  assert.equal(isDevelopmentTestMode(false, '?devTest=1', true, ''), false);
+  assert.equal(isDevelopmentTestMode(false, '?demo=1', true, ''), false);
 });
 
 test('developer QA mode bypasses only the daily lock and never spends tickets; production rules remain unchanged', () => {
@@ -263,7 +281,7 @@ test('00:00 UTC daily reset refills tickets to 3 without carrying over unused ti
   assert.equal(resetState.lastResetDateUTC, getUTCDateString(day2));
 });
 
-test('completing all 3 daily tasks awards bonus coins, XP, +1 ticket tomorrow, and locks daily progression until 00:00 UTC reset', () => {
+test('completing all 3 daily tasks awards bonus coins & XP, locks daily progression until 00:00 UTC reset, and keeps ticket cap at 3', () => {
   const day1 = Date.UTC(2026, 10, 16, 10, 0, 0);
   const day2 = Date.UTC(2026, 10, 17, 1, 0, 0);
   const state = createDefaultDailyState(day1);
@@ -279,12 +297,13 @@ test('completing all 3 daily tasks awards bonus coins, XP, +1 ticket tomorrow, a
 
   assert.equal(allThreeJustCompleted, true);
   assert.equal(updatedState.allTasksBonusClaimed, true);
-  assert.equal(updatedState.pendingBonusTicketsTomorrow, 1);
+  assert.equal(updatedState.pendingBonusTicketsTomorrow, 0);
   assert.equal(updatedState.dailyProgressionLocked, true);
 
-  // Next UTC day reset grants 3 base + 1 bonus ticket and unlocks daily progression
+  // Next UTC day reset refills strictly to 3 base tickets (no rollover/bonus above 3) and unlocks daily progression
   const nextDayState = checkAndApplyDailyReset(updatedState, day2);
-  assert.equal(nextDayState.tickets, 4);
+  assert.equal(nextDayState.tickets, 3);
+  assert.equal(nextDayState.ticketsUsedTodayUTC, 0);
   assert.equal(nextDayState.pendingBonusTicketsTomorrow, 0);
   assert.equal(nextDayState.dailyProgressionLocked, false);
 });
@@ -341,13 +360,31 @@ test('streak increments +1 per consecutive UTC day played, resets if day missed,
   assert.equal(state.streak, 0);
 });
 
-test('grantReviewTickets adds playtest tickets even when tickets are at 0 or above daily cap', () => {
+test('normal players can never hold or receive more than 3 tickets per UTC day', () => {
   const t0 = Date.UTC(2026, 10, 16, 12, 0, 0);
-  let state = { ...createDefaultDailyState(t0), tickets: 0 };
+  let state = createDefaultDailyState(t0);
+  assert.equal(computeRemainingDailyTickets(0, 99), MAX_DAILY_TICKETS);
+  assert.equal(computeRemainingDailyTickets(2, 99), 1);
+  assert.equal(computeRemainingDailyTickets(3, 5), 0);
+  assert.equal(computeRemainingDailyTickets(5, -3), 0);
+
+  // Consume 1 ticket (ticketsUsedTodayUTC becomes 1, remaining = 2)
+  state = consumeTicketForRun(state).updatedState;
+  assert.equal(state.tickets, 2);
+  assert.equal(state.ticketsUsedTodayUTC, 1);
+
+  // Attempting to grant extra tickets cannot exceed max(0, 3 - ticketsUsedTodayUTC)
   state = grantReviewTickets(state, 10);
-  assert.equal(state.tickets, 10);
+  assert.equal(state.tickets, 2);
+
+  // Consume remaining 2 tickets -> 0 tickets left, ticketsUsedTodayUTC = 3
+  state = consumeTicketForRun(state).updatedState;
+  state = consumeTicketForRun(state).updatedState;
+  assert.equal(state.tickets, 0);
+  assert.equal(state.ticketsUsedTodayUTC, 3);
+
   state = grantReviewTickets(state, 15);
-  assert.equal(state.tickets, 25);
+  assert.equal(state.tickets, 0);
 });
 
 test('Persistent fort and resource wallet remain intact across boss victory, daily task lock, and 00:00 UTC reset', () => {
@@ -499,11 +536,12 @@ test('Daily Check-In reward unlocks after first completed run of UTC day, claims
   assert.equal(nextDayClaim.claimed, true);
 });
 
-test('migrateDailyState safely upgrades v1 or partially corrupted localStorage data to Schema v2 without losing progression', () => {
+test('migrateDailyState safely upgrades legacy saves to Schema v3, normalizes >3 tickets idempotently without losing progression', () => {
   const nowMs = Date.UTC(2026, 10, 16, 12, 0, 0);
   const legacyV1Raw = {
     lastResetDateUTC: '2026-11-16',
-    tickets: 2,
+    tickets: 25,
+    pendingBonusTicketsTomorrow: 2,
     xp: 760,
     level: 3,
     coins: 140,
@@ -513,20 +551,126 @@ test('migrateDailyState safely upgrades v1 or partially corrupted localStorage d
     unlockedTitles: ['Rookie Ranger', 'Tri-Night Survivor'],
     equippedLanternId: 'emerald_bog',
     equippedTitle: 'Tri-Night Survivor',
-    // Missing schemaVersion, savedPads, savedFenceSegments, savedResources, checkIn fields
   };
 
-  const migrated = migrateDailyState(legacyV1Raw, nowMs);
-  assert.equal(migrated.schemaVersion, CURRENT_DAILY_SCHEMA_VERSION);
-  assert.equal(migrated.xp, 760);
-  assert.equal(migrated.level, 3);
-  assert.equal(migrated.toolTier, 2); // Level 3+ unlocks Master Hammer toolTier 2
-  assert.equal(migrated.coins, 140);
-  assert.equal(migrated.streak, 4);
-  assert.equal(migrated.equippedLanternId, 'emerald_bog');
-  assert.equal(migrated.equippedTitle, 'Tri-Night Survivor');
-  assert.equal(migrated.savedPads.length, 8);
-  assert.equal(migrated.savedFenceSegments.length, 12);
-  assert.equal(migrated.savedResources.wood > 0, true);
+  // First migration: 25 legacy tickets normalized conservatively (<= 2 since activity today counted >=1 used)
+  const migrated1 = migrateDailyState(legacyV1Raw, nowMs);
+  assert.equal(migrated1.schemaVersion, CURRENT_DAILY_SCHEMA_VERSION);
+  assert.equal(migrated1.tickets <= 2, true);
+  assert.equal(migrated1.ticketsUsedTodayUTC, 1);
+  assert.equal(migrated1.tickets, 2);
+  assert.equal(migrated1.pendingBonusTicketsTomorrow, 0);
+  assert.equal(migrated1.xp, 760);
+  assert.equal(migrated1.level, 3);
+  assert.equal(migrated1.toolTier, 2);
+  assert.equal(migrated1.coins, 140);
+  assert.equal(migrated1.streak, 4);
+  assert.equal(migrated1.equippedLanternId, 'emerald_bog');
+  assert.equal(migrated1.equippedTitle, 'Tri-Night Survivor');
+  assert.equal(migrated1.savedPads.length, 8);
+  assert.equal(migrated1.savedFenceSegments.length, 12);
+  assert.equal(migrated1.savedResources.wood > 0, true);
+
+  // Second migration (idempotency check): repeated runs produce the exact same state
+  const migrated2 = migrateDailyState(migrated1, nowMs);
+  assert.deepEqual(migrated2, migrated1);
+
+  // Legacy inflated save with NO activity today normalizes to 3 tickets
+  const freshInflated = migrateDailyState(
+    {
+      lastResetDateUTC: '2026-11-16',
+      tickets: 25,
+      xp: 120,
+      coins: 90,
+    },
+    nowMs
+  );
+  assert.equal(freshInflated.tickets, 3);
+  assert.equal(freshInflated.ticketsUsedTodayUTC, 0);
 });
+
+test('loadDailyStateFromStorage backs up legacy >3 ticket saves once and clearDevTestFortFromStorage isolates production data', () => {
+  const store = new Map<string, string>();
+  const prevWindow = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {
+    localStorage: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, v);
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+    },
+  };
+
+  try {
+    const nowMs = Date.UTC(2026, 10, 16, 15, 0, 0);
+    const legacySave = {
+      schemaVersion: 2,
+      lastResetDateUTC: '2026-11-16',
+      lastPlayedDateUTC: '2026-11-16',
+      tickets: 25,
+      xp: 450,
+      coins: 310,
+      streak: 2,
+    };
+    store.set(DAILY_STORAGE_KEY, JSON.stringify(legacySave));
+    store.set(DEV_TEST_FORT_STORAGE_KEY, JSON.stringify({ savedResources: { wood: 999, stone: 999, food: 999 } }));
+
+    const loaded = loadDailyStateFromStorage(nowMs);
+    assert.equal(loaded.tickets, 2);
+    assert.equal(loaded.xp, 450);
+    assert.equal(loaded.coins, 310);
+
+    // Non-destructive traceable backup exists with original legacy payload
+    const backupRaw = store.get(LEGACY_TICKET_BACKUP_KEY);
+    assert.ok(backupRaw, 'Expected traceable legacy ticket backup');
+    const backup = JSON.parse(backupRaw!);
+    assert.equal(backup.legacyState.tickets, 25);
+
+    // Demo fort save & load round-trip works and stays isolated from production save
+    const baseState = createDefaultDailyState(nowMs);
+    const seededDemo = loadDevTestFortFromStorage(baseState);
+    assert.equal(seededDemo.savedFenceSegments.length, 12);
+    const demoPads = restorePadsFromPersistence(seededDemo.savedPads, true);
+    const demoFences = restoreFenceSegmentsFromPersistence(seededDemo.savedFenceSegments, true);
+    saveDevTestFortToStorage(demoPads, demoFences, { wood: 123, stone: 45, food: 67 });
+    const reloadedDemo = loadDevTestFortFromStorage(baseState);
+    assert.deepEqual(reloadedDemo.savedResources, { wood: 123, stone: 45, food: 67 });
+
+    // Clearing Demo/Test data removes ONLY dev test storage and leaves production save intact
+    clearDevTestFortFromStorage();
+    assert.equal(store.get(DEV_TEST_FORT_STORAGE_KEY), undefined);
+    assert.ok(store.get(DAILY_STORAGE_KEY));
+  } finally {
+    if (prevWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = prevWindow;
+    }
+  }
+});
+
+test('UTC reset checks strict 00:00 UTC boundary rather than local calendar day', () => {
+  const beforeUtcMidnight = Date.UTC(2026, 10, 16, 23, 55, 0);
+  const afterUtcMidnight = Date.UTC(2026, 10, 17, 0, 5, 0);
+
+  let state = createDefaultDailyState(beforeUtcMidnight);
+  state = consumeTicketForRun(state).updatedState;
+  state = consumeTicketForRun(state).updatedState;
+  assert.equal(state.tickets, 1);
+
+  // 4 minutes later at 23:59 UTC: still same UTC day -> no reset
+  const stillSameDay = checkAndApplyDailyReset(state, Date.UTC(2026, 10, 16, 23, 59, 0));
+  assert.equal(stillSameDay.tickets, 1);
+  assert.equal(stillSameDay.lastResetDateUTC, '2026-11-16');
+
+  // At 00:05 UTC next day: strict UTC reset refills to 3 and clears ticketsUsedTodayUTC
+  const nextUtcDay = checkAndApplyDailyReset(stillSameDay, afterUtcMidnight);
+  assert.equal(nextUtcDay.tickets, 3);
+  assert.equal(nextUtcDay.ticketsUsedTodayUTC, 0);
+  assert.equal(nextUtcDay.lastResetDateUTC, '2026-11-17');
+});
+
 

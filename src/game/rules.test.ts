@@ -24,6 +24,7 @@ import {
   gatherFromResourceNode,
   getConstructionDuration,
   getEffectiveBuildingStats,
+  getNextDayWeather,
   getWaveComposition,
   HERO_CONSTRUCTION_DURATION,
   INITIAL_RESOURCES,
@@ -35,7 +36,11 @@ import {
   startFenceConstructionTask,
   startPadConstructionTask,
   stepConstructionTask,
+  stepDayWeather,
+  stepResourceNodeGrowth,
   upgradeStructureOnPad,
+  WEATHER_CATALOG,
+  WEATHER_CYCLE_DURATION,
   ZOMBIE_CATALOG,
 } from './rules';
 import { ResourceNodeEntity, ZombieEntity } from './types';
@@ -717,4 +722,128 @@ test('Persistent fort serialization and restoration preserves built structures a
   assert.equal(restoredSeg.level, 1);
   assert.equal(restoredSeg.hp, restoredSeg.maxHp);
 });
+
+test('Dynamic daytime weather system transitions deterministically and modifies visibility, resource regrowth, and gather yields', () => {
+  // 1. Weather progression cycles deterministically during Day and pauses during Night
+  assert.equal(WEATHER_CATALOG.clear.visibilityMultiplier, 1);
+  assert.equal(WEATHER_CATALOG.rain.resourceGrowthMultiplier > 1, true);
+  assert.equal(WEATHER_CATALOG.fog.resourceGrowthMultiplier < 1, true);
+  assert.equal(WEATHER_CATALOG.fog.visibilityMultiplier < WEATHER_CATALOG.rain.visibilityMultiplier, true);
+
+  const nightStep = stepDayWeather({
+    phase: 'night',
+    currentWeather: 'rain',
+    weatherTimer: 10,
+    dt: 15,
+    dayNumber: 1,
+    cycleCount: 0,
+  });
+  assert.equal(nightStep.changed, true);
+  assert.equal(nightStep.weather, 'clear');
+  assert.equal(nightStep.weatherTimer, WEATHER_CYCLE_DURATION);
+
+  const dayStep = stepDayWeather({
+    phase: 'day',
+    currentWeather: 'clear',
+    weatherTimer: 1.0,
+    dt: 2.0,
+    dayNumber: 1,
+    cycleCount: 0,
+  });
+  assert.equal(dayStep.changed, true);
+  assert.notEqual(dayStep.weather, 'clear');
+  assert.equal(dayStep.weatherTimer, WEATHER_CYCLE_DURATION);
+  assert.equal(dayStep.cycleCount, 1);
+  assert.notEqual(getNextDayWeather('rain', 2, 1), 'rain');
+
+  // 2. Resource node regrowth rates scale with weather (rain faster, fog slower, night paused)
+  const depletedWood: ResourceNodeEntity = {
+    id: 1,
+    type: 'wood',
+    name: 'Timber Pile',
+    x: -14,
+    z: -8,
+    amount: 0,
+    maxAmount: 30,
+    hitFlashTimer: 0,
+    respawnTimer: 5.0,
+  };
+  const rainGrowth = stepResourceNodeGrowth({
+    node: depletedWood,
+    dt: 2.0,
+    phase: 'day',
+    weather: 'rain',
+    regrowAccumulator: 0,
+  });
+  const fogGrowth = stepResourceNodeGrowth({
+    node: { ...depletedWood },
+    dt: 2.0,
+    phase: 'day',
+    weather: 'fog',
+    regrowAccumulator: 0,
+  });
+  const nightGrowth = stepResourceNodeGrowth({
+    node: { ...depletedWood },
+    dt: 2.0,
+    phase: 'night',
+    weather: 'rain',
+    regrowAccumulator: 0,
+  });
+  assert.equal(rainGrowth.updatedNode.respawnTimer < fogGrowth.updatedNode.respawnTimer, true);
+  assert.equal(nightGrowth.updatedNode.respawnTimer, 5.0);
+
+  // 3. Gather yield bonuses apply per weather (+20% wood/food in rain, +25% stone in fog)
+  const woodNode: ResourceNodeEntity = {
+    id: 2,
+    type: 'wood',
+    name: 'Timber Pile',
+    x: -14,
+    z: -8,
+    amount: 30,
+    maxAmount: 30,
+    hitFlashTimer: 0,
+    respawnTimer: 0,
+  };
+  const stoneNode: ResourceNodeEntity = {
+    id: 3,
+    type: 'stone',
+    name: 'Quarry Rock',
+    x: 14,
+    z: -8,
+    amount: 30,
+    maxAmount: 30,
+    hitFlashTimer: 0,
+    respawnTimer: 0,
+  };
+  const wallet = { wood: 100, stone: 100, food: 100, tickets: 3 };
+
+  const woodClear = gatherFromResourceNode({
+    node: { ...woodNode },
+    resources: wallet,
+    phase: 'day',
+    weather: 'clear',
+  });
+  const woodRain = gatherFromResourceNode({
+    node: { ...woodNode },
+    resources: wallet,
+    phase: 'day',
+    weather: 'rain',
+  });
+  assert.equal(woodRain.yieldAmount > woodClear.yieldAmount, true);
+
+  const stoneClear = gatherFromResourceNode({
+    node: { ...stoneNode },
+    resources: wallet,
+    phase: 'day',
+    weather: 'clear',
+  });
+  const stoneFog = gatherFromResourceNode({
+    node: { ...stoneNode },
+    resources: wallet,
+    phase: 'day',
+    weather: 'fog',
+  });
+  assert.equal(stoneFog.yieldAmount > stoneClear.yieldAmount, true);
+});
+
 

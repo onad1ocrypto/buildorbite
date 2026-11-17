@@ -1235,7 +1235,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     tasksLabel: 'Tasks',
     rewardLabel: (coins, xp) => `Reward: +${coins} Coins · +${xp} XP`,
     allTasksBonusTitle: 'All 3 Tasks Bonus:',
-    allTasksBonusDesc: '+100 Coins, +120 XP & +1 Ticket Tomorrow',
+    allTasksBonusDesc: '+100 Coins & +120 XP (Fort Saved)',
     claimedLabel: 'Claimed!',
     levelRangerLabel: (level, xp) => `Level ${level} Ranger (${xp} Total XP)`,
     nextUnlockLabel: 'Next Unlock:',
@@ -1247,7 +1247,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dailyTicketsHeader: (t, m) => `Daily Tickets: ${t} / ${m}`,
     controlsFooter:
       'WASD / Arrows / Click Move · Click Pad to Choose Building · Mouse Wheel / Pinch Zoom · Space Fire Flare (Night) · N Start Night',
-    schemaFooter: 'UTC Daily Reset · 5 Languages Supported · LocalStorage v1',
+    schemaFooter: 'UTC Daily Reset · 5 Languages Supported · LocalStorage v3',
 
     fortHpLabel: 'FORT HP',
     dayBuildLabel: 'DAY · BUILD',
@@ -1255,7 +1255,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dayShort: (d, m) => `D${d}/${m}`,
     zombiesLeftShort: (c) => `${c} Left`,
     ticketLabel: 'TICKET',
-    ticketTooltip: 'Click to add +10 free review tickets',
+    ticketTooltip: 'Daily tickets reset to 3 at 00:00 UTC (unused tickets do not roll over)',
     fenceLabel: 'FENCE',
     scoreLabel: 'SCORE',
     dailyTasksChecklistTitle: 'Daily Tasks Checklist',
@@ -1338,8 +1338,8 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     nextLevelRewardLabel: 'Next Level Reward:',
     newUnlocksEarnedLabel: 'New Unlocks Earned:',
     dailyTasksCompletedTitle: (d, t) => `Daily Tasks Completed (${d} / ${t})`,
-    allThreeDoneMsg: 'All 3 Done! (+1 Ticket Tomorrow)',
-    completeAllThreeMsg: 'Complete all 3 for +1 Ticket Tomorrow',
+    allThreeDoneMsg: 'All 3 Done! (Fort Saved)',
+    completeAllThreeMsg: 'Complete all 3 for Bonus Coins & XP',
     comeBackTomorrowMsg: (countdown, streak) =>
       `Come back tomorrow at 00:00 UTC (in ${countdown}) for 3 fresh tickets and to grow your ${streak}-day streak!`,
     bonusQueuedLabel: (c) => `+${c} Bonus Queued`,
@@ -1351,7 +1351,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlMoveDesc: 'WASD / Arrows / Click or Touch-Drag on ground to move & gather resources',
     controlFlareDesc: 'Spacebar / Flare Button: Cast Fire Lantern Flare (Night only)',
     controlBuildDesc: 'Click any Build Pad (P1–P8) to open the 6-structure choice menu',
-    controlNightDesc: 'Enter / N: Start Night early (+1 Bonus Ticket) · P: Pause',
+    controlNightDesc: 'Enter / N: Start Night early · P: Pause',
     controlZoomDesc: 'Mouse Scroll Wheel (PC) or Two-Finger Pinch (Mobile) to Zoom In / Out',
 
     newPlayerBuildHint: '✨ Ready to Build! Click P1 or a Build Pad to place your first defense',
@@ -1385,7 +1385,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     buildDurationLabel: (sec) => `⏱ ${sec}s`,
     salvagedStructureBanner: (id, w, s) => `Salvaged Pad P${id} (+${w} Wood, +${s} Stone refunded)`,
     weatherLabel: (w) =>
-      w === 'rain' ? '🌧️ Rain' : w === 'fog' ? '🌫️ Dense Fog' : '☀️ Clear',
+      w === 'rain' ? '🌧️ Rain' : w === 'fog' ? '☁️ Dense Fog' : '☀️ Clear',
     weatherModifierShort: (w) =>
       w === 'rain'
         ? '+65% Regrow · 82% Vis'
@@ -1402,7 +1402,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       w === 'rain'
         ? '🌧️ Weather Shift: Woodland Rain! Resource regrowth +65% & +20% Wood/Food yield (Visibility 82%).'
         : w === 'fog'
-        ? '🌫️ Weather Shift: Dense Swamp Fog! Visibility 65% & slower regrowth (-35%), +25% Stone yield.'
+        ? '☁️ Weather Shift: Dense Swamp Fog! Visibility 65% & slower regrowth (-35%), +25% Stone yield.'
         : '☀️ Weather Shift: Sunlit Clearing! Full visibility & normal resource growth restored.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.en[id] ?? fb,
@@ -1430,7 +1430,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     tasksLabel: 'Misi',
     rewardLabel: (coins, xp) => `Hadiah: +${coins} Koin · +${xp} XP`,
     allTasksBonusTitle: 'Bonus Selesai 3 Misi:',
-    allTasksBonusDesc: '+100 Koin, +120 XP & +1 Tiket Besok',
+    allTasksBonusDesc: '+100 Koin & +120 XP (Benteng Tersimpan)',
     claimedLabel: 'Diklaim!',
     levelRangerLabel: (level, xp) => `Ranger Level ${level} (${xp} Total XP)`,
     nextUnlockLabel: 'Hadiah Berikutnya:',
@@ -1442,7 +1442,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dailyTicketsHeader: (t, m) => `Tiket Harian: ${t} / ${m}`,
     controlsFooter:
       'WASD / Klik / Geser Layar: Gerak · Klik Titik Build: Pilih Bangunan · Scroll Mouse / Cubit Layar: Zoom · Space: Flare (Malam)',
-    schemaFooter: 'Reset Harian UTC · 5 Bahasa Tersedia · LocalStorage v1',
+    schemaFooter: 'Reset Harian UTC · 5 Bahasa Tersedia · LocalStorage v3',
 
     fortHpLabel: 'HP BENTENG',
     dayBuildLabel: 'SIANG · BANGUN',
@@ -1450,7 +1450,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dayShort: (d, m) => `H${d}/${m}`,
     zombiesLeftShort: (c) => `${c} Tersisa`,
     ticketLabel: 'TIKET',
-    ticketTooltip: 'Klik untuk tambah +10 tiket review gratis',
+    ticketTooltip: 'Tiket harian direset ke 3 pada 00:00 UTC (sisa tiket tidak diakumulasi)',
     fenceLabel: 'PAGAR',
     scoreLabel: 'SKOR',
     dailyTasksChecklistTitle: 'Daftar Misi Harian',
@@ -1533,8 +1533,8 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     nextLevelRewardLabel: 'Hadiah Level Berikutnya:',
     newUnlocksEarnedLabel: 'Item Baru Terbuka:',
     dailyTasksCompletedTitle: (d, t) => `Misi Harian Selesai (${d} / ${t})`,
-    allThreeDoneMsg: '3 Misi Selesai! (+1 Tiket Besok)',
-    completeAllThreeMsg: 'Selesaikan ke-3 misi untuk +1 Tiket Besok',
+    allThreeDoneMsg: '3 Misi Selesai! (Benteng Tersimpan)',
+    completeAllThreeMsg: 'Selesaikan ke-3 misi untuk Bonus Koin & XP',
     comeBackTomorrowMsg: (countdown, streak) =>
       `Kembali lagi besok pukul 00:00 UTC (dalam ${countdown}) untuk 3 tiket baru dan lanjutkan streak ${streak} harimu!`,
     bonusQueuedLabel: (c) => `+${c} Bonus Besok`,
@@ -1546,7 +1546,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlMoveDesc: 'WASD / Panah / Klik atau Geser Jari di tanah untuk bergerak & mengambil resource',
     controlFlareDesc: 'Spasi / Tombol Flare: Ledakan Api Lentera (Khusus Malam)',
     controlBuildDesc: 'Klik Titik Build (P1–P8) untuk membuka menu pilihan 6 bangunan',
-    controlNightDesc: 'Enter / N: Mulai Malam lebih awal (+1 Tiket) · P: Jeda',
+    controlNightDesc: 'Enter / N: Mulai Malam lebih awal · P: Jeda',
     controlZoomDesc: 'Scroll Mouse (PC) atau Cubit 2 Jari (HP) untuk Zoom In / Out',
 
     newPlayerBuildHint: '✨ Siap Membangun! Klik P1 atau Titik Build untuk memasang pertahanan pertamamu',
@@ -1580,7 +1580,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     buildDurationLabel: (sec) => `⏱ ${sec}d`,
     salvagedStructureBanner: (id, w, s) => `Pad P${id} dibongkar (+${w} Kayu, +${s} Batu kembali)`,
     weatherLabel: (w) =>
-      w === 'rain' ? '🌧️ Hujan' : w === 'fog' ? '🌫️ Kabut Tebal' : '☀️ Cerah',
+      w === 'rain' ? '🌧️ Hujan' : w === 'fog' ? '☁️ Kabut Tebal' : '☀️ Cerah',
     weatherModifierShort: (w) =>
       w === 'rain'
         ? '+65% Tumbuh · 82% Vis'
@@ -1597,7 +1597,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       w === 'rain'
         ? '🌧️ Cuaca Berubah: Hujan Hutan! Pertumbuhan resource +65% & hasil Kayu/Makanan +20% (Jarak pandang 82%).'
         : w === 'fog'
-        ? '🌫️ Cuaca Berubah: Kabut Rawa Tebal! Jarak pandang 65% & pertumbuhan resource -35% (+25% hasil Batu).'
+        ? '☁️ Cuaca Berubah: Kabut Rawa Tebal! Jarak pandang 65% & pertumbuhan resource -35% (+25% hasil Batu).'
         : '☀️ Cuaca Berubah: Langit Cerah! Jarak pandang penuh & pertumbuhan resource kembali normal.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.id[id] ?? fb,
@@ -1624,7 +1624,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     tasksLabel: '每日任务',
     rewardLabel: (coins, xp) => `奖励: +${coins} 金币 · +${xp} 经验`,
     allTasksBonusTitle: '完成全部 3 项任务奖励:',
-    allTasksBonusDesc: '+100 金币, +120 经验 & 明日 +1 门票',
+    allTasksBonusDesc: '+100 金币 & +120 经验 (堡垒已保存)',
     claimedLabel: '已领取!',
     levelRangerLabel: (level, xp) => `${level} 级游侠 (累计 ${xp} 经验)`,
     nextUnlockLabel: '下级解锁:',
@@ -1636,7 +1636,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dailyTicketsHeader: (t, m) => `每日门票: ${t} / ${m}`,
     controlsFooter:
       'WASD / 点击或拖动地面移动 · 点击建造点选择建筑 · 鼠标滚轮 / 双指缩放 · 空格 提灯闪光(夜晚)',
-    schemaFooter: 'UTC 每日重置 · 支持 5 种语言 · LocalStorage v1',
+    schemaFooter: 'UTC 每日重置 · 支持 5 种语言 · LocalStorage v3',
 
     fortHpLabel: '堡垒生命',
     dayBuildLabel: '白天 · 建造',
@@ -1644,7 +1644,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dayShort: (d, m) => `第${d}/${m}天`,
     zombiesLeftShort: (c) => `剩余 ${c}`,
     ticketLabel: '门票',
-    ticketTooltip: '点击免费增加 +10 测试门票',
+    ticketTooltip: '每日 00:00 UTC 重置为 3 张门票（未用门票不结转）',
     fenceLabel: '围栏',
     scoreLabel: '得分',
     dailyTasksChecklistTitle: '每日任务清单',
@@ -1724,8 +1724,8 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     nextLevelRewardLabel: '下一级奖励:',
     newUnlocksEarnedLabel: '新解锁内容:',
     dailyTasksCompletedTitle: (d, t) => `每日任务完成度 (${d} / ${t})`,
-    allThreeDoneMsg: '全部完成！(明日 +1 门票)',
-    completeAllThreeMsg: '完成全部 3 项任务明日可获 +1 门票',
+    allThreeDoneMsg: '全部完成！(堡垒已保存)',
+    completeAllThreeMsg: '完成全部 3 项任务可获额外金币与经验',
     comeBackTomorrowMsg: (countdown, streak) =>
       `明日 00:00 UTC (${countdown}后) 回来领取 3 张新门票，延续你的 ${streak} 天连胜！`,
     bonusQueuedLabel: (c) => `明日额外 +${c}`,
@@ -1737,7 +1737,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlMoveDesc: 'WASD / 方向键 / 点击或触屏拖动地面：移动并采集资源',
     controlFlareDesc: '空格键 / 闪光按钮：释放提灯烈焰闪光（仅限夜晚）',
     controlBuildDesc: '点击任意建造点 (P1–P8)：打开 6 种防御建筑选择菜单',
-    controlNightDesc: 'Enter / N：提前入夜 (+1 奖励门票) · P：暂停',
+    controlNightDesc: 'Enter / N：提前入夜 · P：暂停',
     controlZoomDesc: '鼠标滚轮 (电脑) 或 双指捏合 (手机)：缩放镜头',
 
     newPlayerBuildHint: '✨ 资源充足！点击 P1 或建造点放置你的第一座防御建筑',
@@ -1770,7 +1770,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     buildDurationLabel: (sec) => `⏱ ${sec}秒`,
     salvagedStructureBanner: (id, w, s) => `已拆除 P${id} 建筑 (返还 +${w} 木材, +${s} 石料)`,
     weatherLabel: (w) =>
-      w === 'rain' ? '🌧️ 阵雨' : w === 'fog' ? '🌫️ 浓雾' : '☀️ 晴朗',
+      w === 'rain' ? '🌧️ 阵雨' : w === 'fog' ? '☁️ 浓雾' : '☀️ 晴朗',
     weatherModifierShort: (w) =>
       w === 'rain'
         ? '+65% 生长 · 82% 视野'
@@ -1787,7 +1787,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       w === 'rain'
         ? '🌧️ 天气变化：森林阵雨！资源再生速度 +65%，木材/食物采集 +20%（视野 82%）。'
         : w === 'fog'
-        ? '🌫️ 天气变化：沼泽浓雾！视野降至 65%，资源再生减缓 -35%（石料采集 +25%）。'
+        ? '☁️ 天气变化：沼泽浓雾！视野降至 65%，资源再生减缓 -35%（石料采集 +25%）。'
         : '☀️ 天气变化：阳光放晴！视野与资源生长速度恢复正常。',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.zh[id] ?? fb,
@@ -1815,7 +1815,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     tasksLabel: 'Nhiệm vụ',
     rewardLabel: (coins, xp) => `Thưởng: +${coins} Xu · +${xp} XP`,
     allTasksBonusTitle: 'Thưởng Hoàn Thành Cả 3:',
-    allTasksBonusDesc: '+100 Xu, +120 XP & +1 Vé Ngày Mai',
+    allTasksBonusDesc: '+100 Xu & +120 XP (Đã Lưu Pháo Đài)',
     claimedLabel: 'Đã nhận!',
     levelRangerLabel: (level, xp) => `Kiểm Lâm Cấp ${level} (${xp} Tổng XP)`,
     nextUnlockLabel: 'Mở khóa tiếp:',
@@ -1827,7 +1827,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dailyTicketsHeader: (t, m) => `Vé Hàng Ngày: ${t} / ${m}`,
     controlsFooter:
       'WASD / Chạm & Kéo: Di chuyển · Chạm Bệ Xây (P1–P8): Chọn công trình · Lăn chuột / Chụm 2 ngón: Thu phóng · Space: Pháo sáng',
-    schemaFooter: 'Làm Mới 00:00 UTC · Hỗ Trợ 5 Ngôn Ngữ · LocalStorage v1',
+    schemaFooter: 'Làm Mới 00:00 UTC · Hỗ Trợ 5 Ngôn Ngữ · LocalStorage v3',
 
     fortHpLabel: 'MÁU PHÁO ĐÀI',
     dayBuildLabel: 'NGÀY · XÂY DỰNG',
@@ -1835,7 +1835,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dayShort: (d, m) => `N${d}/${m}`,
     zombiesLeftShort: (c) => `Còn ${c}`,
     ticketLabel: 'VÉ',
-    ticketTooltip: 'Nhấn để nhận miễn phí +10 vé chơi thử',
+    ticketTooltip: 'Làm mới tối đa 3 vé lúc 00:00 UTC (vé dư không cộng dồn)',
     fenceLabel: 'HÀNG RÀO',
     scoreLabel: 'ĐIỂM',
     dailyTasksChecklistTitle: 'Danh Sách Nhiệm Vụ Ngày',
@@ -1915,8 +1915,8 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     nextLevelRewardLabel: 'Phần Thưởng Cấp Tiếp:',
     newUnlocksEarnedLabel: 'Mở Khóa Mới:',
     dailyTasksCompletedTitle: (d, t) => `Nhiệm Vụ Ngày Đã Xong (${d} / ${t})`,
-    allThreeDoneMsg: 'Hoàn thành cả 3! (+1 Vé Ngày Mai)',
-    completeAllThreeMsg: 'Hoàn thành cả 3 để nhận +1 Vé Ngày Mai',
+    allThreeDoneMsg: 'Hoàn thành cả 3! (Đã Lưu Pháo Đài)',
+    completeAllThreeMsg: 'Hoàn thành cả 3 để nhận Xu & XP thưởng',
     comeBackTomorrowMsg: (countdown, streak) =>
       `Quay lại vào 00:00 UTC ngày mai (sau ${countdown}) để nhận 3 vé mới và nối dài chuỗi ${streak} ngày!`,
     bonusQueuedLabel: (c) => `+${c} Vé Thưởng Chờ`,
@@ -1928,7 +1928,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlMoveDesc: 'WASD / Mũi tên / Chạm & Kéo trên mặt đất để di chuyển & thu thập tài nguyên',
     controlFlareDesc: 'Phím Space / Nút Pháo Sáng: Bắn Pháo Sáng Lửa (Chỉ ban đêm)',
     controlBuildDesc: 'Nhấn vào Bệ Xây (P1–P8) để mở menu chọn 6 công trình phòng thủ',
-    controlNightDesc: 'Enter / N: Bắt đầu Đêm sớm (+1 Vé thưởng) · P: Tạm dừng',
+    controlNightDesc: 'Enter / N: Bắt đầu Đêm sớm · P: Tạm dừng',
     controlZoomDesc: 'Con lăn chuột (PC) hoặc Chụm 2 ngón tay (Điện thoại) để Phóng to / Thu nhỏ',
 
     newPlayerBuildHint: '✨ Đủ tài nguyên! Nhấn P1 hoặc Bệ Xây để đặt công trình phòng thủ đầu tiên',
@@ -1961,7 +1961,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     buildDurationLabel: (sec) => `⏱ ${sec}s`,
     salvagedStructureBanner: (id, w, s) => `Đã tháo dỡ Bệ P${id} (+${w} Gỗ, +${s} Đá hoàn lại)`,
     weatherLabel: (w) =>
-      w === 'rain' ? '🌧️ Mưa Rừng' : w === 'fog' ? '🌫️ Sương Mù' : '☀️ Nắng Đẹp',
+      w === 'rain' ? '🌧️ Mưa Rừng' : w === 'fog' ? '☁️ Sương Mù' : '☀️ Nắng Đẹp',
     weatherModifierShort: (w) =>
       w === 'rain'
         ? '+65% Mọc · 82% Tầm nhìn'
@@ -1978,7 +1978,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       w === 'rain'
         ? '🌧️ Thời Tiết Đổi: Mưa Rừng! Tốc độ mọc tài nguyên +65% & Gỗ/Thức ăn +20% (Tầm nhìn 82%).'
         : w === 'fog'
-        ? '🌫️ Thời Tiết Đổi: Sương Mù Đầm Lầy! Tầm nhìn 65% & mọc tài nguyên -35% (+25% Đá).'
+        ? '☁️ Thời Tiết Đổi: Sương Mù Đầm Lầy! Tầm nhìn 65% & mọc tài nguyên -35% (+25% Đá).'
         : '☀️ Thời Tiết Đổi: Trời Quang Mây Tạnh! Tầm nhìn và tốc độ mọc tài nguyên trở lại bình thường.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.vi[id] ?? fb,
@@ -2006,7 +2006,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     tasksLabel: 'Задания',
     rewardLabel: (coins, xp) => `Награда: +${coins} монет · +${xp} опыта`,
     allTasksBonusTitle: 'Бонус за все 3 задания:',
-    allTasksBonusDesc: '+100 монет, +120 опыта и +1 билет завтра',
+    allTasksBonusDesc: '+100 монет и +120 опыта (Форт сохранен)',
     claimedLabel: 'Получено!',
     levelRangerLabel: (level, xp) => `Рейнджер ${level} ур. (${xp} опыта)`,
     nextUnlockLabel: 'След. награда:',
@@ -2018,7 +2018,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dailyTicketsHeader: (t, m) => `Билеты: ${t} / ${m}`,
     controlsFooter:
       'WASD / Клик и ведение: Движение · Клик по площадке (P1–P8): Выбор постройки · Колесо мыши / Щипок: Зум · Пробел: Вспышка',
-    schemaFooter: 'Сброс в 00:00 UTC · 5 языков · LocalStorage v1',
+    schemaFooter: 'Сброс в 00:00 UTC · 5 языков · LocalStorage v3',
 
     fortHpLabel: 'ОЗ ФОРТА',
     dayBuildLabel: 'ДЕНЬ · СТРОЙКА',
@@ -2026,7 +2026,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dayShort: (d, m) => `Д${d}/${m}`,
     zombiesLeftShort: (c) => `Ост: ${c}`,
     ticketLabel: 'БИЛЕТЫ',
-    ticketTooltip: 'Нажмите, чтобы получить +10 бесплатных билетов',
+    ticketTooltip: 'Билеты сбрасываются до 3 в 00:00 UTC (неиспользованные не переносятся)',
     fenceLabel: 'ЗАБОР',
     scoreLabel: 'СЧЕТ',
     dailyTasksChecklistTitle: 'Ежедневные задания',
@@ -2106,8 +2106,8 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     nextLevelRewardLabel: 'Награда след. уровня:',
     newUnlocksEarnedLabel: 'Новые награды:',
     dailyTasksCompletedTitle: (d, t) => `Ежедневные задания (${d} / ${t})`,
-    allThreeDoneMsg: 'Все 3 выполнены! (+1 билет завтра)',
-    completeAllThreeMsg: 'Выполните все 3 для +1 билета завтра',
+    allThreeDoneMsg: 'Все 3 выполнены! (Форт сохранен)',
+    completeAllThreeMsg: 'Выполните все 3 для бонуса монет и опыта',
     comeBackTomorrowMsg: (countdown, streak) =>
       `Возвращайтесь завтра в 00:00 UTC (через ${countdown}), чтобы получить 3 новых билета и продлить серию (${streak} дн.)!`,
     bonusQueuedLabel: (c) => `+${c} бонус завтра`,
@@ -2119,7 +2119,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlMoveDesc: 'WASD / Стрелки / Клик или ведение пальцем по земле — движение и сбор ресурсов',
     controlFlareDesc: 'Пробел / Кнопка Вспышки — огненная вспышка фонаря (только ночью)',
     controlBuildDesc: 'Нажмите на любую площадку (P1–P8), чтобы открыть меню выбора из 6 построек',
-    controlNightDesc: 'Enter / N — начать ночь досрочно (+1 билет) · P — пауза',
+    controlNightDesc: 'Enter / N — начать ночь досрочно · P — пауза',
     controlZoomDesc: 'Колесо мыши (ПК) или щипок двумя пальцами (телефон) — приближение и отдаление',
 
     newPlayerBuildHint: '✨ Ресурсов достаточно! Нажмите P1 или площадку, чтобы построить первую защиту',
@@ -2152,7 +2152,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     buildDurationLabel: (sec) => `⏱ ${sec}с`,
     salvagedStructureBanner: (id, w, s) => `Разобрана площадка P${id} (+${w} дерева, +${s} камня)`,
     weatherLabel: (w) =>
-      w === 'rain' ? '🌧️ Дождь' : w === 'fog' ? '🌫️ Туман' : '☀️ Ясно',
+      w === 'rain' ? '🌧️ Дождь' : w === 'fog' ? '☁️ Туман' : '☀️ Ясно',
     weatherModifierShort: (w) =>
       w === 'rain'
         ? '+65% Рост · 82% Обзор'
@@ -2169,7 +2169,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       w === 'rain'
         ? '🌧️ Смена погоды: Лесной дождь! Рост ресурсов +65% и сбор дерева/еды +20% (Видимость 82%).'
         : w === 'fog'
-        ? '🌫️ Смена погоды: Густой туман! Видимость 65% и рост ресурсов -35% (+25% камня).'
+        ? '☁️ Смена погоды: Густой туман! Видимость 65% и рост ресурсов -35% (+25% камня).'
         : '☀️ Смена погоды: Ясное небо! Полная видимость и обычный рост ресурсов.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.ru[id] ?? fb,

@@ -24,7 +24,6 @@ interface ModalsProps {
   onReturnTitle: () => void;
   onOpenGuide: () => void;
   onFinishRunEarly: () => void;
-  onRefillTicketWithCoins: () => void;
 }
 
 export const Modals: React.FC<ModalsProps> = ({
@@ -43,7 +42,6 @@ export const Modals: React.FC<ModalsProps> = ({
   onReturnTitle,
   onOpenGuide,
   onFinishRunEarly,
-  onRefillTicketWithCoins,
 }) => {
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
 
@@ -210,7 +208,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   onClick={onStartDevTestRun}
                   className="w-full py-2 px-4 rounded-lg bg-[#581c87] hover:bg-[#6b21a8] border border-[#c084fc] text-white font-semibold text-xs cursor-pointer transition-colors"
                 >
-                  🧪 Test Run (DEV QA · No Ticket · Bypass Daily Lock)
+                  🧪 Demo / Test Run (No Ticket · Isolated Sandbox)
                 </button>
               )}
               <button
@@ -220,25 +218,18 @@ export const Modals: React.FC<ModalsProps> = ({
               >
                 {tr.howToRunBtn}
               </button>
-              <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"
-                  disabled={daily.tickets <= 0}
+                  disabled={daily.tickets <= 0 && !devTestMode}
                   onClick={onRestart}
                   className={`py-2 px-2 rounded-lg border text-xs font-medium transition-colors ${
-                    daily.tickets > 0
+                    daily.tickets > 0 || devTestMode
                       ? 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#cbd5e1] cursor-pointer'
                       : 'bg-[#090d14] border-[#1e293b] text-[#475569] cursor-not-allowed'
                   }`}
                 >
                   {tr.restartBtn}
-                </button>
-                <button
-                  type="button"
-                  onClick={onRefillTicketWithCoins}
-                  className="py-2 px-2 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer transition-colors"
-                >
-                  {tr.addReviewTicketsBtn}
                 </button>
                 <button
                   type="button"
@@ -491,7 +482,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 }`}
               >
                 {devTestMode
-                  ? '🧪 DEV TEST RUN (No Ticket)'
+                  ? '🧪 DEMO / TEST RUN (No Ticket)'
                   : daily.tickets > 0
                   ? tr.playAgainBtn(daily.tickets)
                   : tr.noTicketsBtn(daily.maxDailyTickets)}
@@ -507,7 +498,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   }}
                   className="py-3 px-4 rounded-lg bg-[#581c87] hover:bg-[#6b21a8] border border-[#c084fc] text-white font-display font-bold text-xs sm:text-sm cursor-pointer whitespace-nowrap"
                 >
-                  🧪 Test Run (DEV QA · No Ticket)
+                  🧪 Demo / Test Run (No Ticket)
                 </button>
               )}
 
@@ -521,14 +512,6 @@ export const Modals: React.FC<ModalsProps> = ({
                 className="py-3 px-4 rounded-lg bg-[#14532d] hover:bg-[#166534] border border-[#4ade80] text-[#fef3c7] font-display font-bold text-xs sm:text-sm cursor-pointer whitespace-nowrap"
               >
                 {tr.freePlayBtn}
-              </button>
-
-              <button
-                type="button"
-                onClick={onRefillTicketWithCoins}
-                className="py-3 px-3.5 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs cursor-pointer whitespace-nowrap"
-              >
-                {tr.addReviewTicketsBtn}
               </button>
 
               <button
@@ -707,14 +690,15 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* State Schema Section */}
             <div className="mb-5">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#f59e0b] mb-2">
-                2. State Schema (build_or_bite_daily_v1 · Schema v2)
+                2. State Schema (build_or_bite_daily_v1 · Schema v3)
               </h3>
               <pre className="p-3.5 rounded-lg bg-[#0b1016] border border-[#1e293b] text-xs font-mono-tabular text-[#cbd5e1] overflow-x-auto">
 {`interface DailyPersistenceState {
-  schemaVersion: 2;                 // Migrates cleanly from v1 without losing progression
-  tickets: number;                  // Refills to 3 at 00:00 UTC (unused do NOT carry over)
-  maxDailyTickets: number;          // 3
-  pendingBonusTicketsTomorrow: number; // +1 earned when completing all 3 daily tasks
+  schemaVersion: 3;                 // Migrates cleanly from v1/v2 with idempotent ticket cap
+  tickets: number;                  // max(0, 3 - ticketsUsedTodayUTC); resets to 3 at 00:00 UTC
+  ticketsUsedTodayUTC: number;      // Authoritative count of standard tickets spent today (0..3)
+  maxDailyTickets: 3;               // Unused tickets do NOT roll over
+  pendingBonusTicketsTomorrow: 0;   // Disabled to keep normal players strictly capped at 3/day
   coins: number;                    // Earned from tasks, runs, check-in, level-ups & milestones
   xp: number;                       // Cumulative player XP
   level: number;                    // Unlocks Lantern colors, titles & Tool Tier 2 at Lv 3+

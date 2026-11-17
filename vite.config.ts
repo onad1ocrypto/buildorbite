@@ -5,7 +5,11 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const vercelEnv = process.env.VERCEL_ENV || process.env.VITE_VERCEL_ENV || '';
   return {
+    define: {
+      'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(vercelEnv),
+    },
     plugins: [
       react(),
       tailwindcss(),

@@ -70,11 +70,12 @@ import {
   ZOMBIE_CATALOG,
 } from '../game/rules';
 import {
+  canShowDevTestControl,
   checkAndApplyDailyReset,
   claimDailyCheckIn,
+  clearDevTestFortFromStorage,
   completeRunProgression,
   consumeTicketForRun,
-  grantReviewTickets,
   isDevelopmentTestMode,
   LANTERN_COSMETICS,
   loadDailyStateFromStorage,
@@ -110,6 +111,7 @@ import {
 export interface GameControllerApi {
   startGame: () => void;
   startDevTestRun: () => void;
+  clearDemoData: () => void;
   startFreePlay: () => void;
   restartGame: () => void;
   returnToTitle: () => void;
@@ -118,7 +120,6 @@ export interface GameControllerApi {
   claimDailyCheckInReward: () => void;
   equipLantern: (lanternId: string) => void;
   equipTitle: (title: string) => void;
-  refillTicketWithCoins: () => void;
   selectPad: (padId: number | null) => void;
   selectFence: (fenceId: number | null) => void;
   buildNextFence: () => void;
@@ -1324,9 +1325,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let lastRunSummary: RunCompletionSummary | null = null;
     let nightsSurvivedThisRun = 0;
     let isFreePlay = false;
-    // Development-only QA switch: activated via the visible in-app Test Run button in AI Studio Preview
-    // or by appending ?devTest=1 to the URL in dev mode. Production builds can never activate this bypass.
-    let devTestMode = isDevelopmentTestMode(import.meta.env.DEV, window.location.search, false);
+    const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
+    // Demo / Dev Test switch: activated only in AI Studio Preview / Dev or Vercel Preview
+    // via the visible Demo/Test Run button or ?devTest=1 / ?demo=1. Production never enables this.
+    let devTestMode = isDevelopmentTestMode(
+      import.meta.env.DEV,
+      window.location.search,
+      false,
+      vercelEnv
+    );
 
     function isDailyProgressionLockedForGameplay(): boolean {
       return shouldLockDailyProgression(dailyState.dailyProgressionLocked, devTestMode);
@@ -1723,8 +1730,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         document.body.dataset.heroAnim = heroAnimState;
       }
       if (earlyBonus && !isFreePlay && !devTestMode) {
-        resources = { ...resources, tickets: resources.tickets + 1 };
-        addCallout('+1 Early Night Ticket!', rueX, 2.2, rueZ, '#fbbf24', 1.8);
+        addCallout('Early Nightfall!', rueX, 2.2, rueZ, '#fbbf24', 1.4);
       }
       pendingWaveQueue = getWaveComposition(dayNumber);
       totalWaveZombies = pendingWaveQueue.length;
@@ -1866,7 +1872,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       devTestMode = isDevelopmentTestMode(
         import.meta.env.DEV,
         window.location.search,
-        requestDevTest
+        requestDevTest,
+        vercelEnv
       );
 
       if (targetScreen === 'playing') {
@@ -1960,7 +1967,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       const tr = TRANSLATIONS[langRef.current];
       if (devTestMode) {
-        setBanner('DEV TEST MODE: daily lock bypassed; tickets not spent.', 5.0);
+        setBanner(
+          'DEMO / TEST MODE: Isolated sandbox — no tickets spent, production save untouched.',
+          5.0
+        );
       } else if (isFreePlay) {
         setBanner(tr.freePlayLockedBanner, 4.5);
       } else if (isDailyProgressionLockedForGameplay()) {
@@ -1983,8 +1993,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        if (!import.meta.env.DEV) return;
+        if (!canShowDevTestControl(import.meta.env.DEV, vercelEnv)) return;
         resetRunState('playing', false, true);
+      },
+      clearDemoData: () => {
+        clearDevTestFortFromStorage();
+        if (devTestMode) {
+          resetRunState(screenState === 'playing' ? 'playing' : 'title', false, screenState === 'playing');
+          setBanner('Demo sandbox data cleared and reset cleanly.', 3.0);
+          syncHud(true);
+        }
       },
       startFreePlay: () => {
         if (document.activeElement instanceof HTMLElement) {
@@ -2046,17 +2064,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (!dailyState.unlockedTitles.includes(title)) return;
         dailyState = { ...dailyState, equippedTitle: title };
         saveDailyStateToStorage(dailyState);
-        syncHud(true);
-      },
-      refillTicketWithCoins: () => {
-        dailyState = grantReviewTickets(dailyState, 10);
-        resources = { ...resources, tickets: dailyState.tickets };
-        saveDailyStateToStorage(dailyState);
-        const tr = TRANSLATIONS[langRef.current];
-        setBanner(tr.addedReviewTicketsBanner(dailyState.tickets), 2.6);
-        if (screenState === 'playing') {
-          addCallout('+10 Tickets!', rueX, 2.3, rueZ, '#fbbf24', 1.4);
-        }
         syncHud(true);
       },
       selectPad: (padId) => {

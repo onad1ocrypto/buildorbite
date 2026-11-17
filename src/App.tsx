@@ -31,7 +31,8 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [lang, setLang] = useState<LanguageCode>(() => loadLanguageFromStorage());
-  const showDevTestControl = canShowDevTestControl(import.meta.env.DEV);
+  const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
+  const showDevTestControl = canShowDevTestControl(import.meta.env.DEV, vercelEnv);
 
   const handleSelectLanguage = (nextLang: LanguageCode) => {
     setLang(nextLang);
@@ -85,7 +86,7 @@ export default function App() {
       pendingConstruction: null,
       isDevTestMode:
         typeof window !== 'undefined' &&
-        isDevelopmentTestMode(import.meta.env.DEV, window.location.search),
+        isDevelopmentTestMode(import.meta.env.DEV, window.location.search, false, vercelEnv),
       daily: initialDaily,
       lastRunSummary: null,
       isFreePlay: false,
@@ -116,13 +117,29 @@ export default function App() {
       className="relative w-screen h-screen overflow-hidden bg-[#0b1016] select-none"
       data-lang={lang}
     >
-      {hud.isDevTestMode && (
+      {hud.isDevTestMode && hud.screen === 'title' && (
         <div
           data-testid="dev-test-active-banner"
-          className="fixed top-13 left-3 z-[60] px-3 py-1 rounded-full bg-[#581c87]/95 border border-[#c084fc] text-[10px] font-bold tracking-wide text-white shadow-lg pointer-events-none"
-          title="Development-only: daily task locks are bypassed and tickets are not spent."
+          className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[25] flex flex-wrap items-center gap-2 px-3 py-1 rounded-lg bg-[#581c87]/95 border border-[#c084fc] text-[10px] font-bold tracking-wide text-white shadow-lg pointer-events-auto"
+          title="Demo / Test Mode: Isolated sandbox — no tickets spent, production save untouched."
         >
-          🧪 DEV TEST · NO TICKETS SPENT · DAILY LOCK BYPASSED
+          <span>🧪 DEMO / TEST MODE · NO TICKETS SPENT · PRODUCTION SAVE ISOLATED</span>
+          <button
+            type="button"
+            data-testid="btn-reset-demo-data"
+            onClick={() => controllerRef.current?.clearDemoData()}
+            className="px-1.5 py-0.5 rounded bg-[#3b0764] hover:bg-[#4c1d95] border border-[#d8b4fe]/60 text-[9px] font-semibold cursor-pointer"
+          >
+            Reset Demo Data
+          </button>
+          <button
+            type="button"
+            data-testid="btn-exit-demo-mode"
+            onClick={() => controllerRef.current?.returnToTitle()}
+            className="px-1.5 py-0.5 rounded bg-[#0f172a]/90 hover:bg-[#1e293b] border border-[#cbd5e1]/50 text-[9px] font-semibold cursor-pointer"
+          >
+            Exit Demo
+          </button>
         </div>
       )}
 
@@ -143,9 +160,6 @@ export default function App() {
           daily={hud.daily}
           onEquipLantern={(id) => controllerRef.current?.equipLantern(id)}
           onEquipTitle={(t) => controllerRef.current?.equipTitle(t)}
-          onRefillTicketWithCoins={() =>
-            controllerRef.current?.refillTicketWithCoins()
-          }
           lang={lang}
           onSelectLanguage={handleSelectLanguage}
         />
@@ -176,9 +190,10 @@ export default function App() {
         onOpenGuide={() => setShowGuide(true)}
         onToggleDock={() => controllerRef.current?.toggleDock()}
         onAdjustZoom={(delta) => controllerRef.current?.adjustZoom(delta)}
-        onRefillTicketWithCoins={() => controllerRef.current?.refillTicketWithCoins()}
         onStartFreePlay={() => controllerRef.current?.startFreePlay()}
         onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
+        onResetDemoData={() => controllerRef.current?.clearDemoData()}
+        onExitDemoMode={() => controllerRef.current?.returnToTitle()}
       />
 
       {/* Pause, Unified End Screen Result Card, and Schema/Guide Modals */}
@@ -198,9 +213,6 @@ export default function App() {
         onReturnTitle={() => controllerRef.current?.returnToTitle()}
         onOpenGuide={() => setShowGuide(true)}
         onFinishRunEarly={() => controllerRef.current?.finishRunEarly()}
-        onRefillTicketWithCoins={() =>
-          controllerRef.current?.refillTicketWithCoins()
-        }
       />
     </main>
   );

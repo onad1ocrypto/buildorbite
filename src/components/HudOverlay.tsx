@@ -37,9 +37,10 @@ interface HudOverlayProps {
   onOpenGuide: () => void;
   onToggleDock: () => void;
   onAdjustZoom?: (delta: number) => void;
-  onRefillTicketWithCoins?: () => void;
   onStartFreePlay?: () => void;
   onClaimDailyCheckIn?: () => void;
+  onResetDemoData?: () => void;
+  onExitDemoMode?: () => void;
 }
 
 const BUILDING_LIST: BuildingType[] = [
@@ -70,9 +71,10 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onTogglePause,
   onOpenGuide,
   onToggleDock,
-  onRefillTicketWithCoins,
   onStartFreePlay,
   onClaimDailyCheckIn,
+  onResetDemoData,
+  onExitDemoMode,
 }) => {
   const [showTasksPopover, setShowTasksPopover] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
@@ -361,16 +363,10 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               <span className="text-[9px] opacity-80">{showTasksPopover ? '▴' : '▾'}</span>
             </button>
 
-            {/* Compact Ticket Refill Badge */}
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={(e) => {
-                e.currentTarget.blur();
-                onRefillTicketWithCoins?.();
-              }}
+            {/* Read-Only Daily Ticket Counter (Strict 3/3 UTC Cap) */}
+            <div
               title={tr.ticketTooltip}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg hover:bg-[#1e293b] border border-transparent hover:border-[#334155] cursor-pointer transition-colors"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg"
             >
               <span className="text-[9px] font-bold uppercase text-[#94a3b8]">
                 {tr.ticketLabel}
@@ -379,9 +375,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 className="text-xs font-mono-tabular font-extrabold text-[#fbbf24]"
                 data-testid="hud-tickets"
               >
-                {hud.daily.tickets}+
+                {hud.daily.tickets}/{hud.daily.maxDailyTickets}
               </span>
-            </button>
+            </div>
 
             {/* Compact Fence & Score */}
             <div className="hidden md:flex items-center gap-2 text-xs font-mono-tabular">
@@ -836,8 +832,41 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       </div>
 
-      {/* SLIM TOP-CENTER NOTIFICATION / BOSS BARON BLIGHT BANNER */}
-      <div className="w-full flex flex-col items-center pointer-events-none mt-1 mb-auto">
+      {/* SLIM TOP-CENTER NOTIFICATION / DEMO BANNER / BOSS BARON BLIGHT BANNER */}
+      <div className="w-full flex flex-col items-center gap-1 pointer-events-none mt-1 mb-auto">
+        {hud.isDevTestMode && (
+          <div
+            data-testid="dev-test-active-banner"
+            className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-lg bg-[#581c87]/95 border border-[#c084fc] text-[10px] font-bold tracking-wide text-white shadow-lg"
+            title="Demo / Test Mode: Isolated sandbox — no tickets spent, production save untouched."
+          >
+            <span>🧪 DEMO / TEST MODE · NO TICKETS SPENT · PRODUCTION SAVE ISOLATED</span>
+            <button
+              type="button"
+              tabIndex={-1}
+              data-testid="btn-reset-demo-data"
+              onClick={(e) => {
+                e.currentTarget.blur();
+                onResetDemoData?.();
+              }}
+              className="px-1.5 py-0.5 rounded bg-[#3b0764] hover:bg-[#4c1d95] border border-[#d8b4fe]/60 text-[9px] font-semibold cursor-pointer"
+            >
+              Reset Demo Data
+            </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              data-testid="btn-exit-demo-mode"
+              onClick={(e) => {
+                e.currentTarget.blur();
+                onExitDemoMode?.();
+              }}
+              className="px-1.5 py-0.5 rounded bg-[#0f172a]/90 hover:bg-[#1e293b] border border-[#cbd5e1]/50 text-[9px] font-semibold cursor-pointer"
+            >
+              Exit Demo
+            </button>
+          </div>
+        )}
         {hud.bossActive && (
           <div
             className="mb-1 px-3 py-1 rounded-xl border border-[#eab308] text-left max-w-md flex items-center gap-2.5"
