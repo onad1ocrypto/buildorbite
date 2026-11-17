@@ -28,6 +28,7 @@ import { BuildingType, HudSnapshot } from './game/types';
 
 export default function App() {
   const controllerRef = useRef<GameControllerApi | null>(null);
+  const autoStartRequestedRef = useRef(false);
   const [muted, setMuted] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [lang, setLang] = useState<LanguageCode>(() => loadLanguageFromStorage());
@@ -42,7 +43,8 @@ export default function App() {
   const [hud, setHud] = useState<HudSnapshot>(() => {
     const autostart =
       typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('autostart') === '1';
+      (new URLSearchParams(window.location.search).get('autostart') === '1' ||
+        document.body.dataset.autostart === '1');
     const initialDaily = loadDailyStateFromStorage();
     return {
       screen: autostart ? 'playing' : 'title',
@@ -105,6 +107,29 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [showGuide]);
+
+  useEffect(() => {
+    const shouldStartDevvitRun =
+      document.documentElement.dataset.devvitRuntime === 'true' &&
+      (new URLSearchParams(window.location.search).get('autostart') === '1' ||
+        document.body.dataset.autostart === '1');
+    if (!shouldStartDevvitRun) return;
+
+    let timeoutId = 0;
+    let attempts = 0;
+    const startWhenReady = () => {
+      if (autoStartRequestedRef.current) return;
+      if (controllerRef.current) {
+        autoStartRequestedRef.current = true;
+        controllerRef.current.startGame();
+        return;
+      }
+      attempts += 1;
+      if (attempts < 120) timeoutId = window.setTimeout(startWhenReady, 50);
+    };
+    startWhenReady();
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const handleToggleMute = () => {
     const nextMuted = soundFX.toggleMute();

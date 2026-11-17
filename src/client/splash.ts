@@ -8,6 +8,6 @@ const hint = document.querySelector<HTMLParagraphElement>('#play-hint');
 
 playButton?.addEventListener('click', (event) => {
   // Expanded mode must be requested directly from a trusted user gesture.
-  requestExpandedMode(event, 'game');
+  requestExpandedMode(event, 'run');
   if (hint) hint.textContent = 'Loading the game…';
 });

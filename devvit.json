@@ -11,6 +11,10 @@
       "game": {
         "entry": "game.html",
         "height": "tall"
+      },
+      "run": {
+        "entry": "run.html",
+        "height": "tall"
       }
     }
   },
