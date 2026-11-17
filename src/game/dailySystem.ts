@@ -983,6 +983,22 @@ export function completeRunProgression(
 export const REVIEW_GRANT_TICKETS = 25;
 
 /**
+ * Enables the QA bypass only in development builds with an explicit URL switch.
+ * A production build can never activate it, even if the query parameter is present.
+ */
+export function isDevelopmentTestMode(isDevBuild: boolean, search: string): boolean {
+  return isDevBuild && new URLSearchParams(search).get('devTest') === '1';
+}
+
+export function shouldLockDailyProgression(dailyProgressionLocked: boolean, devTestMode: boolean): boolean {
+  return dailyProgressionLocked && !devTestMode;
+}
+
+export function shouldConsumeTicketForStart(isFreePlay: boolean, devTestMode: boolean): boolean {
+  return !isFreePlay && !devTestMode;
+}
+
+/**
  * Grants free playtest/review tickets on demand without capping at MAX_DAILY_TICKETS.
  */
 export function grantReviewTickets(

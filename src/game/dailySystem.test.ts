@@ -10,6 +10,9 @@ import {
   DAILY_CHECKIN_REWARD,
   getUTCDateString,
   grantReviewTickets,
+  isDevelopmentTestMode,
+  shouldConsumeTicketForStart,
+  shouldLockDailyProgression,
   migrateDailyState,
   recordTaskProgress,
   saveFortAndResourcesToDailyState,
@@ -23,6 +26,22 @@ import {
   restorePadsFromPersistence,
   upgradeStructureOnPad,
 } from './rules';
+
+test('developer test mode requires both a development build and the explicit devTest query flag', () => {
+  assert.equal(isDevelopmentTestMode(true, '?devTest=1'), true);
+  assert.equal(isDevelopmentTestMode(true, '?devTest=0'), false);
+  assert.equal(isDevelopmentTestMode(true, ''), false);
+  assert.equal(isDevelopmentTestMode(false, '?devTest=1'), false);
+});
+
+test('developer QA mode bypasses only the daily lock and never spends tickets; production rules remain unchanged', () => {
+  assert.equal(shouldLockDailyProgression(true, false), true);
+  assert.equal(shouldLockDailyProgression(true, true), false);
+  assert.equal(shouldLockDailyProgression(false, true), false);
+  assert.equal(shouldConsumeTicketForStart(false, false), true);
+  assert.equal(shouldConsumeTicketForStart(false, true), false);
+  assert.equal(shouldConsumeTicketForStart(true, true), false);
+});
 
 test('daily state initializes with 3 tickets and 3 daily tasks for UTC date', () => {
   const t0 = Date.UTC(2026, 10, 16, 12, 0, 0);

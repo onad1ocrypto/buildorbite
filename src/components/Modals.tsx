@@ -10,6 +10,7 @@ import { HudSnapshot, ZombieArchetype } from '../game/types';
 
 interface ModalsProps {
   hud: HudSnapshot;
+  devTestMode: boolean;
   lang: LanguageCode;
   onSelectLanguage: (lang: LanguageCode) => void;
   showGuide: boolean;
@@ -26,6 +27,7 @@ interface ModalsProps {
 
 export const Modals: React.FC<ModalsProps> = ({
   hud,
+  devTestMode,
   lang,
   onSelectLanguage,
   showGuide,
@@ -463,18 +465,20 @@ export const Modals: React.FC<ModalsProps> = ({
               <button
                 type="button"
                 data-start="true"
-                disabled={daily.tickets <= 0}
+                disabled={daily.tickets <= 0 && !devTestMode}
                 onClick={(e) => {
                   e.currentTarget.blur();
                   onRestart();
                 }}
                 className={`flex-1 py-3 px-4 rounded-lg font-display font-bold text-sm sm:text-base transition-colors whitespace-nowrap ${
-                  daily.tickets > 0
+                  daily.tickets > 0 || devTestMode
                     ? 'bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] cursor-pointer'
                     : 'bg-[#1e293b] text-[#64748b] cursor-not-allowed'
                 }`}
               >
-                {daily.tickets > 0
+                {devTestMode
+                  ? '🧪 DEV TEST RUN (No Ticket)'
+                  : daily.tickets > 0
                   ? tr.playAgainBtn(daily.tickets)
                   : tr.noTicketsBtn(daily.maxDailyTickets)}
               </button>

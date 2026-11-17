@@ -4,7 +4,7 @@ import { HudOverlay } from './components/HudOverlay';
 import { Modals } from './components/Modals';
 import { TitleScreen } from './components/TitleScreen';
 import { soundFX } from './game/audio';
-import { loadDailyStateFromStorage } from './game/dailySystem';
+import { isDevelopmentTestMode, loadDailyStateFromStorage } from './game/dailySystem';
 import {
   LanguageCode,
   loadLanguageFromStorage,
@@ -75,6 +75,9 @@ export default function App() {
       dockCollapsed: false,
       heroAnimState: 'idle',
       pendingConstruction: null,
+      isDevTestMode:
+        typeof window !== 'undefined' &&
+        isDevelopmentTestMode(import.meta.env.DEV, window.location.search),
       daily: initialDaily,
       lastRunSummary: null,
       isFreePlay: false,
@@ -105,6 +108,15 @@ export default function App() {
       className="relative w-screen h-screen overflow-hidden bg-[#0b1016] select-none"
       data-lang={lang}
     >
+      {hud.isDevTestMode && (
+        <div
+          className="fixed top-2 left-1/2 -translate-x-1/2 z-[60] px-3 py-1 rounded-full bg-[#581c87]/95 border border-[#c084fc] text-[10px] font-bold tracking-wide text-white shadow-lg pointer-events-none"
+          title="Development-only: daily task locks are bypassed and tickets are not spent."
+        >
+          🧪 DEV TEST · NO TICKETS SPENT · DAILY LOCK BYPASSED
+        </div>
+      )}
+
       {/* 3D WebGL Viewport */}
       <GameCanvas onHudUpdate={setHud} controllerRef={controllerRef} lang={lang} />
 
@@ -113,6 +125,7 @@ export default function App() {
         <TitleScreen
           onStartGame={() => controllerRef.current?.startGame()}
           onStartFreePlay={() => controllerRef.current?.startFreePlay()}
+          devTestMode={hud.isDevTestMode}
           onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
           onOpenGuide={() => setShowGuide(true)}
           bestScore={hud.bestScore}
@@ -159,6 +172,7 @@ export default function App() {
       {/* Pause, Unified End Screen Result Card, and Schema/Guide Modals */}
       <Modals
         hud={hud}
+        devTestMode={hud.isDevTestMode}
         lang={lang}
         onSelectLanguage={handleSelectLanguage}
         showGuide={showGuide}

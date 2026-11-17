@@ -11,6 +11,7 @@ import { DailyPersistenceState } from '../game/types';
 interface TitleScreenProps {
   onStartGame: () => void;
   onStartFreePlay: () => void;
+  devTestMode: boolean;
   onClaimDailyCheckIn: () => void;
   onOpenGuide: () => void;
   bestScore: number;
@@ -25,6 +26,7 @@ interface TitleScreenProps {
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
   onStartFreePlay,
+  devTestMode,
   onClaimDailyCheckIn,
   onOpenGuide,
   bestScore,
@@ -211,18 +213,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <button
             type="button"
             data-start="true"
-            disabled={daily.tickets <= 0}
+            disabled={daily.tickets <= 0 && !devTestMode}
             onClick={(e) => {
               e.currentTarget.blur();
               onStartGame();
             }}
             className={`px-7 py-3.5 rounded-xl font-display font-bold text-base tracking-wide transition-transform duration-150 whitespace-nowrap shrink-0 ${
-              daily.tickets > 0
+              daily.tickets > 0 || devTestMode
                 ? 'bg-[#f59e0b] hover:bg-[#fbbf24] active:translate-y-0.5 text-[#090d16] shadow-[0_6px_22px_rgba(245,158,11,0.4)] cursor-pointer'
                 : 'bg-[#1e293b] text-[#64748b] cursor-not-allowed'
             }`}
           >
-            {daily.tickets > 0
+            {devTestMode
+              ? '🧪 DEV TEST RUN (No Ticket)'
+              : daily.tickets > 0
               ? tr.playRunBtn(daily.tickets)
               : tr.noTicketsBtn(daily.maxDailyTickets)}
           </button>

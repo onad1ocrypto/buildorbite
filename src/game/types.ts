@@ -374,6 +374,7 @@ export interface HudSnapshot {
   dockCollapsed: boolean;
   heroAnimState: HeroAnimState;
   pendingConstruction: PendingConstructionTask | null;
+  isDevTestMode: boolean;
   isFreePlay: boolean;
   daily: DailyPersistenceState;
   lastRunSummary: RunCompletionSummary | null;
