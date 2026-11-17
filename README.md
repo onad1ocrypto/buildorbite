@@ -2,7 +2,7 @@
 
 **A 3D dark-comedy forest-fort defense game: build by day, survive the night.**
 
-> **Status:** playable web prototype with a Reddit Devvit Web integration. Reddit identity-scoped Redis saves, server-side daily ticket checks, and server-calculated XP/coin/task/check-in rewards are implemented. The app has not yet been playtested in Reddit or reviewed against event submission rules, so it is **not ready for submission yet**.
+> **Status:** playable web prototype with a Reddit Devvit Web integration. Reddit identity-scoped Redis saves, server-side daily ticket checks, and server-calculated XP/coin/task/check-in rewards are implemented, with fort layout/resource snapshots still client-submitted. A Devvit playtest install succeeded in `r/playthisgames` (v0.0.1.1); that install does not create a playable post automatically. A moderator-only subreddit menu action is included to create the game post. App Directory review/publication and event-rule checks are not confirmed, so this is **not yet confirmed ready for submission**.
 
 ## Game overview
 
@@ -78,7 +78,7 @@ npm run build
 npm run build:devvit
 ```
 
-`npm run build:devvit` builds the Devvit client/server app. `npm run playtest:devvit` requires a Reddit developer login and a test subreddit; it has not been run from this workspace.
+`npm run build:devvit` builds the Devvit client/server app. `npm run playtest:devvit -- <subreddit>` requires a Reddit developer login and test subreddit. After installing/updating the playtest, a subreddit moderator must open the subreddit menu and select **Create Build or Bite post**; this creates the interactive post separately from the installation. Confirm the post is visible and playable in Reddit before capturing gameplay or treating the playtest as complete.
 
 ## Repository layout
 
@@ -100,4 +100,4 @@ buildorbite/
 
 ## Reddit event direction
 
-The project is intended for a Reddit event. The repository now has a minimal Devvit Web packaging scaffold, but the full game-state integration and Reddit playtest are still pending. The current scaffold does not imply that the app has been uploaded, privately playtested, approved, or published. Confirm the specific event's submission and publication rules before release.
+The project is intended for a Reddit event. A playtest install alone does not prove that a game post exists or works. Do not claim App Directory approval or publication unless confirmed in the Developer Portal; verify the specific event's submission and publication rules before release.

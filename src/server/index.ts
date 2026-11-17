@@ -1,5 +1,5 @@
 import { serve } from '@hono/node-server';
-import { context, createServer, getServerPort, redis } from '@devvit/web/server';
+import { context, createServer, getServerPort, redis, reddit } from '@devvit/web/server';
 import { Hono } from 'hono';
 import {
   checkAndApplyDailyReset,
@@ -140,6 +140,32 @@ function sanitizeProgressPayload(value: unknown): {
 }
 
 app.get('/api/health', (c) => c.json({ ok: true }));
+
+// The playtest installs the app, but a playable post must still be created in
+// the subreddit. This moderator-only subreddit menu action creates that post.
+app.post('/internal/menu/create-game-post', async (c) => {
+  try {
+    const subredditName = context.subredditName;
+    if (!subredditName) {
+      return c.json({ showToast: { text: 'Open this action from a subreddit.', appearance: 'neutral' } });
+    }
+    const post = await reddit.submitCustomPost({
+      subredditName,
+      title: 'Build or Bite — Play the Game',
+      entry: 'default',
+      textFallback: {
+        text: 'Build your fort by day. Defend it from the zombie horde by night. Play Build or Bite here on Reddit.',
+      },
+    });
+    return c.json({
+      showToast: { text: 'Build or Bite game post created.', appearance: 'success' },
+      navigateTo: post.permalink,
+    });
+  } catch (error) {
+    console.error('Could not create Build or Bite post:', error);
+    return c.json({ showToast: { text: 'Could not create the game post. Check app permissions and try again.', appearance: 'neutral' } }, 500);
+  }
+});
 
 // Reddit identity is supplied by Devvit. The raw user ID stays on the server
 // and is used only as the key namespace for this user's game save.

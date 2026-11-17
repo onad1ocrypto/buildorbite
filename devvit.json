@@ -17,6 +17,17 @@
   "permissions": {
     "redis": true
   },
+  "menu": {
+    "items": [
+      {
+        "label": "Create Build or Bite post",
+        "description": "Create a playable Build or Bite game post in this community.",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/create-game-post"
+      }
+    ]
+  },
   "scripts": {
     "dev": "vite build --watch --config vite.config.devvit.ts",
     "build": "vite build --config vite.config.devvit.ts"
