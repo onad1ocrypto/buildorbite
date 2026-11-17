@@ -661,15 +661,14 @@ export function getConstructionDuration(params: {
 
 /**
  * Locked gameplay rule: Ranger Rue can only place/build, upgrade, repair, or salvage structures
- * during the Day phase while today's core daily progression is unlocked and not in Free Play mode.
+ * during the Day phase while today's core daily progression is unlocked.
  */
 export function canPerformConstructionInPhase(
   phase: DayNightPhase,
-  dailyLocked = false,
-  isFreePlay = false
+  dailyLocked = false
 ): boolean {
   if (phase !== 'day') return false;
-  if (dailyLocked || isFreePlay) return false;
+  if (dailyLocked) return false;
   return true;
 }
 
@@ -698,8 +697,7 @@ export function advanceFenceSegmentBuild(
   resources: Resources,
   progressDelta: number,
   phase: DayNightPhase = 'day',
-  dailyLocked = false,
-  isFreePlay = false
+  dailyLocked = false
 ): {
   updatedSegment: FenceSegment;
   updatedResources: Resources;
@@ -708,7 +706,6 @@ export function advanceFenceSegmentBuild(
   reason?:
     | 'night_locked'
     | 'daily_locked'
-    | 'free_play_locked'
     | 'insufficient_resources'
     | 'already_built';
 } {
@@ -719,15 +716,6 @@ export function advanceFenceSegmentBuild(
       completed: false,
       success: false,
       reason: 'night_locked',
-    };
-  }
-  if (isFreePlay) {
-    return {
-      updatedSegment: segment,
-      updatedResources: resources,
-      completed: false,
-      success: false,
-      reason: 'free_play_locked',
     };
   }
   if (dailyLocked) {
@@ -795,8 +783,7 @@ export function buildOrUpgradeFenceSegment(
   segment: FenceSegment,
   resources: Resources,
   phase: DayNightPhase = 'day',
-  dailyLocked = false,
-  isFreePlay = false
+  dailyLocked = false
 ): {
   updatedSegment: FenceSegment;
   updatedResources: Resources;
@@ -805,7 +792,6 @@ export function buildOrUpgradeFenceSegment(
   reason?:
     | 'night_locked'
     | 'daily_locked'
-    | 'free_play_locked'
     | 'insufficient_resources'
     | 'max_level';
 } {
@@ -816,15 +802,6 @@ export function buildOrUpgradeFenceSegment(
       action: 'none',
       success: false,
       reason: 'night_locked',
-    };
-  }
-  if (isFreePlay) {
-    return {
-      updatedSegment: segment,
-      updatedResources: resources,
-      action: 'none',
-      success: false,
-      reason: 'free_play_locked',
     };
   }
   if (dailyLocked) {
@@ -1015,8 +992,7 @@ export function buildStructureOnPad(
   resources: Resources,
   type: BuildingType,
   phase: DayNightPhase = 'day',
-  dailyLocked = false,
-  isFreePlay = false
+  dailyLocked = false
 ): {
   updatedPad: PlacementPad;
   updatedResources: Resources;
@@ -1024,7 +1000,6 @@ export function buildStructureOnPad(
   reason?:
     | 'night_locked'
     | 'daily_locked'
-    | 'free_play_locked'
     | 'occupied'
     | 'insufficient_resources';
 } {
@@ -1034,14 +1009,6 @@ export function buildStructureOnPad(
       updatedResources: resources,
       success: false,
       reason: 'night_locked',
-    };
-  }
-  if (isFreePlay) {
-    return {
-      updatedPad: pad,
-      updatedResources: resources,
-      success: false,
-      reason: 'free_play_locked',
     };
   }
   if (dailyLocked) {
@@ -1089,8 +1056,7 @@ export function upgradeStructureOnPad(
   resources: Resources,
   pathId: 'pathA' | 'pathB',
   phase: DayNightPhase = 'day',
-  dailyLocked = false,
-  isFreePlay = false
+  dailyLocked = false
 ): {
   updatedPad: PlacementPad;
   updatedResources: Resources;
@@ -1098,7 +1064,6 @@ export function upgradeStructureOnPad(
   reason?:
     | 'night_locked'
     | 'daily_locked'
-    | 'free_play_locked'
     | 'invalid_pad'
     | 'insufficient_resources';
 } {
@@ -1108,14 +1073,6 @@ export function upgradeStructureOnPad(
       updatedResources: resources,
       success: false,
       reason: 'night_locked',
-    };
-  }
-  if (isFreePlay) {
-    return {
-      updatedPad: pad,
-      updatedResources: resources,
-      success: false,
-      reason: 'free_play_locked',
     };
   }
   if (dailyLocked) {
@@ -1163,13 +1120,12 @@ export function salvageStructureOnPad(
   pad: PlacementPad,
   resources: Resources,
   phase: DayNightPhase = 'day',
-  dailyLocked = false,
-  isFreePlay = false
+  dailyLocked = false
 ): {
   updatedPad: PlacementPad;
   updatedResources: Resources;
   success: boolean;
-  reason?: 'night_locked' | 'daily_locked' | 'free_play_locked' | 'invalid_pad';
+  reason?: 'night_locked' | 'daily_locked' | 'invalid_pad';
 } {
   if (phase !== 'day') {
     return {
@@ -1177,14 +1133,6 @@ export function salvageStructureOnPad(
       updatedResources: resources,
       success: false,
       reason: 'night_locked',
-    };
-  }
-  if (isFreePlay) {
-    return {
-      updatedPad: pad,
-      updatedResources: resources,
-      success: false,
-      reason: 'free_play_locked',
     };
   }
   if (dailyLocked) {
@@ -1228,7 +1176,6 @@ export function startFenceConstructionTask(params: {
   duration?: number;
   toolTier?: number;
   dailyLocked?: boolean;
-  isFreePlay?: boolean;
 }): {
   started: boolean;
   heroAnimState: HeroAnimState;
@@ -1236,7 +1183,6 @@ export function startFenceConstructionTask(params: {
   reason?:
     | 'night_locked'
     | 'daily_locked'
-    | 'free_play_locked'
     | 'busy_constructing'
     | 'insufficient_resources'
     | 'max_level';
@@ -1249,7 +1195,6 @@ export function startFenceConstructionTask(params: {
     duration,
     toolTier = 1,
     dailyLocked = false,
-    isFreePlay = false,
   } = params;
 
   if (phase !== 'day') {
@@ -1258,15 +1203,6 @@ export function startFenceConstructionTask(params: {
       heroAnimState: currentTask ? 'construction' : 'idle',
       task: currentTask,
       reason: 'night_locked',
-    };
-  }
-
-  if (isFreePlay) {
-    return {
-      started: false,
-      heroAnimState: currentTask ? 'construction' : 'idle',
-      task: currentTask,
-      reason: 'free_play_locked',
     };
   }
 
@@ -1363,7 +1299,6 @@ export function startPadConstructionTask(params: {
   duration?: number;
   toolTier?: number;
   dailyLocked?: boolean;
-  isFreePlay?: boolean;
 }): {
   started: boolean;
   heroAnimState: HeroAnimState;
@@ -1371,7 +1306,6 @@ export function startPadConstructionTask(params: {
   reason?:
     | 'night_locked'
     | 'daily_locked'
-    | 'free_play_locked'
     | 'busy_constructing'
     | 'insufficient_resources'
     | 'occupied'
@@ -1388,7 +1322,6 @@ export function startPadConstructionTask(params: {
     duration,
     toolTier = 1,
     dailyLocked = false,
-    isFreePlay = false,
   } = params;
 
   if (phase !== 'day') {
@@ -1397,15 +1330,6 @@ export function startPadConstructionTask(params: {
       heroAnimState: currentTask ? 'construction' : 'idle',
       task: currentTask,
       reason: 'night_locked',
-    };
-  }
-
-  if (isFreePlay) {
-    return {
-      started: false,
-      heroAnimState: currentTask ? 'construction' : 'idle',
-      task: currentTask,
-      reason: 'free_play_locked',
     };
   }
 
@@ -1535,7 +1459,6 @@ export function stepConstructionTask(params: {
   pads: PlacementPad[];
   resources: Resources;
   dailyLocked?: boolean;
-  isFreePlay?: boolean;
 }): {
   heroAnimState: HeroAnimState;
   task: PendingConstructionTask | null;
@@ -1555,7 +1478,6 @@ export function stepConstructionTask(params: {
     pads,
     resources,
     dailyLocked = false,
-    isFreePlay = false,
   } = params;
 
   if (!task) {
@@ -1569,7 +1491,7 @@ export function stepConstructionTask(params: {
     };
   }
 
-  if (!canPerformConstructionInPhase(phase, dailyLocked, isFreePlay)) {
+  if (!canPerformConstructionInPhase(phase, dailyLocked)) {
     return {
       heroAnimState: 'idle',
       task: null,
@@ -1609,7 +1531,7 @@ export function stepConstructionTask(params: {
         resources,
       };
     }
-    const res = buildOrUpgradeFenceSegment(targetSeg, resources, phase, dailyLocked, isFreePlay);
+    const res = buildOrUpgradeFenceSegment(targetSeg, resources, phase, dailyLocked);
     if (!res.success) {
       return {
         heroAnimState: 'idle',
@@ -1653,8 +1575,7 @@ export function stepConstructionTask(params: {
       resources,
       task.buildingType,
       phase,
-      dailyLocked,
-      isFreePlay
+      dailyLocked
     );
     if (!res.success) {
       return {
@@ -1683,8 +1604,7 @@ export function stepConstructionTask(params: {
       resources,
       task.upgradePath,
       phase,
-      dailyLocked,
-      isFreePlay
+      dailyLocked
     );
     if (!res.success) {
       return {
@@ -2069,20 +1989,18 @@ export function evaluateGameOutcome(params: {
 export const FORT_INTERIOR_HALF_EXTENT = FENCE_HALF_EXTENT - 0.85;
 
 /**
- * Hero can only gather Wood, Stone, and Food during the Day phase when daily progression is unlocked
- * and not in Free Play mode.
+ * Hero can only gather Wood, Stone, and Food during the Day phase when daily progression is unlocked.
  */
 export function canGatherResourcesInPhase(
   phase: DayNightPhase,
-  dailyLocked = false,
-  isFreePlay = false
+  dailyLocked = false
 ): boolean {
-  return phase === 'day' && !dailyLocked && !isFreePlay;
+  return phase === 'day' && !dailyLocked;
 }
 
 /**
  * Pure helper for gathering from a clearing resource node, enforcing Day phase,
- * Daily Progression Lock, Free Play mode lock, and dynamic Day weather yield bonuses:
+ * Daily Progression Lock, and dynamic Day weather yield bonuses:
  * - Rain ('rain'): +20% bonus gather yield on Wood and Food nodes.
  * - Fog ('fog'): +20% bonus gather yield on Stone nodes (mineral condensation).
  */
@@ -2091,32 +2009,21 @@ export function gatherFromResourceNode(params: {
   resources: Resources;
   phase: DayNightPhase;
   dailyLocked?: boolean;
-  isFreePlay?: boolean;
   weather?: WeatherType;
 }): {
   gathered: boolean;
   updatedNode: ResourceNodeEntity;
   updatedResources: Resources;
   yieldAmount: number;
-  reason?: 'daily_locked' | 'free_play_locked' | 'night_locked' | 'already_harvested';
+  reason?: 'daily_locked' | 'night_locked' | 'already_harvested';
 } {
   const {
     node,
     resources,
     phase,
     dailyLocked = false,
-    isFreePlay = false,
     weather = 'clear',
   } = params;
-  if (isFreePlay) {
-    return {
-      gathered: false,
-      updatedNode: node,
-      updatedResources: resources,
-      yieldAmount: 0,
-      reason: 'free_play_locked',
-    };
-  }
   if (dailyLocked) {
     return {
       gathered: false,
@@ -2506,4 +2413,29 @@ export function clampHeroPositionForPhase(
 
   return { x: nextX, z: nextZ };
 }
+
+export interface BossHealthBarMetrics {
+  currentHp: number;
+  maxHp: number;
+  pct: number;
+  isCritical: boolean;
+}
+
+/**
+ * Computes clamped display metrics for the top-center Boss Health Bar HUD.
+ */
+export function computeBossHealthBarState(hp: number, maxHp: number): BossHealthBarMetrics {
+  const safeMaxHp = Number.isFinite(maxHp) && maxHp > 0 ? Math.round(maxHp) : 1;
+  const safeHp = Number.isFinite(hp)
+    ? Math.max(0, Math.min(safeMaxHp, Math.round(hp)))
+    : 0;
+  const pct = Math.max(0, Math.min(100, Math.round((safeHp / safeMaxHp) * 100)));
+  return {
+    currentHp: safeHp,
+    maxHp: safeMaxHp,
+    pct,
+    isCritical: pct <= 30,
+  };
+}
+
 

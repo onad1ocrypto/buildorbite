@@ -10,7 +10,6 @@ import { DailyPersistenceState } from '../game/types';
 
 interface TitleScreenProps {
   onStartGame: () => void;
-  onStartFreePlay: () => void;
   onStartDevTestRun: () => void;
   showDevTestControl: boolean;
   devTestMode: boolean;
@@ -26,7 +25,6 @@ interface TitleScreenProps {
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
-  onStartFreePlay,
   onStartDevTestRun,
   showDevTestControl,
   devTestMode,
@@ -103,7 +101,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <>
               <span className="text-[#475569]">·</span>
               <span className="font-mono-tabular text-[#fde047]">
-                {tr.bestScoreLabel}: {Math.round(bestScore)}
+                {tr.bestScoreLabel} {Math.round(bestScore)}
               </span>
             </>
           )}
@@ -121,7 +119,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             onClick={() => setLangMenuOpen((v) => !v)}
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#0d131c]/95 hover:bg-[#161f2c] border border-[#334155] text-xs font-semibold text-[#fef3c7] shadow-lg cursor-pointer transition-colors"
           >
-            <span>🌐 Language:</span>
+            <span>🌐 {tr.languageMenuLabel}</span>
             <span className="font-bold text-[#fbbf24]">
               {currentLangOption.shortLabel} · {currentLangOption.nativeName}
             </span>
@@ -210,7 +208,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </button>
         )}
 
-        {/* Primary Play CTA (-1 Ticket) + Free Play / Demo CTA + Secondary Compact Actions */}
+        {/* Primary Play CTA (-1 Ticket) + Demo / Test Run CTA + Secondary Compact Actions */}
         <div className="flex flex-wrap items-center justify-center gap-2.5 mb-3">
           <button
             type="button"
@@ -231,23 +229,6 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               : daily.tickets > 0
               ? tr.playRunBtn(daily.tickets)
               : tr.noTicketsBtn(daily.maxDailyTickets)}
-          </button>
-
-          <button
-            type="button"
-            data-testid="btn-free-play"
-            onClick={(e) => {
-              e.currentTarget.blur();
-              onStartFreePlay();
-            }}
-            title={tr.freePlayNoRewardsNote}
-            className={`px-4 py-3.5 rounded-xl font-display font-bold text-xs tracking-wide transition-colors whitespace-nowrap shrink-0 shadow-md cursor-pointer border ${
-              daily.dailyProgressionLocked || daily.tickets <= 0
-                ? 'bg-[#14532d] hover:bg-[#166534] border-[#4ade80] text-[#fef3c7]'
-                : 'bg-[#0d131c]/95 hover:bg-[#1e293b] border-[#38bdf8]/60 text-[#38bdf8]'
-            }`}
-          >
-            {tr.freePlayBtn}
           </button>
 
           {showDevTestControl && (

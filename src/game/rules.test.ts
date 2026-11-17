@@ -13,6 +13,7 @@ import {
   canPerformConstructionInPhase,
   canTriggerLanternFlare,
   clampHeroPositionForPhase,
+  computeBossHealthBarState,
   computeZombieEffectiveSpeed,
   createInitialFenceSegments,
   createInitialPads,
@@ -573,9 +574,8 @@ test('Night phase confines Hero inside the fort fence arena and locks resource g
   assert.equal(Math.abs(nightPos.z) < FENCE_HALF_EXTENT, true);
 });
 
-test('Daily progression lock and Free Play mode strictly reject gathering, building, upgrading, repairing, and salvaging while preserving Lantern Flare and combat', () => {
+test('Daily progression lock strictly rejects gathering, building, upgrading, repairing, and salvaging while preserving Lantern Flare and combat', () => {
   const pads = createInitialPads();
-  const fences = createInitialFenceSegments();
   const nodes: ResourceNodeEntity[] = [
     {
       id: 1,
@@ -592,34 +592,33 @@ test('Daily progression lock and Free Play mode strictly reject gathering, build
   const res = { wood: 200, stone: 200, food: 200, tickets: 3 };
 
   // Build one structure during normal day play first so we can test upgrade & salvage locks
-  const normalBuild = buildStructureOnPad(pads[0], res, 'watchtower', 'day', false, false);
+  const normalBuild = buildStructureOnPad(pads[0], res, 'watchtower', 'day', false);
   assert.equal(normalBuild.success, true);
   const builtPad = normalBuild.updatedPad;
 
   // 1. Daily progression locked (after 3/3 core daily tasks complete)
-  assert.equal(canPerformConstructionInPhase('day', true, false), false);
-  assert.equal(canGatherResourcesInPhase('day', true, false), false);
+  assert.equal(canPerformConstructionInPhase('day', true), false);
+  assert.equal(canGatherResourcesInPhase('day', true), false);
 
   const lockedGather = gatherFromResourceNode({
     node: nodes[0],
     resources: res,
     phase: 'day',
     dailyLocked: true,
-    isFreePlay: false,
   });
   assert.equal(lockedGather.gathered, false);
   assert.equal(lockedGather.reason, 'daily_locked');
   assert.deepEqual(lockedGather.updatedResources, res);
 
-  const lockedBuild = buildStructureOnPad(pads[1], res, 'palisade', 'day', true, false);
+  const lockedBuild = buildStructureOnPad(pads[1], res, 'palisade', 'day', true);
   assert.equal(lockedBuild.success, false);
   assert.equal(lockedBuild.reason, 'daily_locked');
 
-  const lockedUpgrade = upgradeStructureOnPad(builtPad, res, 'pathA', 'day', true, false);
+  const lockedUpgrade = upgradeStructureOnPad(builtPad, res, 'pathA', 'day', true);
   assert.equal(lockedUpgrade.success, false);
   assert.equal(lockedUpgrade.reason, 'daily_locked');
 
-  const lockedSalvage = salvageStructureOnPad(builtPad, res, 'day', true, false);
+  const lockedSalvage = salvageStructureOnPad(builtPad, res, 'day', true);
   assert.equal(lockedSalvage.success, false);
   assert.equal(lockedSalvage.reason, 'daily_locked');
 
@@ -631,47 +630,17 @@ test('Daily progression lock and Free Play mode strictly reject gathering, build
     action: 'build_pad',
     buildingType: 'palisade',
     dailyLocked: true,
-    isFreePlay: false,
   });
   assert.equal(lockedTask.started, false);
   assert.equal(lockedTask.reason, 'daily_locked');
 
-  // 2. Free Play / Demo mode lock
-  assert.equal(canPerformConstructionInPhase('day', false, true), false);
-  assert.equal(canGatherResourcesInPhase('day', false, true), false);
-
-  const freeGather = gatherFromResourceNode({
-    node: nodes[0],
-    resources: res,
-    phase: 'day',
-    dailyLocked: false,
-    isFreePlay: true,
-  });
-  assert.equal(freeGather.gathered, false);
-  assert.equal(freeGather.reason, 'free_play_locked');
-
-  const freeBuild = buildStructureOnPad(pads[1], res, 'catapult', 'day', false, true);
-  assert.equal(freeBuild.success, false);
-  assert.equal(freeBuild.reason, 'free_play_locked');
-
-  const freeFenceTask = startFenceConstructionTask({
-    segment: fences.find((f) => f.level === 0)!,
-    resources: res,
-    phase: 'day',
-    currentTask: null,
-    dailyLocked: false,
-    isFreePlay: true,
-  });
-  assert.equal(freeFenceTask.started, false);
-  assert.equal(freeFenceTask.reason, 'free_play_locked');
-
-  // 3. Normal day salvage succeeds when unlocked
-  const unlockedSalvage = salvageStructureOnPad(builtPad, normalBuild.updatedResources, 'day', false, false);
+  // 2. Normal day salvage succeeds when unlocked
+  const unlockedSalvage = salvageStructureOnPad(builtPad, normalBuild.updatedResources, 'day', false);
   assert.equal(unlockedSalvage.success, true);
   assert.equal(unlockedSalvage.updatedPad.building, null);
   assert.equal(unlockedSalvage.updatedResources.wood > normalBuild.updatedResources.wood, true);
 
-  // 4. Lantern Flare and hero combat remain available even when daily progression is locked
+  // 3. Lantern Flare and hero combat remain available even when daily progression is locked
   assert.equal(canTriggerLanternFlare('night', 0).allowed, true);
 });
 
@@ -845,5 +814,33 @@ test('Dynamic daytime weather system transitions deterministically and modifies 
   });
   assert.equal(stoneFog.yieldAmount > stoneClear.yieldAmount, true);
 });
+
+test('computeBossHealthBarState clamps boss HP bounds and detects critical threshold <= 30%', () => {
+  const full = computeBossHealthBarState(560, 560);
+  assert.equal(full.currentHp, 560);
+  assert.equal(full.maxHp, 560);
+  assert.equal(full.pct, 100);
+  assert.equal(full.isCritical, false);
+
+  const mid = computeBossHealthBarState(280, 560);
+  assert.equal(mid.currentHp, 280);
+  assert.equal(mid.pct, 50);
+  assert.equal(mid.isCritical, false);
+
+  const low = computeBossHealthBarState(140, 560);
+  assert.equal(low.currentHp, 140);
+  assert.equal(low.pct, 25);
+  assert.equal(low.isCritical, true);
+
+  const clampedNegative = computeBossHealthBarState(-25, 560);
+  assert.equal(clampedNegative.currentHp, 0);
+  assert.equal(clampedNegative.pct, 0);
+  assert.equal(clampedNegative.isCritical, true);
+
+  const clampedOverflow = computeBossHealthBarState(999, 560);
+  assert.equal(clampedOverflow.currentHp, 560);
+  assert.equal(clampedOverflow.pct, 100);
+});
+
 
 

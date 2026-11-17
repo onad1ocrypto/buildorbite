@@ -41,11 +41,21 @@ test('all 5 languages (en, id, zh, vi, ru) provide complete translations for UI,
     const t = TRANSLATIONS[code];
     assert.ok(t, `Missing translation dictionary for ${code}`);
     assert.ok(t.tagline.length > 5);
+    assert.ok(t.languageMenuLabel.length > 2);
+    assert.ok(t.dailyLockedBadgeShort.length > 2);
+    assert.ok(t.noTicketsBanner.length > 5);
+    assert.ok(t.newPlayerBuildHint.length > 5);
     assert.ok(t.playRunBtn(3).length > 3);
     assert.ok(t.padChooseBuildHeader('NW Pad').length > 5);
     assert.ok(t.translateTaskTitle('build_5_structures', '').length > 5);
     assert.ok(t.translatePadLabel(1, '').length > 3);
     assert.ok(t.translateLanternName('amber_default', '').length > 3);
+    for (const w of ['clear', 'rain', 'fog'] as const) {
+      assert.ok(t.weatherLabel(w).length > 1, `${code} missing weatherLabel for ${w}`);
+      assert.ok(t.weatherModifierShort(w).length > 2, `${code} missing weatherModifierShort for ${w}`);
+      assert.ok(t.weatherTooltip(w).length > 5, `${code} missing weatherTooltip for ${w}`);
+      assert.ok(t.weatherChangedBanner(w).length > 5, `${code} missing weatherChangedBanner for ${w}`);
+    }
 
     for (const b of buildings) {
       const bTrans = t.buildings[b];

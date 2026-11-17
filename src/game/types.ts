@@ -353,7 +353,7 @@ export interface RunCompletionSummary {
   totalTasksCount: number;
   allTasksBonusClaimed: boolean;
   dailyProgressionLocked: boolean;
-  isFreePlay: boolean;
+  isDevTestMode: boolean;
   checkInAvailableToClaim: boolean;
   checkInClaimedToday: boolean;
   pendingBonusTicketsTomorrow: number;
@@ -396,7 +396,6 @@ export interface HudSnapshot {
   heroAnimState: HeroAnimState;
   pendingConstruction: PendingConstructionTask | null;
   isDevTestMode: boolean;
-  isFreePlay: boolean;
   daily: DailyPersistenceState;
   lastRunSummary: RunCompletionSummary | null;
 }

@@ -19,7 +19,6 @@ interface ModalsProps {
   onResume: () => void;
   onRestart: () => void;
   onStartDevTestRun: () => void;
-  onStartFreePlay: () => void;
   onClaimDailyCheckIn: () => void;
   onReturnTitle: () => void;
   onOpenGuide: () => void;
@@ -37,7 +36,6 @@ export const Modals: React.FC<ModalsProps> = ({
   onResume,
   onRestart,
   onStartDevTestRun,
-  onStartFreePlay,
   onClaimDailyCheckIn,
   onReturnTitle,
   onOpenGuide,
@@ -194,14 +192,7 @@ export const Modals: React.FC<ModalsProps> = ({
               >
                 {tr.endRunEarlyBtn}
               </button>
-              <button
-                type="button"
-                onClick={onStartFreePlay}
-                className="w-full py-2 px-4 rounded-lg bg-[#14532d] hover:bg-[#166534] border border-[#4ade80] text-[#fef3c7] font-semibold text-xs cursor-pointer transition-colors"
-              >
-                {tr.freePlayBtn}
-              </button>
-              {showDevTestControl && (
+              {showDevTestControl && !devTestMode && (
                 <button
                   type="button"
                   data-testid="btn-pause-dev-test-run"
@@ -260,12 +251,12 @@ export const Modals: React.FC<ModalsProps> = ({
                 <span className="text-xs uppercase tracking-widest font-semibold text-[#f59e0b]">
                   {hud.runOutcome === 'victory' ? tr.victoryHeaderBadge : tr.defeatHeaderBadge}
                 </span>
-                {summary?.isFreePlay && (
+                {summary?.isDevTestMode && (
                   <span
-                    data-testid="result-free-play-badge"
-                    className="px-2 py-0.5 rounded bg-[#0c4a6e] border border-[#38bdf8] text-[10px] font-mono-tabular font-bold text-[#e0f2fe]"
+                    data-testid="result-dev-test-badge"
+                    className="px-2 py-0.5 rounded bg-[#581c87] border border-[#c084fc] text-[10px] font-mono-tabular font-bold text-white"
                   >
-                    {tr.freePlayActiveBadge}
+                    🧪 DEMO / TEST RUN
                   </span>
                 )}
               </div>
@@ -294,7 +285,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   {Math.round(hud.score)}
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
-                  {tr.bestScoreLabel}: {Math.round(hud.bestScore)}
+                  {tr.bestScoreLabel} {Math.round(hud.bestScore)}
                 </div>
               </div>
 
@@ -318,7 +309,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   {daily.streak}d
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
-                  {tr.milestonesLabel}
+                  {tr.milestonesLabel} 3d / 7d / 30d
                 </div>
               </div>
 
@@ -381,7 +372,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 />
               </div>
               <div className="text-[11px] text-[#94a3b8]">
-                {tr.nextLevelRewardLabel}:{' '}
+                {tr.nextLevelRewardLabel}{' '}
                 <span className="text-[#cbd5e1]">{levelInfo.nextRewardLabel}</span>
               </div>
 
@@ -488,7 +479,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   : tr.noTicketsBtn(daily.maxDailyTickets)}
               </button>
 
-              {showDevTestControl && (
+              {showDevTestControl && !devTestMode && (
                 <button
                   type="button"
                   data-testid="btn-result-dev-test-run"
@@ -501,18 +492,6 @@ export const Modals: React.FC<ModalsProps> = ({
                   🧪 Demo / Test Run (No Ticket)
                 </button>
               )}
-
-              <button
-                type="button"
-                data-testid="btn-result-free-play"
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onStartFreePlay();
-                }}
-                className="py-3 px-4 rounded-lg bg-[#14532d] hover:bg-[#166534] border border-[#4ade80] text-[#fef3c7] font-display font-bold text-xs sm:text-sm cursor-pointer whitespace-nowrap"
-              >
-                {tr.freePlayBtn}
-              </button>
 
               <button
                 type="button"

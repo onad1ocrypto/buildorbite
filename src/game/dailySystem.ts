@@ -555,9 +555,9 @@ export function saveFortAndResourcesToDailyState(
   fenceSegments: FenceSegment[],
   resources: Pick<Resources, 'wood' | 'stone' | 'food'>,
   restoreFullHp = false,
-  options?: { isFreePlay?: boolean; isDevTestMode?: boolean }
+  options?: { isDevTestMode?: boolean }
 ): DailyPersistenceState {
-  if (options?.isFreePlay || options?.isDevTestMode) {
+  if (options?.isDevTestMode) {
     return state;
   }
   const serializedPads = serializePadsForPersistence(pads);
@@ -688,7 +688,7 @@ export function consumeTicketForRun(state: DailyPersistenceState): {
 /**
  * Updates live task progress during or at the end of a run.
  * When all 3 core daily tasks reach their targets, immediately sets dailyProgressionLocked = true.
- * In Free Play or Dev Test mode, core daily tasks do not advance and do not grant repeatable rewards.
+ * In Demo / Dev Test mode, core daily tasks do not advance and do not grant repeatable rewards.
  */
 export function recordTaskProgress(
   state: DailyPersistenceState,
@@ -700,13 +700,13 @@ export function recordTaskProgress(
     runScore?: number;
     zombiesDefeatedDelta?: number;
   },
-  options?: { isFreePlay?: boolean; isDevTestMode?: boolean }
+  options?: { isDevTestMode?: boolean }
 ): {
   updatedState: DailyPersistenceState;
   newlyCompletedTaskTitles: string[];
   allThreeJustCompleted: boolean;
 } {
-  if (options?.isFreePlay || options?.isDevTestMode) {
+  if (options?.isDevTestMode) {
     return {
       updatedState: state,
       newlyCompletedTaskTitles: [],
@@ -877,7 +877,7 @@ export function claimDailyCheckIn(
  * and 3 / 7 / 30 day streak milestones.
  * Also restores saved persistent fort structures & fences to full HP so combat damage during
  * a run never permanently erases structures or upgrades.
- * In Free Play or Dev Test mode, grants 0 repeatable XP/coins and does not modify streak,
+ * In Demo / Dev Test mode, grants 0 repeatable XP/coins and does not modify streak,
  * daily tasks, check-in eligibility, or production unlocks.
  */
 export function completeRunProgression(
@@ -886,7 +886,6 @@ export function completeRunProgression(
     score: number;
     victory: boolean;
     nightsSurvived: number;
-    isFreePlay?: boolean;
     isDevTestMode?: boolean;
     nowMs?: number;
   }
@@ -896,7 +895,6 @@ export function completeRunProgression(
 } {
   const nowMs = params.nowMs ?? Date.now();
   const todayUTC = getUTCDateString(nowMs);
-  const isFreePlay = Boolean(params.isFreePlay);
   const isDevTestMode = Boolean(params.isDevTestMode);
 
   if (isDevTestMode) {
@@ -929,7 +927,7 @@ export function completeRunProgression(
         dailyProgressionLocked: state.dailyProgressionLocked,
         pendingBonusTicketsTomorrow: state.pendingBonusTicketsTomorrow,
         newUnlocks: [],
-        isFreePlay: true,
+        isDevTestMode: true,
         checkInAvailableToClaim,
         checkInClaimedToday,
       },
@@ -943,49 +941,6 @@ export function completeRunProgression(
   const restoredSavedFences = serializeFenceSegmentsForPersistence(
     restoreFenceSegmentsFromPersistence(state.savedFenceSegments, true)
   );
-
-  if (isFreePlay) {
-    const levelInfo = getLevelForXp(state.xp);
-    const completedTasksCount = state.tasks.filter(
-      (t) => (state.taskProgress[t.id] ?? 0) >= t.target
-    ).length;
-    const updatedFreeState: DailyPersistenceState = {
-      ...state,
-      savedPads: restoredSavedPads,
-      savedFenceSegments: restoredSavedFences,
-    };
-    const checkInClaimedToday = updatedFreeState.lastCheckInClaimedDateUTC === todayUTC;
-    const checkInAvailableToClaim =
-      !checkInClaimedToday &&
-      (updatedFreeState.checkInEligibleDateUTC === todayUTC ||
-        updatedFreeState.lastPlayedDateUTC === todayUTC);
-
-    return {
-      updatedState: updatedFreeState,
-      summary: {
-        xpGained: 0,
-        coinsGained: 0,
-        previousLevel: state.level,
-        newLevel: state.level,
-        levelProgressPct: levelInfo.progressPct,
-        currentLevelXp: levelInfo.currentLevelXp,
-        nextLevelXp: levelInfo.nextLevelXp,
-        nextRewardLabel: levelInfo.nextRewardLabel,
-        streak: state.streak,
-        streakIncrementedToday: false,
-        ticketsLeft: state.tickets,
-        completedTasksCount,
-        totalTasksCount: state.tasks.length,
-        allTasksBonusClaimed: state.allTasksBonusClaimed,
-        dailyProgressionLocked: state.dailyProgressionLocked,
-        pendingBonusTicketsTomorrow: state.pendingBonusTicketsTomorrow,
-        newUnlocks: [],
-        isFreePlay: true,
-        checkInAvailableToClaim,
-        checkInClaimedToday,
-      },
-    };
-  }
 
   // 1. Update score & survival tasks first
   const taskStep = recordTaskProgress(state, {
@@ -1093,7 +1048,7 @@ export function completeRunProgression(
       dailyProgressionLocked: updatedState.dailyProgressionLocked,
       pendingBonusTicketsTomorrow: updatedState.pendingBonusTicketsTomorrow,
       newUnlocks,
-      isFreePlay: false,
+      isDevTestMode: false,
       checkInAvailableToClaim: !checkInClaimedToday,
       checkInClaimedToday,
     },
@@ -1143,11 +1098,8 @@ export function shouldLockDailyProgression(
   return dailyProgressionLocked && !devTestMode;
 }
 
-export function shouldConsumeTicketForStart(
-  isFreePlay: boolean,
-  devTestMode: boolean
-): boolean {
-  return !isFreePlay && !devTestMode;
+export function shouldConsumeTicketForStart(devTestMode: boolean): boolean {
+  return !devTestMode;
 }
 
 export interface DevTestFortSnapshot {

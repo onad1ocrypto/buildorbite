@@ -16,6 +16,7 @@ import {
   ZOMBIE_CATALOG,
 } from '../game/rules';
 import { BuildingType, HudSnapshot } from '../game/types';
+import { BossHealthBar } from './BossHealthBar';
 
 interface HudOverlayProps {
   hud: HudSnapshot;
@@ -37,7 +38,6 @@ interface HudOverlayProps {
   onOpenGuide: () => void;
   onToggleDock: () => void;
   onAdjustZoom?: (delta: number) => void;
-  onStartFreePlay?: () => void;
   onClaimDailyCheckIn?: () => void;
   onResetDemoData?: () => void;
   onExitDemoMode?: () => void;
@@ -71,7 +71,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onTogglePause,
   onOpenGuide,
   onToggleDock,
-  onStartFreePlay,
   onClaimDailyCheckIn,
   onResetDemoData,
   onExitDemoMode,
@@ -107,8 +106,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
     hud.fenceSegments.find((f) => f.id === hud.selectedFenceId) ?? null;
   const isNight = hud.phase === 'night';
   const isDailyLocked = Boolean(hud.daily.dailyProgressionLocked);
-  const isFreePlay = Boolean(hud.isFreePlay);
-  const isConstructionLocked = isNight || isDailyLocked || isFreePlay;
+  const isConstructionLocked = isNight || isDailyLocked;
   const isConstructing =
     hud.heroAnimState === 'construction' && hud.pendingConstruction !== null;
   const constructionPct = hud.pendingConstruction
@@ -226,7 +224,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </div>
               <div className="w-full h-1.5 sm:h-2 rounded bg-[#090d14] border border-[#1e293b] overflow-hidden relative">
                 <div
-                  className="position absolute inset-y-0 left-0 bg-[#f59e0b]/60 transition-all duration-300"
+                  className="absolute inset-y-0 left-0 bg-[#f59e0b]/60 transition-all duration-300"
                   style={{ width: `${fortGhostPct}%` }}
                 />
                 <div
@@ -399,21 +397,12 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </span>
             </div>
 
-            {isFreePlay && (
-              <span
-                data-testid="hud-free-play-badge"
-                className="px-2 py-0.5 rounded-md bg-[#0c4a6e] border border-[#38bdf8] text-[9px] font-mono-tabular font-bold text-[#e0f2fe] uppercase tracking-wider"
-              >
-                {tr.freePlayActiveBadge}
-              </span>
-            )}
-
-            {!isFreePlay && isDailyLocked && (
+            {isDailyLocked && (
               <span
                 data-testid="hud-daily-locked-badge"
                 className="px-2 py-0.5 rounded-md bg-[#14532d] border border-[#4ade80] text-[9px] font-mono-tabular font-bold text-[#dcfce7] uppercase tracking-wider"
               >
-                🔒 3/3 SAVED
+                🔒 {tr.dailyLockedBadgeShort}
               </span>
             )}
           </div>
@@ -445,7 +434,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 </button>
               </div>
 
-              {/* Daily Progression Lock Banner & Free Play Launch if 3/3 completed */}
+              {/* Daily Progression Lock Banner if 3/3 completed */}
               {isDailyLocked && (
                 <div
                   data-testid="popover-daily-lock-banner"
@@ -454,23 +443,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   <div className="font-bold text-[#4ade80] mb-0.5">
                     🔒 {tr.dailyProgressionCompleteTitle}
                   </div>
-                  <div className="text-[10px] text-[#cbd5e1] mb-2">
+                  <div className="text-[10px] text-[#cbd5e1]">
                     {tr.dailyProgressionCompleteDesc}
                   </div>
-                  {!isFreePlay && onStartFreePlay && (
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      data-testid="popover-btn-free-play"
-                      onClick={() => {
-                        setShowTasksPopover(false);
-                        onStartFreePlay();
-                      }}
-                      className="w-full py-1.5 px-2.5 rounded-lg bg-[#16a34a] hover:bg-[#22c55e] text-[#090d16] font-display font-bold text-xs cursor-pointer transition-colors"
-                    >
-                      {tr.freePlayBtn}
-                    </button>
-                  )}
                 </div>
               )}
 
@@ -867,34 +842,15 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             </button>
           </div>
         )}
-        {hud.bossActive && (
-          <div
-            className="mb-1 px-3 py-1 rounded-xl border border-[#eab308] text-left max-w-md flex items-center gap-2.5"
-            style={{ backgroundColor: 'rgba(27, 12, 46, 0.92)' }}
-          >
-            {ZOMBIE_CATALOG.baron.portraitUrl && (
-              <img
-                src={ZOMBIE_CATALOG.baron.portraitUrl}
-                alt="Baron Blight"
-                className="w-8 h-8 rounded-lg object-cover border border-[#eab308] shrink-0"
-              />
-            )}
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-widest text-[#fde047]">
-                {tr.bossTag} · {hud.bossName}
-              </div>
-              {hud.bossSpeech && (
-                <div className="text-[11px] italic text-[#fef08a]">“{hud.bossSpeech}”</div>
-              )}
-              <div className="w-44 h-1.5 rounded bg-[#090d16] border border-[#581c87] overflow-hidden mt-0.5">
-                <div
-                  className="h-full bg-[#eab308] transition-all duration-150"
-                  style={{ width: `${Math.max(0, (hud.bossHp / Math.max(1, hud.bossMaxHp)) * 100)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <BossHealthBar
+          bossActive={hud.bossActive}
+          bossName={hud.bossName}
+          bossHp={hud.bossHp}
+          bossMaxHp={hud.bossMaxHp}
+          bossSpeech={hud.bossSpeech}
+          bossTag={tr.bossTag}
+          portraitUrl={ZOMBIE_CATALOG.baron.portraitUrl}
+        />
 
         {isConstructing && hud.pendingConstruction && (
           <div
@@ -958,7 +914,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                       {(() => {
                         const padLabelLoc = tr.translatePadLabel(selectedPad.id, selectedPad.label);
                         if (selectedPad.building === null) {
-                          if (isFreePlay) return `${padLabelLoc} — 🔒 ${tr.freePlayActiveBadge}`;
                           if (isDailyLocked)
                             return `${padLabelLoc} — 🔒 ${tr.dailyProgressionCompleteTitle}`;
                           return isNight
@@ -1027,7 +982,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                           {highlightNewPlayer && bType === 'palisade' && (
                             <span
                               data-testid="new-player-build-indicator"
-                              className=" -top-2 right-1 px-1.5 py-0.2 rounded bg-[#f59e0b] text-[#090d16] text-[8.5px] font-extrabold uppercase tracking-wider shadow"
+                              className="absolute -top-2 right-1 px-1.5 py-0.5 rounded bg-[#f59e0b] text-[#090d16] text-[8.5px] font-extrabold uppercase tracking-wider shadow"
                             >
                               ✨ BUILD
                             </span>

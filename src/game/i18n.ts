@@ -136,6 +136,9 @@ export interface UiTranslations {
   fenceBuildBtn: (built: number, total: number) => string;
   fenceUpgradeBtn: string;
   lockedShort: string;
+  languageMenuLabel: string;
+  dailyLockedBadgeShort: string;
+  noTicketsBanner: string;
   chooseBuildPadLabel: string;
   padEmptyWorldBadge: (id: number) => string;
   padSelectedWorldBadge: (id: number) => string;
@@ -194,15 +197,11 @@ export interface UiTranslations {
   controlNightDesc: string;
   controlZoomDesc: string;
 
-  // New Player Build Indicator & Persistent Fort / Daily Lock / Free Play / Check-In
+  // New Player Build Indicator & Persistent Fort / Daily Lock / Check-In
   newPlayerBuildHint: string;
   dailyLockedBanner: string;
-  freePlayLockedBanner: string;
   dailyProgressionCompleteTitle: string;
   dailyProgressionCompleteDesc: string;
-  freePlayBtn: string;
-  freePlayActiveBadge: string;
-  freePlayNoRewardsNote: string;
   dailyCheckInTitle: string;
   dailyCheckInReadyDesc: string;
   dailyCheckInClaimBtn: string;
@@ -1290,6 +1289,9 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     fenceBuildBtn: (b, t) => `Outer Fence [F] (${b}/${t})`,
     fenceUpgradeBtn: 'Upgrade Fence [F]',
     lockedShort: 'Locked',
+    languageMenuLabel: 'Language:',
+    dailyLockedBadgeShort: '3/3 SAVED',
+    noTicketsBanner: 'No Daily Tickets remaining today! Wait for 00:00 UTC reset.',
     chooseBuildPadLabel: 'Build Pads:',
     padEmptyWorldBadge: (id) => `P${id} · +BUILD`,
     padSelectedWorldBadge: (id) => `P${id} · SELECT`,
@@ -1356,15 +1358,10 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
 
     newPlayerBuildHint: '✨ Ready to Build! Click P1 or a Build Pad to place your first defense',
     dailyLockedBanner:
-      "🔒 Today's construction progression is complete! Your fort & resources are saved until 00:00 UTC. Combat & Free Play remain open!",
-    freePlayLockedBanner:
-      '🎮 Free Play / Demo Mode: Combat & Lantern Flare are active; resource farming & construction are disabled.',
+      "🔒 Today's construction progression is complete! Your fort & resources are saved until 00:00 UTC. Hero combat stays open!",
     dailyProgressionCompleteTitle: 'Fort Saved · Daily Construction Complete',
     dailyProgressionCompleteDesc:
-      'All 3 daily tasks are complete! Gathering, building, and upgrades are locked until 00:00 UTC. Defend your saved fort in Free Play!',
-    freePlayBtn: '🎮 Free Play / Demo (0 Tickets)',
-    freePlayActiveBadge: 'FREE PLAY · DEMO',
-    freePlayNoRewardsNote: 'Free Play uses your saved fort with 0 Ticket cost (no farming or repeatable XP/Coins).',
+      'All 3 daily tasks are complete! Gathering, building, and upgrades are locked until 00:00 UTC.',
     dailyCheckInTitle: 'Daily Ranger Check-In',
     dailyCheckInReadyDesc: 'First run of the UTC day complete! Claim your daily check-in supply cache:',
     dailyCheckInClaimBtn: '🎁 Claim Daily Check-In (+25 Coins · +30 XP)',
@@ -1381,7 +1378,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       'Undead waves, active projectiles, temporary run score, and Day/Night wave timers.',
     lockedUntilUtcTitle: '🔒 Locked After 3/3 Daily Tasks Until 00:00 UTC',
     lockedUntilUtcDesc:
-      'New resource gathering, building, upgrades, repairs & salvage (Hero combat & Free Play stay open).',
+      'New resource gathering, building, upgrades, repairs & salvage (Hero combat stays open).',
     buildDurationLabel: (sec) => `⏱ ${sec}s`,
     salvagedStructureBanner: (id, w, s) => `Salvaged Pad P${id} (+${w} Wood, +${s} Stone refunded)`,
     weatherLabel: (w) =>
@@ -1485,6 +1482,9 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     fenceBuildBtn: (b, t) => `Pagar Luar [F] (${b}/${t})`,
     fenceUpgradeBtn: 'Upgrade Pagar [F]',
     lockedShort: 'Terkunci',
+    languageMenuLabel: 'Bahasa:',
+    dailyLockedBadgeShort: '3/3 TERSIMPAN',
+    noTicketsBanner: 'Tiket Harian habis hari ini! Tunggu reset 00:00 UTC.',
     chooseBuildPadLabel: 'Titik Build:',
     padEmptyWorldBadge: (id) => `P${id} · +BANGUN`,
     padSelectedWorldBadge: (id) => `P${id} · PILIH`,
@@ -1551,15 +1551,10 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
 
     newPlayerBuildHint: '✨ Siap Membangun! Klik P1 atau Titik Build untuk memasang pertahanan pertamamu',
     dailyLockedBanner:
-      '🔒 Progres pembangunan hari ini selesai! Benteng & resource tersimpan hingga 00:00 UTC. Mode Tempur & Free Play tetap terbuka!',
-    freePlayLockedBanner:
-      '🎮 Mode Free Play / Demo: Pertarungan & Flare aktif; cari resource & bangun dikunci.',
+      '🔒 Progres pembangunan hari ini selesai! Benteng & resource tersimpan hingga 00:00 UTC. Pertarungan Hero tetap aktif!',
     dailyProgressionCompleteTitle: 'Benteng Tersimpan · Progres Harian Selesai',
     dailyProgressionCompleteDesc:
-      'Ke-3 misi harian selesai! Pengumpulan resource & pembangunan dikunci hingga 00:00 UTC. Pertahankan bentengmu di Free Play!',
-    freePlayBtn: '🎮 Free Play / Demo (0 Tiket)',
-    freePlayActiveBadge: 'FREE PLAY · DEMO',
-    freePlayNoRewardsNote: 'Free Play memakai benteng tersimpan tanpa tiket (tanpa farming resource/XP berulang).',
+      'Ke-3 misi harian selesai! Pengumpulan resource & pembangunan dikunci hingga 00:00 UTC.',
     dailyCheckInTitle: 'Check-In Harian Ranger',
     dailyCheckInReadyDesc: 'Permainan pertama hari ini selesai! Klaim hadiah Check-In harianmu:',
     dailyCheckInClaimBtn: '🎁 Klaim Check-In Harian (+25 Koin · +30 XP)',
@@ -1576,7 +1571,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       'Gelombang zombie, proyektil aktif, skor sementara permainan, dan waktu Siang/Malam.',
     lockedUntilUtcTitle: '🔒 Dikunci Setelah 3/3 Misi Harian Hingga 00:00 UTC',
     lockedUntilUtcDesc:
-      'Mengumpulkan resource, membangun, upgrade, perbaiki & bongkar (Pertarungan Hero & Free Play tetap aktif).',
+      'Mengumpulkan resource, membangun, upgrade, perbaiki & bongkar (Pertarungan Hero tetap aktif).',
     buildDurationLabel: (sec) => `⏱ ${sec}d`,
     salvagedStructureBanner: (id, w, s) => `Pad P${id} dibongkar (+${w} Kayu, +${s} Batu kembali)`,
     weatherLabel: (w) =>
@@ -1679,6 +1674,9 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     fenceBuildBtn: (b, t) => `外围木栏 [F] (${b}/${t})`,
     fenceUpgradeBtn: '升级木栏 [F]',
     lockedShort: '已锁定',
+    languageMenuLabel: '语言:',
+    dailyLockedBadgeShort: '3/3 已保存',
+    noTicketsBanner: '今日门票已用完！请等待 00:00 UTC 重置。',
     chooseBuildPadLabel: '建造点:',
     padEmptyWorldBadge: (id) => `P${id} · +建造`,
     padSelectedWorldBadge: (id) => `P${id} · 选择`,
@@ -1742,15 +1740,10 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
 
     newPlayerBuildHint: '✨ 资源充足！点击 P1 或建造点放置你的第一座防御建筑',
     dailyLockedBanner:
-      '🔒 今日建造进度已完成！堡垒与资源已保存至 00:00 UTC。战斗与自由试玩模式依然开放！',
-    freePlayLockedBanner:
-      '🎮 自由试玩 / 演示模式：战斗与提灯闪光可用；采集与建造已禁用。',
+      '🔒 今日建造进度已完成！堡垒与资源已保存至 00:00 UTC。英雄战斗依然开放！',
     dailyProgressionCompleteTitle: '堡垒已保存 · 今日建造任务全部完成',
     dailyProgressionCompleteDesc:
-      '全部 3 项每日任务已完成！采集、建造与升级将锁定至 00:00 UTC。可随时进入自由试玩模式防守你的堡垒！',
-    freePlayBtn: '🎮 自由试玩 / 演示 (0 门票)',
-    freePlayActiveBadge: '自由试玩 · 演示',
-    freePlayNoRewardsNote: '自由试玩使用已保存的堡垒，不消耗门票（无资源采集与重复经验/金币）。',
+      '全部 3 项每日任务已完成！采集、建造与升级将锁定至 00:00 UTC。',
     dailyCheckInTitle: '每日游侠签到',
     dailyCheckInReadyDesc: '今日首局挑战已完成！立即领取你的每日签到补给：',
     dailyCheckInClaimBtn: '🎁 领取每日签到 (+25 金币 · +30 经验)',
@@ -1766,7 +1759,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     resetsNextRunDesc: '亡灵波次、场上弹射物、单局临时得分以及昼夜波次计时器。',
     lockedUntilUtcTitle: '🔒 完成 3/3 每日任务后锁定至 00:00 UTC',
     lockedUntilUtcDesc:
-      '采集资源、建造、升级、修复与拆除（英雄战斗与自由试玩依然开放）。',
+      '采集资源、建造、升级、修复与拆除（英雄战斗依然开放）。',
     buildDurationLabel: (sec) => `⏱ ${sec}秒`,
     salvagedStructureBanner: (id, w, s) => `已拆除 P${id} 建筑 (返还 +${w} 木材, +${s} 石料)`,
     weatherLabel: (w) =>
@@ -1870,6 +1863,9 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     fenceBuildBtn: (b, t) => `Rào Ngoài [F] (${b}/${t})`,
     fenceUpgradeBtn: 'Nâng Cấp Rào [F]',
     lockedShort: 'Đã khóa',
+    languageMenuLabel: 'Ngôn ngữ:',
+    dailyLockedBadgeShort: '3/3 ĐÃ LƯU',
+    noTicketsBanner: 'Hết Vé Ngày hôm nay! Hãy đợi reset lúc 00:00 UTC.',
     chooseBuildPadLabel: 'Bệ Xây:',
     padEmptyWorldBadge: (id) => `P${id} · +XÂY`,
     padSelectedWorldBadge: (id) => `P${id} · CHỌN`,
@@ -1933,15 +1929,10 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
 
     newPlayerBuildHint: '✨ Đủ tài nguyên! Nhấn P1 hoặc Bệ Xây để đặt công trình phòng thủ đầu tiên',
     dailyLockedBanner:
-      '🔒 Tiến độ xây dựng hôm nay đã hoàn tất! Pháo đài & tài nguyên đã được lưu đến 00:00 UTC. Chiến đấu & Chơi Tự Do vẫn mở!',
-    freePlayLockedBanner:
-      '🎮 Chế độ Chơi Tự Do / Demo: Chiến đấu & Pháo sáng hoạt động; thu thập & xây dựng bị khóa.',
+      '🔒 Tiến độ xây dựng hôm nay đã hoàn tất! Pháo đài & tài nguyên đã được lưu đến 00:00 UTC. Chiến đấu vẫn mở!',
     dailyProgressionCompleteTitle: 'Pháo Đài Đã Lưu · Hoàn Tất Tiến Độ Ngày',
     dailyProgressionCompleteDesc:
-      'Đã xong cả 3 nhiệm vụ ngày! Thu thập, xây dựng & nâng cấp khóa đến 00:00 UTC. Hãy bảo vệ pháo đài trong Chơi Tự Do!',
-    freePlayBtn: '🎮 Chơi Tự Do / Demo (0 Vé)',
-    freePlayActiveBadge: 'CHƠI TỰ DO · DEMO',
-    freePlayNoRewardsNote: 'Chơi Tự Do dùng pháo đài đã lưu với 0 Vé (không cày tài nguyên hay XP/Xu lặp lại).',
+      'Đã xong cả 3 nhiệm vụ ngày! Thu thập, xây dựng & nâng cấp khóa đến 00:00 UTC.',
     dailyCheckInTitle: 'Điểm Danh Kiểm Lâm Hàng Ngày',
     dailyCheckInReadyDesc: 'Đã hoàn thành lượt chơi đầu tiên trong ngày! Nhận quà điểm danh ngay:',
     dailyCheckInClaimBtn: '🎁 Nhận Quà Điểm Danh (+25 Xu · +30 XP)',
@@ -1957,7 +1948,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     resetsNextRunDesc: 'Đợt zombie, đạn đang bay, điểm số tạm thời và đồng hồ Ngày/Đêm.',
     lockedUntilUtcTitle: '🔒 Khóa Sau Khi Xong 3/3 Nhiệm Vụ Đến 00:00 UTC',
     lockedUntilUtcDesc:
-      'Thu thập tài nguyên, xây mới, nâng cấp, sửa chữa & tháo dỡ (Chiến đấu & Chơi Tự Do vẫn mở).',
+      'Thu thập tài nguyên, xây mới, nâng cấp, sửa chữa & tháo dỡ (Chiến đấu vẫn mở).',
     buildDurationLabel: (sec) => `⏱ ${sec}s`,
     salvagedStructureBanner: (id, w, s) => `Đã tháo dỡ Bệ P${id} (+${w} Gỗ, +${s} Đá hoàn lại)`,
     weatherLabel: (w) =>
@@ -2061,6 +2052,9 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     fenceBuildBtn: (b, t) => `Внешний забор [F] (${b}/${t})`,
     fenceUpgradeBtn: 'Улучшить забор [F]',
     lockedShort: 'Закрыто',
+    languageMenuLabel: 'Язык:',
+    dailyLockedBadgeShort: '3/3 СОХРАНЕНО',
+    noTicketsBanner: 'Дневные билеты на сегодня закончились! Ждите сброса в 00:00 UTC.',
     chooseBuildPadLabel: 'Площадки:',
     padEmptyWorldBadge: (id) => `P${id} · +СТРОИТЬ`,
     padSelectedWorldBadge: (id) => `P${id} · ВЫБОР`,
@@ -2124,15 +2118,10 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
 
     newPlayerBuildHint: '✨ Ресурсов достаточно! Нажмите P1 или площадку, чтобы построить первую защиту',
     dailyLockedBanner:
-      '🔒 Дневной прогресс строительства завершен! Форт и ресурсы сохранены до 00:00 UTC. Бой и Свободная игра открыты!',
-    freePlayLockedBanner:
-      '🎮 Свободная игра / Демо: Бой и вспышка фонаря активны; сбор ресурсов и стройка отключены.',
+      '🔒 Дневной прогресс строительства завершен! Форт и ресурсы сохранены до 00:00 UTC. Бой героя открыт!',
     dailyProgressionCompleteTitle: 'Форт сохранен · Дневной прогресс завершен',
     dailyProgressionCompleteDesc:
-      'Все 3 задания выполнены! Сбор ресурсов, постройка и улучшения закрыты до 00:00 UTC. Защищайте свой форт в Свободной игре!',
-    freePlayBtn: '🎮 Свободная игра / Демо (0 билетов)',
-    freePlayActiveBadge: 'СВОБОДНАЯ ИГРА · ДЕМО',
-    freePlayNoRewardsNote: 'Свободная игра использует ваш сохраненный форт за 0 билетов (без фарма ресурсов и опыта).',
+      'Все 3 задания выполнены! Сбор ресурсов, постройка и улучшения закрыты до 00:00 UTC.',
     dailyCheckInTitle: 'Ежедневная отметка рейнджера',
     dailyCheckInReadyDesc: 'Первый забег за день завершен! Заберите ежедневную награду:',
     dailyCheckInClaimBtn: '🎁 Забрать награду дня (+25 монет · +30 опыта)',
@@ -2148,7 +2137,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     resetsNextRunDesc: 'Волны зомби, снаряды, временный счет забега и таймеры дня/ночи.',
     lockedUntilUtcTitle: '🔒 Закрыто после 3/3 заданий дня до 00:00 UTC',
     lockedUntilUtcDesc:
-      'Сбор ресурсов, постройка, улучшения, починка и снос (бой героя и Свободная игра доступны).',
+      'Сбор ресурсов, постройка, улучшения, починка и снос (бой героя доступен).',
     buildDurationLabel: (sec) => `⏱ ${sec}с`,
     salvagedStructureBanner: (id, w, s) => `Разобрана площадка P${id} (+${w} дерева, +${s} камня)`,
     weatherLabel: (w) =>

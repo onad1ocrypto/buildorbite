@@ -89,7 +89,6 @@ export default function App() {
         isDevelopmentTestMode(import.meta.env.DEV, window.location.search, false, vercelEnv),
       daily: initialDaily,
       lastRunSummary: null,
-      isFreePlay: false,
     };
   });
 
@@ -151,7 +150,6 @@ export default function App() {
         <TitleScreen
           onStartGame={() => controllerRef.current?.startGame()}
           onStartDevTestRun={() => controllerRef.current?.startDevTestRun()}
-          onStartFreePlay={() => controllerRef.current?.startFreePlay()}
           devTestMode={hud.isDevTestMode}
           showDevTestControl={showDevTestControl}
           onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
@@ -190,7 +188,6 @@ export default function App() {
         onOpenGuide={() => setShowGuide(true)}
         onToggleDock={() => controllerRef.current?.toggleDock()}
         onAdjustZoom={(delta) => controllerRef.current?.adjustZoom(delta)}
-        onStartFreePlay={() => controllerRef.current?.startFreePlay()}
         onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
         onResetDemoData={() => controllerRef.current?.clearDemoData()}
         onExitDemoMode={() => controllerRef.current?.returnToTitle()}
@@ -208,7 +205,6 @@ export default function App() {
         onResume={() => controllerRef.current?.togglePause()}
         onRestart={() => controllerRef.current?.restartGame()}
         onStartDevTestRun={() => controllerRef.current?.startDevTestRun()}
-        onStartFreePlay={() => controllerRef.current?.startFreePlay()}
         onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
         onReturnTitle={() => controllerRef.current?.returnToTitle()}
         onOpenGuide={() => setShowGuide(true)}

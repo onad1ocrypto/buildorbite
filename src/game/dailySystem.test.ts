@@ -73,9 +73,8 @@ test('developer QA mode bypasses only the daily lock and never spends tickets; p
   assert.equal(shouldLockDailyProgression(true, false), true);
   assert.equal(shouldLockDailyProgression(true, true), false);
   assert.equal(shouldLockDailyProgression(false, true), false);
-  assert.equal(shouldConsumeTicketForStart(false, false), true);
-  assert.equal(shouldConsumeTicketForStart(false, true), false);
-  assert.equal(shouldConsumeTicketForStart(true, true), false);
+  assert.equal(shouldConsumeTicketForStart(false), true);
+  assert.equal(shouldConsumeTicketForStart(true), false);
 });
 
 test('Test Run strictly isolates production progression (no ticket spend, no task/XP/coin/streak/check-in/fort mutations)', () => {
@@ -95,7 +94,6 @@ test('Test Run strictly isolates production progression (no ticket spend, no tas
     { wood: 200, stone: 200, food: 200, tickets: 3 },
     'watchtower',
     'day',
-    false,
     false
   );
   testPads[0] = built.updatedPad;
@@ -183,7 +181,6 @@ test('Test Run allows gathering, building, upgrading, and salvaging during Day e
     resources: wallet,
     phase: 'day',
     dailyLocked: effectiveLock,
-    isFreePlay: false,
   });
   assert.equal(gatherDay.gathered, true);
   assert.equal(gatherDay.updatedResources.wood > wallet.wood, true);
@@ -193,8 +190,7 @@ test('Test Run allows gathering, building, upgrading, and salvaging during Day e
     gatherDay.updatedResources,
     'watchtower',
     'day',
-    effectiveLock,
-    false
+    effectiveLock
   );
   assert.equal(buildDay.success, true);
 
@@ -203,8 +199,7 @@ test('Test Run allows gathering, building, upgrading, and salvaging during Day e
     buildDay.updatedResources,
     'pathA',
     'day',
-    effectiveLock,
-    false
+    effectiveLock
   );
   assert.equal(upgradeDay.success, true);
 
@@ -212,8 +207,7 @@ test('Test Run allows gathering, building, upgrading, and salvaging during Day e
     upgradeDay.updatedPad,
     upgradeDay.updatedResources,
     'day',
-    effectiveLock,
-    false
+    effectiveLock
   );
   assert.equal(salvageDay.success, true);
 
@@ -223,7 +217,6 @@ test('Test Run allows gathering, building, upgrading, and salvaging during Day e
     resources: wallet,
     phase: 'night',
     dailyLocked: effectiveLock,
-    isFreePlay: false,
   });
   assert.equal(gatherNight.gathered, false);
   assert.equal(gatherNight.reason, 'night_locked');
@@ -233,8 +226,7 @@ test('Test Run allows gathering, building, upgrading, and salvaging during Day e
     wallet,
     'watchtower',
     'night',
-    effectiveLock,
-    false
+    effectiveLock
   );
   assert.equal(buildNight.success, false);
   assert.equal(buildNight.reason, 'night_locked');
@@ -445,14 +437,14 @@ test('Persistent fort and resource wallet remain intact across boss victory, dai
   assert.equal(restoredFences[f1.updatedSegment.id - 1].hp, restoredFences[f1.updatedSegment.id - 1].maxHp);
 });
 
-test('Free Play / Demo mode grants 0 XP, 0 Coins, does not advance tasks or streak, and preserves saved fort', () => {
-  const day1 = Date.UTC(2026, 10, 16, 16, 0, 0);
+test('Demo / Test mode grants 0 XP, 0 Coins, does not advance tasks or streak, and preserves saved fort', () => {
+  const day1 = Date.UTC(2026, 10, 16, 14, 0, 0);
   let state = createDefaultDailyState(day1);
   const startXp = state.xp;
   const startCoins = state.coins;
   const startTickets = state.tickets;
 
-  // Task progress in Free Play is ignored
+  // Task progress in Demo / Dev Test mode is ignored
   const taskRes = recordTaskProgress(
     state,
     {
@@ -462,21 +454,21 @@ test('Free Play / Demo mode grants 0 XP, 0 Coins, does not advance tasks or stre
       consecutiveNightsSurvived: 3,
       runScore: 3000,
     },
-    { isFreePlay: true }
+    { isDevTestMode: true }
   );
   assert.equal(taskRes.allThreeJustCompleted, false);
   assert.equal(taskRes.updatedState.xp, startXp);
   assert.equal(taskRes.updatedState.coins, startCoins);
 
-  // Run completion in Free Play grants 0 XP, 0 Coins, and does not increment streak
+  // Run completion in Demo / Dev Test mode grants 0 XP, 0 Coins, and does not increment streak
   const runRes = completeRunProgression(state, {
     score: 3000,
     victory: true,
     nightsSurvived: 3,
     nowMs: day1,
-    isFreePlay: true,
+    isDevTestMode: true,
   });
-  assert.equal(runRes.summary.isFreePlay, true);
+  assert.equal(runRes.summary.isDevTestMode, true);
   assert.equal(runRes.summary.xpGained, 0);
   assert.equal(runRes.summary.coinsGained, 0);
   assert.equal(runRes.updatedState.xp, startXp);
