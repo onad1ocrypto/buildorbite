@@ -2,7 +2,7 @@
 
 **A 3D dark-comedy forest-fort defense game: build by day, survive the night.**
 
-> **Status:** playable web prototype. The current repository is a React + Vite browser game; a Reddit Devvit build has not yet been implemented.
+> **Status:** playable web prototype with an initial Reddit Devvit Web integration. The Devvit client/server build compiles; Reddit identity-scoped Redis saves and server-side daily ticket checks are implemented, but the app has not yet been playtested in Reddit or reviewed against event submission rules. It is **not ready for submission yet**.
 
 ## Game overview
 
@@ -46,9 +46,9 @@ The intended tone is spooky but funny. The game supports desktop keyboard/mouse 
 
 ## Save data and limitations
 
-The current web prototype stores player progression in browser `localStorage` (including `build_or_bite_daily_v1`). This is local to the browser/site origin, is not an account system, and is not authoritative against client-side tampering. The game does not currently have username/password authentication or a server-backed player database.
+The current standalone web game stores player progression in browser `localStorage` (including `build_or_bite_daily_v1`). This is local to the browser/site origin, is not an account system, and is not authoritative against client-side tampering. New local profiles start at 0 XP / Level 1; migration preserves progression from older browser saves.
 
-Before using persistent player accounts in a Reddit/Devvit build, the game will need a separate Devvit integration and server-side persistence design. The Devvit version is **planned, not implemented in this repository**.
+The Devvit client bootstraps from a Redis profile namespaced to Reddit's server-provided user ID and syncs the daily game save back to the server. The server separately counts run starts by Reddit user and UTC date and enforces the three-ticket daily cap; the browser cannot reset that counter or select another user's key. No username/password or external database login is used. Other gameplay rewards and save fields are still submitted by the client, so they are persistent and account-scoped but are not yet fully server-authoritative. Reddit playtesting remains unfinished.
 
 ## Technology
 
@@ -56,7 +56,7 @@ Before using persistent player accounts in a Reddit/Devvit build, the game will 
 - Three.js for 3D rendering
 - Tailwind CSS
 
-The repository currently runs as a Vite SPA. Although Express and `@google/genai` are listed as dependencies, there is no active Express backend or Gemini API feature in the current game code.
+The standalone game still runs as a Vite SPA. A separate Vite configuration builds the Devvit post client and Hono server. Express and `@google/genai` remain listed as dependencies but are not used by the current game features.
 
 ## Local development
 
@@ -75,7 +75,10 @@ Useful checks:
 npm run lint
 npx tsx --test src/game/dailySystem.test.ts src/game/rules.test.ts src/game/i18n.test.ts
 npm run build
+npm run build:devvit
 ```
+
+`npm run build:devvit` builds the Devvit client/server app. `npm run playtest:devvit` requires a Reddit developer login and a test subreddit; it has not been run from this workspace.
 
 ## Repository layout
 
@@ -83,14 +86,18 @@ npm run build
 buildorbite/
 ├── index.html
 ├── package.json
-├── vite.config.ts
-├── public/assets/aistudio/   # game title and character artwork
+├── devvit.json               # Reddit post/server entrypoints
+├── vite.config.ts             # standalone web app
+├── vite.config.devvit.ts      # Devvit Web build
+├── public/assets/aistudio/    # game title and character artwork
 └── src/
     ├── App.tsx
-    ├── components/           # screens, HUD, modals, boss health bar
-    └── game/                 # simulation, rules, daily system, i18n, audio, tests
+    ├── client/                # Devvit webview entrypoint
+    ├── components/            # screens, HUD, modals, boss health bar
+    ├── game/                  # simulation, rules, daily system, i18n, audio, tests
+    └── server/                # Devvit Redis profile and ticket API
 ```
 
 ## Reddit event direction
 
-The project is intended for a Reddit event, but this repository is not yet a Devvit app. A future Devvit version must be implemented and reviewed against the event's current rules before submission. No claim is made here that the app has been uploaded, privately playtested, approved, or published.
+The project is intended for a Reddit event. The repository now has a minimal Devvit Web packaging scaffold, but the full game-state integration and Reddit playtest are still pending. The current scaffold does not imply that the app has been uploaded, privately playtested, approved, or published. Confirm the specific event's submission and publication rules before release.

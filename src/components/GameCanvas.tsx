@@ -80,6 +80,7 @@ import {
   LANTERN_COSMETICS,
   loadDailyStateFromStorage,
   loadDevTestFortFromStorage,
+  MAX_DAILY_TICKETS,
   recordTaskProgress,
   saveDailyStateToStorage,
   saveDevTestFortToStorage,
@@ -1324,6 +1325,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let lastRunSummary: RunCompletionSummary | null = null;
     let nightsSurvivedThisRun = 0;
     const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
+    const isDevvitRuntime = document.documentElement.dataset.devvitRuntime === 'true';
     // Demo / Dev Test switch: activated only in AI Studio Preview / Dev or Vercel Preview
     // via the visible Demo/Test Run button or ?devTest=1 / ?demo=1. Production never enables this.
     let devTestMode = isDevelopmentTestMode(
@@ -1403,7 +1405,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     }
 
-    const autostart = new URLSearchParams(window.location.search).get('autostart') === '1';
+    const autostart =
+      !isDevvitRuntime && new URLSearchParams(window.location.search).get('autostart') === '1';
     let screenState: GameScreenState = 'title';
     if (autostart) {
       if (devTestMode) {
@@ -1855,7 +1858,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     function resetRunState(
       targetScreen: GameScreenState,
-      requestDevTest = false
+      requestDevTest = false,
+      ticketAlreadyConsumed = false
     ) {
       dailyState = checkAndApplyDailyReset(dailyState);
       devTestMode = isDevelopmentTestMode(
@@ -1865,8 +1869,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         vercelEnv
       );
 
-      if (targetScreen === 'playing') {
-        if (shouldConsumeTicketForStart(devTestMode)) {
+      if (targetScreen === 'playing' && shouldConsumeTicketForStart(devTestMode)) {
+        if (!ticketAlreadyConsumed) {
           const ticketCheck = consumeTicketForRun(dailyState);
           if (!ticketCheck.allowed) {
             screenState = 'title';
@@ -1876,8 +1880,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             return;
           }
           dailyState = ticketCheck.updatedState;
-          saveDailyStateToStorage(dailyState);
         }
+        saveDailyStateToStorage(dailyState);
       }
 
       const fortSource = devTestMode ? loadDevTestFortFromStorage(dailyState) : dailyState;
@@ -1965,19 +1969,77 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       syncHud(true);
     }
 
+    async function startStandardRun() {
+      if (!isDevvitRuntime) {
+        resetRunState('playing', false);
+        return;
+      }
+
+      const runId =
+        typeof window.crypto?.randomUUID === 'function'
+          ? window.crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
+      try {
+        const response = await fetch('/api/runs/start', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ runId }),
+        });
+        const result = (await response.json()) as {
+          allowed?: boolean;
+          reason?: string;
+          ticketsUsedTodayUTC?: number;
+          ticketsRemaining?: number;
+          utcDate?: string;
+        };
+
+        if (!response.ok || result.allowed !== true) {
+          if (result.reason === 'no_tickets') {
+            dailyState = {
+              ...dailyState,
+              tickets: 0,
+              ticketsUsedTodayUTC: MAX_DAILY_TICKETS,
+              lastResetDateUTC: result.utcDate ?? dailyState.lastResetDateUTC,
+            };
+            saveDailyStateToStorage(dailyState);
+            setBanner(TRANSLATIONS[langRef.current].noTicketsBanner, 4.0);
+          } else {
+            setBanner('Ticket status could not be verified. Reload the game before trying again.', 5.0);
+          }
+          syncHud(true);
+          return;
+        }
+
+        dailyState = {
+          ...dailyState,
+          tickets: Math.max(0, Math.min(MAX_DAILY_TICKETS, result.ticketsRemaining ?? 0)),
+          ticketsUsedTodayUTC: Math.max(
+            0,
+            Math.min(MAX_DAILY_TICKETS, result.ticketsUsedTodayUTC ?? 0)
+          ),
+          lastResetDateUTC: result.utcDate ?? dailyState.lastResetDateUTC,
+        };
+        resetRunState('playing', false, true);
+      } catch {
+        setBanner('Ticket status could not be verified. Reload the game before trying again.', 5.0);
+        syncHud(true);
+      }
+    }
+
     // 4. Controller Actions Exposed to React HUD & Keyboard
     const api: GameControllerApi = {
       startGame: () => {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        resetRunState('playing', false);
+        void startStandardRun();
       },
       startDevTestRun: () => {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        if (!canShowDevTestControl(import.meta.env.DEV, vercelEnv)) return;
+        if (isDevvitRuntime || !canShowDevTestControl(import.meta.env.DEV, vercelEnv)) return;
         resetRunState('playing', true);
       },
       clearDemoData: () => {
@@ -1992,7 +2054,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        resetRunState('playing', devTestMode);
+        if (devTestMode) resetRunState('playing', true);
+        else void startStandardRun();
       },
       returnToTitle: () => {
         resetRunState('title', false);

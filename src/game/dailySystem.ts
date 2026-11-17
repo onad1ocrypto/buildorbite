@@ -21,6 +21,7 @@ import {
 } from './rules';
 
 export const DAILY_STORAGE_KEY = 'build_or_bite_daily_v1';
+export const DAILY_STATE_SAVED_EVENT = 'build-or-bite:daily-state-saved';
 export const LEGACY_TICKET_BACKUP_KEY = 'build_or_bite_legacy_backup_v2';
 export const CURRENT_DAILY_SCHEMA_VERSION = 3;
 export const MAX_DAILY_TICKETS = 3;
@@ -1255,10 +1256,19 @@ export function loadDailyStateFromStorage(nowMs: number = Date.now()): DailyPers
 }
 
 export function saveDailyStateToStorage(state: DailyPersistenceState): void {
-  if (typeof window === 'undefined' || !window.localStorage) return;
+  if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(state));
+    if (window.localStorage) {
+      window.localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(state));
+    }
   } catch {
-    // Ignore storage quota errors
+    // Keep the server-backed Reddit save path available even if local cache storage fails.
+  }
+  try {
+    if (typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(DAILY_STATE_SAVED_EVENT, { detail: state }));
+    }
+  } catch {
+    // Ignore environments that do not support custom events.
   }
 }
