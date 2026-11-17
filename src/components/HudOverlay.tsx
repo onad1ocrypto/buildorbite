@@ -476,10 +476,10 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         )}
       </div>
 
-      {/* UNIFIED COLLAPSIBLE BOTTOM CONTROL DOCK */}
-      <div className="w-full flex flex-col items-center pointer-events-none">
+      {/* COMPACT TRANSLUCENT SIDE CONTROL DOCK */}
+      <div className="pointer-events-none absolute left-3 right-auto top-[54%] -translate-y-1/2 w-[min(320px,calc(100vw-1.5rem))] max-h-[68vh] overflow-y-auto flex flex-col items-stretch gap-1.5 z-20">
         {/* Collapse / Expand Handle + Pad Quick-Selector Strip */}
-        <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 mb-1.5">
+        <div className="pointer-events-auto flex flex-col items-stretch gap-1.5">
           <button
             type="button"
             tabIndex={-1}
@@ -487,13 +487,13 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               e.currentTarget.blur();
               onToggleDock();
             }}
-            className="px-3 py-1 rounded-t-lg bg-[#131b26] hover:bg-[#1e293b] border border-[#334155] text-[11px] font-medium text-[#cbd5e1] cursor-pointer whitespace-nowrap"
+            className="w-full px-3 py-1 rounded-lg bg-[#131b26]/80 hover:bg-[#1e293b]/90 border border-[#334155]/80 text-[11px] font-medium text-[#cbd5e1] cursor-pointer whitespace-nowrap"
           >
             {hud.dockCollapsed ? '▴ Show Build & Skill Dock [H]' : '▾ Hide Controls [H]'}
           </button>
 
           {!hud.dockCollapsed && (
-            <div className="flex items-center gap-1 bg-[#131b26] border border-[#334155] rounded-lg px-2 py-0.5">
+            <div className="flex flex-wrap items-center gap-1 bg-[#131b26]/75 border border-[#334155]/75 rounded-lg px-2 py-1">
               <span className="text-[10px] uppercase tracking-wider text-[#94a3b8] mr-1">
                 Weapon Pads:
               </span>
@@ -540,7 +540,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 e.currentTarget.blur();
                 onBuildNextFence();
               }}
-              className={`px-2.5 py-1 rounded-lg border text-[11px] font-mono-tabular font-bold transition-colors whitespace-nowrap ${
+              className={`w-full px-2.5 py-1 rounded-lg border text-[11px] font-mono-tabular font-bold transition-colors whitespace-normal ${
                 isNight
                   ? 'bg-[#0b1016] border-[#1e293b] text-[#64748b] opacity-55 cursor-not-allowed'
                   : isConstructing
@@ -565,7 +565,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           )}
 
           {!hud.dockCollapsed && (
-            <div className="hidden sm:flex items-center gap-1 bg-[#131b26] border border-[#334155] rounded-lg px-2 py-0.5">
+            <div className="hidden sm:flex items-center justify-center gap-1 bg-[#131b26]/75 border border-[#334155]/75 rounded-lg px-2 py-1">
               <button
                 type="button"
                 tabIndex={-1}
@@ -598,12 +598,12 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         {/* Main Bottom Dock Surface */}
         {!hud.dockCollapsed && (
           <div
-            className="pointer-events-auto w-full max-w-[940px] rounded-xl border border-[#334155] p-3 shadow-2xl"
-            style={{ backgroundColor: 'rgba(13, 19, 28, 0.94)' }}
+            className="pointer-events-auto w-full rounded-xl border border-[#334155]/80 p-2 shadow-2xl"
+            style={{ backgroundColor: 'rgba(13, 19, 28, 0.74)', backdropFilter: 'blur(5px)' }}
           >
-            <div className="flex flex-col md:flex-row items-stretch gap-3">
-              {/* Left Column: Ranger Rue Lantern Flare Skill */}
-              <div className="flex md:flex-col justify-between items-center md:items-stretch md:w-48 shrink-0 p-2.5 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+            <div className="flex flex-col items-stretch gap-2">
+              {/* Ranger Rue Lantern Flare Skill */}
+              <div className="flex flex-col items-stretch gap-2 p-2 rounded-lg bg-[#0b1016]/70 border border-[#1e293b]/80">
                 <div className="flex items-center gap-2.5 text-left">
                   <img
                     src={HERO_RUE_PORTRAIT_URL}
@@ -663,7 +663,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                           : 'Click trees, rocks, or bushes to gather'}
                       </span>
                     </div>
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                    <div className="grid grid-cols-2 gap-1">
                       {BUILDING_LIST.map((bType) => {
                         const spec = BUILDING_CATALOG[bType];
                         const affordable = !isNight && canAfford(hud.resources, spec.cost);
@@ -718,7 +718,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                         Deselect
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+                    <div className="grid grid-cols-2 gap-1">
                       {BUILDING_LIST.map((bType) => {
                         const spec = BUILDING_CATALOG[bType];
                         const affordable = !isNight && canAfford(hud.resources, spec.cost);
