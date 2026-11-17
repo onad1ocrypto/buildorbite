@@ -6,7 +6,6 @@ import {
   createBarkTexture,
   createBuildingModel,
   createCentralFortModel,
-  createCornfieldPatch,
   createDirtRoadTexture,
   createFenceSegmentModel,
   createGrassTerrainTexture,
@@ -267,46 +266,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     clearingDisc.receiveShadow = true;
     scene.add(clearingDisc);
 
-    // Shallow water moat around the clearing; raised dirt roads remain visible as crossings.
-    const clearingMoat = new THREE.Mesh(
-      new THREE.RingGeometry(18.28, 19.28, 96),
+    // Mossy Stone Clearing Perimeter Border Ring
+    const clearingBorderRing = new THREE.Mesh(
+      new THREE.RingGeometry(18.3, 19.1, 56),
       new THREE.MeshStandardMaterial({
-        color: 0x2f8790,
-        roughness: 0.24,
-        metalness: 0.28,
-        transparent: true,
-        opacity: 0.78,
-        depthWrite: false,
+        color: 0x3b4d38,
+        roughness: 0.94,
+        metalness: 0.04,
         bumpMap: bumpTex,
-        bumpScale: 0.035,
+        bumpScale: 0.09,
       })
     );
-    clearingMoat.rotation.x = -Math.PI / 2;
-    clearingMoat.position.y = 0.027;
-    clearingMoat.receiveShadow = true;
-    scene.add(clearingMoat);
-
-    const innerMoatBank = new THREE.Mesh(
-      new THREE.RingGeometry(18.12, 18.34, 96),
-      new THREE.MeshStandardMaterial({ color: 0x435442, roughness: 0.96, bumpMap: bumpTex, bumpScale: 0.08 })
-    );
-    innerMoatBank.rotation.x = -Math.PI / 2;
-    innerMoatBank.position.y = 0.03;
-    innerMoatBank.receiveShadow = true;
-    scene.add(innerMoatBank);
-
-    const outerMoatBank = new THREE.Mesh(
-      new THREE.RingGeometry(19.22, 19.48, 96),
-      new THREE.MeshStandardMaterial({ color: 0x4b513b, roughness: 0.96, bumpMap: bumpTex, bumpScale: 0.08 })
-    );
-    outerMoatBank.rotation.x = -Math.PI / 2;
-    outerMoatBank.position.y = 0.03;
-    outerMoatBank.receiveShadow = true;
-    scene.add(outerMoatBank);
-
-    // Small cornfield in the open north-east forest gap (upper-right in the gameplay view).
-    const cornfieldPatch = createCornfieldPatch(18, -17);
-    scene.add(cornfieldPatch);
+    clearingBorderRing.rotation.x = -Math.PI / 2;
+    clearingBorderRing.position.y = 0.024;
+    clearingBorderRing.receiveShadow = true;
+    scene.add(clearingBorderRing);
 
     // 4 Realistic Dirt & Pebble Roads (North, South, East, West) with feathered edges and wagon wheel ruts
     const trailMat = new THREE.MeshStandardMaterial({
