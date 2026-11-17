@@ -31,6 +31,7 @@ interface HudOverlayProps {
   onDemolishPad: () => void;
   onTriggerFlare: () => void;
   onStartNightEarly: () => void;
+  onCycleWeather?: () => void;
   onToggleMute: () => void;
   onTogglePause: () => void;
   onOpenGuide: () => void;
@@ -64,6 +65,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onDemolishPad,
   onTriggerFlare,
   onStartNightEarly,
+  onCycleWeather,
   onToggleMute,
   onTogglePause,
   onOpenGuide,
@@ -170,6 +172,28 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         }}
       />
 
+      {/* Daytime Weather Atmospheric Edge Vignette (Rain / Fog only; center 100% clear, no backdrop-filter) */}
+      <div
+        data-testid="weather-atmosphere-overlay"
+        data-weather={hud.phase === 'day' ? hud.weather : 'night'}
+        className={`fixed inset-0 pointer-events-none transition-opacity duration-700 ${
+          hud.phase === 'day' && hud.weather !== 'clear' ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={
+          hud.weather === 'rain'
+            ? {
+                background:
+                  'radial-gradient(circle at 50% 48%, rgba(56, 189, 248, 0) 64%, rgba(30, 58, 138, 0.16) 100%)',
+                boxShadow: 'inset 0 0 65px rgba(56, 189, 248, 0.18)',
+              }
+            : {
+                background:
+                  'radial-gradient(circle at 50% 48%, rgba(148, 163, 184, 0) 56%, rgba(51, 65, 85, 0.26) 100%)',
+                boxShadow: 'inset 0 0 85px rgba(148, 163, 184, 0.24)',
+              }
+        }
+      />
+
       {/* Critical low-HP peripheral vignette */}
       {isCriticalHp && (
         <div
@@ -260,6 +284,52 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Daytime Dynamic Weather Indicator & Cycle Button */}
+            {hud.phase === 'day' && (
+              <>
+                <div className="h-5 w-[1px] bg-[#1e293b]" />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  data-testid="hud-weather-badge"
+                  data-weather={hud.weather}
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    onCycleWeather?.();
+                  }}
+                  title={tr.weatherTooltip(hud.weather)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-left cursor-pointer transition-colors ${
+                    hud.weather === 'rain'
+                      ? 'bg-[#0c233b] hover:bg-[#123152] border-[#38bdf8]/70 text-[#bae6fd]'
+                      : hud.weather === 'fog'
+                      ? 'bg-[#19252c] hover:bg-[#22323b] border-[#94a3b8]/70 text-[#e2e8f0]'
+                      : 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#fef3c7]'
+                  }`}
+                >
+                  <div className="leading-none">
+                    <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold">
+                      <span>{tr.weatherLabel(hud.weather)}</span>
+                      <span className="text-[9px] font-mono-tabular opacity-80">
+                        {Math.ceil(hud.weatherTimeRemaining)}s
+                      </span>
+                    </div>
+                    <div
+                      data-testid="hud-weather-modifier"
+                      className={`text-[8.5px] font-mono-tabular font-semibold mt-0.5 ${
+                        hud.weather === 'rain'
+                          ? 'text-[#38bdf8]'
+                          : hud.weather === 'fog'
+                          ? 'text-[#cbd5e1]'
+                          : 'text-[#fbbf24]'
+                      }`}
+                    >
+                      {tr.weatherModifierShort(hud.weather)}
+                    </div>
+                  </div>
+                </button>
+              </>
+            )}
 
             <div className="h-5 w-[1px] bg-[#1e293b]" />
 

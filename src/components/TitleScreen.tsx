@@ -11,6 +11,8 @@ import { DailyPersistenceState } from '../game/types';
 interface TitleScreenProps {
   onStartGame: () => void;
   onStartFreePlay: () => void;
+  onStartDevTestRun: () => void;
+  showDevTestControl: boolean;
   devTestMode: boolean;
   onClaimDailyCheckIn: () => void;
   onOpenGuide: () => void;
@@ -26,6 +28,8 @@ interface TitleScreenProps {
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
   onStartFreePlay,
+  onStartDevTestRun,
+  showDevTestControl,
   devTestMode,
   onClaimDailyCheckIn,
   onOpenGuide,
@@ -247,6 +251,21 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           >
             {tr.freePlayBtn}
           </button>
+
+          {showDevTestControl && (
+            <button
+              type="button"
+              data-testid="btn-dev-test-run"
+              onClick={(e) => {
+                e.currentTarget.blur();
+                onStartDevTestRun();
+              }}
+              title="DEV QA Mode: Launches an isolated test run without spending tickets, bypassing daily progression lock while preserving Day/Night rules."
+              className="px-4 py-3.5 rounded-xl bg-[#422006]/95 hover:bg-[#713f12] border border-[#f59e0b] text-[#fde68a] font-display font-bold text-xs tracking-wide transition-colors whitespace-nowrap shrink-0 shadow-md cursor-pointer"
+            >
+              🧪 Test Run (DEV QA · No Ticket)
+            </button>
+          )}
 
           <button
             type="button"

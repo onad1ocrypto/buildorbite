@@ -21,12 +21,33 @@ import {
 } from './rules';
 
 export const DAILY_STORAGE_KEY = 'build_or_bite_daily_v1';
-export const CURRENT_DAILY_SCHEMA_VERSION = 2;
+export const LEGACY_TICKET_BACKUP_KEY = 'build_or_bite_legacy_backup_v2';
+export const CURRENT_DAILY_SCHEMA_VERSION = 3;
 export const MAX_DAILY_TICKETS = 3;
 export const DAILY_CHECKIN_REWARD = {
   coins: 25,
   xp: 30,
 };
+
+/**
+ * Authoritative helper for computing a normal player's remaining tickets for the current UTC day.
+ * Normal players can never have more than MAX_DAILY_TICKETS (3) or more than max(0, 3 - ticketsUsedTodayUTC),
+ * and remaining tickets can never be negative.
+ */
+export function computeRemainingDailyTickets(
+  ticketsUsedTodayUTC: number,
+  rawTickets?: number
+): number {
+  const safeUsed =
+    typeof ticketsUsedTodayUTC === 'number' && Number.isFinite(ticketsUsedTodayUTC)
+      ? Math.max(0, Math.min(MAX_DAILY_TICKETS, Math.round(ticketsUsedTodayUTC)))
+      : 0;
+  const maxAllowedToday = Math.max(0, MAX_DAILY_TICKETS - safeUsed);
+  if (typeof rawTickets === 'number' && Number.isFinite(rawTickets)) {
+    return Math.max(0, Math.min(maxAllowedToday, Math.round(rawTickets)));
+  }
+  return maxAllowedToday;
+}
 
 export const DEFAULT_BONUS_TASKS: BonusTaskItem[] = [
   {
@@ -318,6 +339,7 @@ export function createDefaultDailyState(nowMs: number = Date.now()): DailyPersis
   return {
     schemaVersion: CURRENT_DAILY_SCHEMA_VERSION,
     tickets: MAX_DAILY_TICKETS,
+    ticketsUsedTodayUTC: 0,
     maxDailyTickets: MAX_DAILY_TICKETS,
     pendingBonusTicketsTomorrow: 0,
     coins: 50,
@@ -426,20 +448,53 @@ export function migrateDailyState(
     bonusTaskProgress[b.id] = Math.max(0, val);
   });
 
+  const lastResetDateUTC =
+    typeof src.lastResetDateUTC === 'string' && src.lastResetDateUTC.length === 10
+      ? src.lastResetDateUTC
+      : base.lastResetDateUTC;
+  const lastPlayedDateUTC =
+    typeof src.lastPlayedDateUTC === 'string' && src.lastPlayedDateUTC.length === 10
+      ? src.lastPlayedDateUTC
+      : null;
+
+  // Conservative, idempotent ticket normalization:
+  // - Never grants more than MAX_DAILY_TICKETS (3) per UTC day.
+  // - Never invents fake usage history, but respects explicit ticketsUsedTodayUTC, or if absent in a legacy save:
+  //   - If 0 <= src.tickets <= 3, infers used = 3 - round(src.tickets).
+  //   - If src.tickets > 3 (legacy inflated save) and the player already recorded a play or task progress on lastResetDateUTC,
+  //     conservatively counts at least 1 ticket used today so migration never grants extra tickets beyond today's remaining allowance.
+  const hasActivityToday =
+    lastPlayedDateUTC === lastResetDateUTC ||
+    dailyProgressionLocked ||
+    Object.values(taskProgress).some((v) => v > 0);
+  const rawTickets =
+    typeof src.tickets === 'number' && Number.isFinite(src.tickets)
+      ? Math.max(0, Math.round(src.tickets))
+      : base.tickets;
+
+  let ticketsUsedTodayUTC = 0;
+  if (typeof src.ticketsUsedTodayUTC === 'number' && Number.isFinite(src.ticketsUsedTodayUTC)) {
+    ticketsUsedTodayUTC = Math.max(
+      0,
+      Math.min(MAX_DAILY_TICKETS, Math.round(src.ticketsUsedTodayUTC))
+    );
+    if (rawTickets <= MAX_DAILY_TICKETS) {
+      ticketsUsedTodayUTC = Math.max(ticketsUsedTodayUTC, MAX_DAILY_TICKETS - rawTickets);
+    }
+  } else if (rawTickets <= MAX_DAILY_TICKETS) {
+    ticketsUsedTodayUTC = Math.max(0, MAX_DAILY_TICKETS - rawTickets);
+  } else if (hasActivityToday) {
+    ticketsUsedTodayUTC = 1;
+  }
+
+  const normalizedTickets = computeRemainingDailyTickets(ticketsUsedTodayUTC, rawTickets);
+
   return {
     schemaVersion: CURRENT_DAILY_SCHEMA_VERSION,
-    tickets:
-      typeof src.tickets === 'number' && Number.isFinite(src.tickets) && src.tickets >= 0
-        ? Math.round(src.tickets)
-        : base.tickets,
-    maxDailyTickets:
-      typeof src.maxDailyTickets === 'number' && src.maxDailyTickets > 0
-        ? src.maxDailyTickets
-        : MAX_DAILY_TICKETS,
-    pendingBonusTicketsTomorrow:
-      typeof src.pendingBonusTicketsTomorrow === 'number' && src.pendingBonusTicketsTomorrow >= 0
-        ? src.pendingBonusTicketsTomorrow
-        : 0,
+    tickets: normalizedTickets,
+    ticketsUsedTodayUTC,
+    maxDailyTickets: MAX_DAILY_TICKETS,
+    pendingBonusTicketsTomorrow: 0,
     coins:
       typeof src.coins === 'number' && Number.isFinite(src.coins) && src.coins >= 0
         ? Math.round(src.coins)
@@ -453,14 +508,8 @@ export function migrateDailyState(
       typeof src.bestStreak === 'number' && src.bestStreak >= 0
         ? Math.max(Math.round(src.bestStreak), typeof src.streak === 'number' ? Math.round(src.streak) : 0)
         : 0,
-    lastResetDateUTC:
-      typeof src.lastResetDateUTC === 'string' && src.lastResetDateUTC.length === 10
-        ? src.lastResetDateUTC
-        : base.lastResetDateUTC,
-    lastPlayedDateUTC:
-      typeof src.lastPlayedDateUTC === 'string' && src.lastPlayedDateUTC.length === 10
-        ? src.lastPlayedDateUTC
-        : null,
+    lastResetDateUTC,
+    lastPlayedDateUTC,
     tasks,
     taskProgress,
     allTasksBonusClaimed,
@@ -505,8 +554,12 @@ export function saveFortAndResourcesToDailyState(
   pads: PlacementPad[],
   fenceSegments: FenceSegment[],
   resources: Pick<Resources, 'wood' | 'stone' | 'food'>,
-  restoreFullHp = false
+  restoreFullHp = false,
+  options?: { isFreePlay?: boolean; isDevTestMode?: boolean }
 ): DailyPersistenceState {
+  if (options?.isFreePlay || options?.isDevTestMode) {
+    return state;
+  }
   const serializedPads = serializePadsForPersistence(pads);
   const serializedFences = serializeFenceSegmentsForPersistence(fenceSegments);
 
@@ -617,7 +670,7 @@ export function consumeTicketForRun(state: DailyPersistenceState): {
 /**
  * Updates live task progress during or at the end of a run.
  * When all 3 core daily tasks reach their targets, immediately sets dailyProgressionLocked = true.
- * In Free Play mode, core daily tasks do not advance and do not grant repeatable rewards.
+ * In Free Play or Dev Test mode, core daily tasks do not advance and do not grant repeatable rewards.
  */
 export function recordTaskProgress(
   state: DailyPersistenceState,
@@ -629,13 +682,13 @@ export function recordTaskProgress(
     runScore?: number;
     zombiesDefeatedDelta?: number;
   },
-  options?: { isFreePlay?: boolean }
+  options?: { isFreePlay?: boolean; isDevTestMode?: boolean }
 ): {
   updatedState: DailyPersistenceState;
   newlyCompletedTaskTitles: string[];
   allThreeJustCompleted: boolean;
 } {
-  if (options?.isFreePlay) {
+  if (options?.isFreePlay || options?.isDevTestMode) {
     return {
       updatedState: state,
       newlyCompletedTaskTitles: [],
@@ -694,12 +747,11 @@ export function recordTaskProgress(
   const allCompleted = state.tasks.every((t) => (nextProgress[t.id] ?? 0) >= t.target);
   const allThreeJustCompleted = allCompleted && !state.allTasksBonusClaimed;
 
-  let pendingBonusTicketsTomorrow = state.pendingBonusTicketsTomorrow;
   if (allThreeJustCompleted) {
     bonusCoinsAdded += 100;
     bonusXpAdded += 120;
-    pendingBonusTicketsTomorrow += 1;
   }
+  const pendingBonusTicketsTomorrow = 0;
 
   const updatedXp = state.xp + bonusXpAdded;
   const levelInfo = getLevelForXp(updatedXp);
@@ -738,18 +790,28 @@ export function recordTaskProgress(
 
 /**
  * Claims today's Daily Check-In reward once per UTC day after the player has completed
- * their first non-Free-Play run of the UTC day.
+ * their first non-Free-Play, non-Dev-Test run of the UTC day.
  */
 export function claimDailyCheckIn(
   state: DailyPersistenceState,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  options?: { isDevTestMode?: boolean }
 ): {
   updatedState: DailyPersistenceState;
   claimed: boolean;
   coinsAdded: number;
   xpAdded: number;
-  reason?: 'not_eligible_yet' | 'already_claimed_today';
+  reason?: 'not_eligible_yet' | 'already_claimed_today' | 'dev_test_isolated';
 } {
+  if (options?.isDevTestMode) {
+    return {
+      updatedState: state,
+      claimed: false,
+      coinsAdded: 0,
+      xpAdded: 0,
+      reason: 'dev_test_isolated',
+    };
+  }
   const todayUTC = getUTCDateString(nowMs);
   if (state.lastCheckInClaimedDateUTC === todayUTC) {
     return {
@@ -797,7 +859,8 @@ export function claimDailyCheckIn(
  * and 3 / 7 / 30 day streak milestones.
  * Also restores saved persistent fort structures & fences to full HP so combat damage during
  * a run never permanently erases structures or upgrades.
- * In Free Play mode, grants 0 repeatable XP/coins and does not modify streak or daily tasks.
+ * In Free Play or Dev Test mode, grants 0 repeatable XP/coins and does not modify streak,
+ * daily tasks, check-in eligibility, or production unlocks.
  */
 export function completeRunProgression(
   state: DailyPersistenceState,
@@ -806,6 +869,7 @@ export function completeRunProgression(
     victory: boolean;
     nightsSurvived: number;
     isFreePlay?: boolean;
+    isDevTestMode?: boolean;
     nowMs?: number;
   }
 ): {
@@ -815,6 +879,44 @@ export function completeRunProgression(
   const nowMs = params.nowMs ?? Date.now();
   const todayUTC = getUTCDateString(nowMs);
   const isFreePlay = Boolean(params.isFreePlay);
+  const isDevTestMode = Boolean(params.isDevTestMode);
+
+  if (isDevTestMode) {
+    const levelInfo = getLevelForXp(state.xp);
+    const completedTasksCount = state.tasks.filter(
+      (t) => (state.taskProgress[t.id] ?? 0) >= t.target
+    ).length;
+    const checkInClaimedToday = state.lastCheckInClaimedDateUTC === todayUTC;
+    const checkInAvailableToClaim =
+      !checkInClaimedToday &&
+      (state.checkInEligibleDateUTC === todayUTC || state.lastPlayedDateUTC === todayUTC);
+
+    return {
+      updatedState: state,
+      summary: {
+        xpGained: 0,
+        coinsGained: 0,
+        previousLevel: state.level,
+        newLevel: state.level,
+        levelProgressPct: levelInfo.progressPct,
+        currentLevelXp: levelInfo.currentLevelXp,
+        nextLevelXp: levelInfo.nextLevelXp,
+        nextRewardLabel: levelInfo.nextRewardLabel,
+        streak: state.streak,
+        streakIncrementedToday: false,
+        ticketsLeft: state.tickets,
+        completedTasksCount,
+        totalTasksCount: state.tasks.length,
+        allTasksBonusClaimed: state.allTasksBonusClaimed,
+        dailyProgressionLocked: state.dailyProgressionLocked,
+        pendingBonusTicketsTomorrow: state.pendingBonusTicketsTomorrow,
+        newUnlocks: [],
+        isFreePlay: true,
+        checkInAvailableToClaim,
+        checkInClaimedToday,
+      },
+    };
+  }
 
   // Restore saved fort & fences to full HP between runs
   const restoredSavedPads = serializePadsForPersistence(
@@ -980,35 +1082,168 @@ export function completeRunProgression(
   };
 }
 
-export const REVIEW_GRANT_TICKETS = 25;
+export const REVIEW_GRANT_TICKETS = MAX_DAILY_TICKETS;
+export const DEV_TEST_FORT_STORAGE_KEY = 'build_or_bite_dev_test_fort_v1';
 
 /**
- * Enables the QA bypass only in development builds with an explicit URL switch.
- * A production build can never activate it, even if the query parameter is present.
+ * Returns true only in verified non-production environments:
+ * - Local / AI Studio Preview development builds (`isDevBuild === true`)
+ * - Vercel Preview deployments (`vercelEnv === 'preview'`)
+ * Strictly false in Production (`isDevBuild === false` and `vercelEnv !== 'preview'`).
  */
-export function isDevelopmentTestMode(isDevBuild: boolean, search: string): boolean {
-  return isDevBuild && new URLSearchParams(search).get('devTest') === '1';
+export function canShowDevTestControl(
+  isDevBuild: boolean,
+  vercelEnv?: string
+): boolean {
+  if (vercelEnv === 'production') return false;
+  return Boolean(isDevBuild) || vercelEnv === 'preview';
 }
 
-export function shouldLockDailyProgression(dailyProgressionLocked: boolean, devTestMode: boolean): boolean {
+/**
+ * Enables the isolated Demo / Test Run mode only in verified Dev or Preview environments
+ * via either the visible in-app Demo/Test Run button (`manualTestRunActive = true`)
+ * or `?devTest=1` / `?demo=1`.
+ * A Production deployment (`canShowDevTestControl === false`) can NEVER activate Demo/Test mode,
+ * even if someone passes URL parameters or tampers with browser state.
+ */
+export function isDevelopmentTestMode(
+  isDevBuild: boolean,
+  search: string,
+  manualTestRunActive = false,
+  vercelEnv?: string
+): boolean {
+  if (!canShowDevTestControl(isDevBuild, vercelEnv)) return false;
+  if (manualTestRunActive) return true;
+  const params = new URLSearchParams(search);
+  return params.get('devTest') === '1' || params.get('demo') === '1';
+}
+
+export function shouldLockDailyProgression(
+  dailyProgressionLocked: boolean,
+  devTestMode: boolean
+): boolean {
   return dailyProgressionLocked && !devTestMode;
 }
 
-export function shouldConsumeTicketForStart(isFreePlay: boolean, devTestMode: boolean): boolean {
+export function shouldConsumeTicketForStart(
+  isFreePlay: boolean,
+  devTestMode: boolean
+): boolean {
   return !isFreePlay && !devTestMode;
 }
 
+export interface DevTestFortSnapshot {
+  savedPads: DailyPersistenceState['savedPads'];
+  savedFenceSegments: DailyPersistenceState['savedFenceSegments'];
+  savedResources: DailyPersistenceState['savedResources'];
+}
+
 /**
- * Grants free playtest/review tickets on demand without capping at MAX_DAILY_TICKETS.
+ * Loads the isolated Demo / Dev Test fort & resource wallet from its dedicated localStorage key,
+ * seeding from the player's current fort without ever mutating the production profile.
+ */
+export function loadDevTestFortFromStorage(
+  fallbackState: DailyPersistenceState
+): DevTestFortSnapshot {
+  const defaultSnapshot: DevTestFortSnapshot = {
+    savedPads: serializePadsForPersistence(restorePadsFromPersistence(fallbackState.savedPads, true)),
+    savedFenceSegments: serializeFenceSegmentsForPersistence(
+      restoreFenceSegmentsForPersistence(fallbackState.savedFenceSegments, true)
+    ),
+    savedResources: {
+      wood: fallbackState.savedResources?.wood ?? INITIAL_RESOURCES.wood,
+      stone: fallbackState.savedResources?.stone ?? INITIAL_RESOURCES.stone,
+      food: fallbackState.savedResources?.food ?? INITIAL_RESOURCES.food,
+    },
+  };
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return defaultSnapshot;
+  }
+  try {
+    const raw = window.localStorage.getItem(DEV_TEST_FORT_STORAGE_KEY);
+    if (!raw) {
+      return defaultSnapshot;
+    }
+    const parsed = JSON.parse(raw);
+    const pads = restorePadsFromPersistence(parsed?.savedPads, true);
+    const fences = restoreFenceSegmentsFromPersistence(parsed?.savedFenceSegments, true);
+    const res =
+      parsed?.savedResources &&
+      typeof parsed.savedResources.wood === 'number' &&
+      typeof parsed.savedResources.stone === 'number' &&
+      typeof parsed.savedResources.food === 'number'
+        ? {
+            wood: Math.max(0, Math.round(parsed.savedResources.wood)),
+            stone: Math.max(0, Math.round(parsed.savedResources.stone)),
+            food: Math.max(0, Math.round(parsed.savedResources.food)),
+          }
+        : defaultSnapshot.savedResources;
+    return {
+      savedPads: serializePadsForPersistence(pads),
+      savedFenceSegments: serializeFenceSegmentsForPersistence(fences),
+      savedResources: res,
+    };
+  } catch {
+    return defaultSnapshot;
+  }
+}
+
+export function saveDevTestFortToStorage(
+  pads: PlacementPad[],
+  fenceSegments: FenceSegment[],
+  resources: Pick<Resources, 'wood' | 'stone' | 'food'>
+): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const payload: DevTestFortSnapshot = {
+      savedPads: serializePadsForPersistence(
+        restorePadsFromPersistence(serializePadsForPersistence(pads), true)
+      ),
+      savedFenceSegments: serializeFenceSegmentsForPersistence(
+        restoreFenceSegmentsForPersistence(serializeFenceSegmentsForPersistence(fenceSegments), true)
+      ),
+      savedResources: {
+        wood: Math.max(0, Math.round(resources.wood)),
+        stone: Math.max(0, Math.round(resources.stone)),
+        food: Math.max(0, Math.round(resources.food)),
+      },
+    };
+    window.localStorage.setItem(DEV_TEST_FORT_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+/**
+ * Safely deletes the isolated local Demo / Dev Test fort data without touching the normal production save.
+ */
+export function clearDevTestFortFromStorage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.removeItem(DEV_TEST_FORT_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Normalizes tickets within today's authoritative remaining allowance:
+ * max(0, MAX_DAILY_TICKETS - ticketsUsedTodayUTC). Never grants more than 3 tickets on the same UTC day.
  */
 export function grantReviewTickets(
   state: DailyPersistenceState,
-  amount = 10
+  amount = 1
 ): DailyPersistenceState {
-  const safeAmount = Math.max(1, Math.round(amount));
+  const safeAmount = Math.max(0, Math.round(amount));
+  const used =
+    typeof state.ticketsUsedTodayUTC === 'number' && Number.isFinite(state.ticketsUsedTodayUTC)
+      ? Math.max(0, Math.min(MAX_DAILY_TICKETS, Math.round(state.ticketsUsedTodayUTC)))
+      : Math.max(0, MAX_DAILY_TICKETS - Math.min(MAX_DAILY_TICKETS, Math.max(0, state.tickets)));
+  const cappedTickets = computeRemainingDailyTickets(used, state.tickets + safeAmount);
   return {
     ...state,
-    tickets: state.tickets + safeAmount,
+    tickets: cappedTickets,
+    ticketsUsedTodayUTC: used,
   };
 }
 
@@ -1019,28 +1254,33 @@ export function loadDailyStateFromStorage(nowMs: number = Date.now()): DailyPers
   try {
     const raw = window.localStorage.getItem(DAILY_STORAGE_KEY);
     if (!raw) {
-      const initial = {
-        ...createDefaultDailyState(nowMs),
-        tickets: REVIEW_GRANT_TICKETS,
-      };
+      const initial = createDefaultDailyState(nowMs);
       saveDailyStateToStorage(initial);
       return initial;
     }
     const parsed = JSON.parse(raw);
+    // Preserve a traceable, non-destructive backup once before normalizing a legacy save with >3 tickets
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof parsed.tickets === 'number' &&
+      parsed.tickets > MAX_DAILY_TICKETS &&
+      !window.localStorage.getItem(LEGACY_TICKET_BACKUP_KEY)
+    ) {
+      window.localStorage.setItem(
+        LEGACY_TICKET_BACKUP_KEY,
+        JSON.stringify({
+          backedUpAtUTC: new Date(nowMs).toISOString(),
+          legacyState: parsed,
+        })
+      );
+    }
     const migrated = migrateDailyState(parsed, nowMs);
     const resetChecked = checkAndApplyDailyReset(migrated, nowMs);
-    const toppedUp: DailyPersistenceState =
-      resetChecked.tickets < REVIEW_GRANT_TICKETS
-        ? { ...resetChecked, tickets: REVIEW_GRANT_TICKETS }
-        : resetChecked;
-    saveDailyStateToStorage(toppedUp);
-    return toppedUp;
+    saveDailyStateToStorage(resetChecked);
+    return resetChecked;
   } catch {
-    const fallback = {
-      ...createDefaultDailyState(nowMs),
-      tickets: REVIEW_GRANT_TICKETS,
-    };
-    return fallback;
+    return createDefaultDailyState(nowMs);
   }
 }
 

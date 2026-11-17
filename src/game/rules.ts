@@ -12,12 +12,15 @@ import {
   SavedFenceState,
   SavedPadState,
   UpgradePathId,
+  WeatherSpec,
+  WeatherType,
   ZombieArchetype,
   ZombieEntity,
   ZombieSpec,
 } from './types';
 
 export const DAY_DURATION_SECONDS = 65;
+export const WEATHER_CYCLE_DURATION = 20;
 export const MAX_DAYS = 3;
 export const FORT_MAX_HP = 500;
 export const LANTERN_FLARE_COOLDOWN = 8.0;
@@ -26,6 +29,56 @@ export const LANTERN_FLARE_DAMAGE = 28;
 export const LANTERN_FLARE_SLOW_DURATION = 4.5;
 export const LANTERN_FLARE_KNOCKBACK = 4.2;
 export const HERO_CONSTRUCTION_DURATION = 0.65;
+
+export const WEATHER_ORDER: WeatherType[] = ['clear', 'rain', 'fog'];
+
+export const WEATHER_CATALOG: Record<WeatherType, WeatherSpec> = {
+  clear: {
+    type: 'clear',
+    fogDensity: 0.014,
+    visibilityMultiplier: 1.0,
+    resourceGrowthMultiplier: 1.0,
+    passiveRegrowPerSec: 0.5,
+    skyColorHex: 0x1b2e2b,
+    sunColorHex: 0xffdfa8,
+    sunIntensity: 1.65,
+    hemiSkyHex: 0x8ecae6,
+    hemiGroundHex: 0x263c28,
+    hemiIntensity: 0.85,
+    rimColorHex: 0x60a5fa,
+    rimIntensity: 0.55,
+  },
+  rain: {
+    type: 'rain',
+    fogDensity: 0.024,
+    visibilityMultiplier: 0.82,
+    resourceGrowthMultiplier: 1.65,
+    passiveRegrowPerSec: 1.5,
+    skyColorHex: 0x13202c,
+    sunColorHex: 0x93c5fd,
+    sunIntensity: 1.05,
+    hemiSkyHex: 0x64748b,
+    hemiGroundHex: 0x1e293b,
+    hemiIntensity: 0.72,
+    rimColorHex: 0x38bdf8,
+    rimIntensity: 0.68,
+  },
+  fog: {
+    type: 'fog',
+    fogDensity: 0.036,
+    visibilityMultiplier: 0.65,
+    resourceGrowthMultiplier: 0.65,
+    passiveRegrowPerSec: 0.2,
+    skyColorHex: 0x243236,
+    sunColorHex: 0xcbd5e1,
+    sunIntensity: 0.88,
+    hemiSkyHex: 0x94a3b8,
+    hemiGroundHex: 0x334155,
+    hemiIntensity: 0.68,
+    rimColorHex: 0x94a3b8,
+    rimIntensity: 0.45,
+  },
+};
 
 // Outer Square Perimeter Fence constants (19.2m x 19.2m square box around the inner weapon pads)
 export const FENCE_HALF_EXTENT = 9.6;
@@ -2029,7 +2082,9 @@ export function canGatherResourcesInPhase(
 
 /**
  * Pure helper for gathering from a clearing resource node, enforcing Day phase,
- * Daily Progression Lock, and Free Play mode lock.
+ * Daily Progression Lock, Free Play mode lock, and dynamic Day weather yield bonuses:
+ * - Rain ('rain'): +20% bonus gather yield on Wood and Food nodes.
+ * - Fog ('fog'): +20% bonus gather yield on Stone nodes (mineral condensation).
  */
 export function gatherFromResourceNode(params: {
   node: ResourceNodeEntity;
@@ -2037,18 +2092,28 @@ export function gatherFromResourceNode(params: {
   phase: DayNightPhase;
   dailyLocked?: boolean;
   isFreePlay?: boolean;
+  weather?: WeatherType;
 }): {
   gathered: boolean;
   updatedNode: ResourceNodeEntity;
   updatedResources: Resources;
+  yieldAmount: number;
   reason?: 'daily_locked' | 'free_play_locked' | 'night_locked' | 'already_harvested';
 } {
-  const { node, resources, phase, dailyLocked = false, isFreePlay = false } = params;
+  const {
+    node,
+    resources,
+    phase,
+    dailyLocked = false,
+    isFreePlay = false,
+    weather = 'clear',
+  } = params;
   if (isFreePlay) {
     return {
       gathered: false,
       updatedNode: node,
       updatedResources: resources,
+      yieldAmount: 0,
       reason: 'free_play_locked',
     };
   }
@@ -2057,6 +2122,7 @@ export function gatherFromResourceNode(params: {
       gathered: false,
       updatedNode: node,
       updatedResources: resources,
+      yieldAmount: 0,
       reason: 'daily_locked',
     };
   }
@@ -2065,6 +2131,7 @@ export function gatherFromResourceNode(params: {
       gathered: false,
       updatedNode: node,
       updatedResources: resources,
+      yieldAmount: 0,
       reason: 'night_locked',
     };
   }
@@ -2073,25 +2140,197 @@ export function gatherFromResourceNode(params: {
       gathered: false,
       updatedNode: node,
       updatedResources: resources,
+      yieldAmount: 0,
       reason: 'already_harvested',
     };
   }
-  const gatherChunk = Math.min(node.amount, 10);
-  const nextAmount = Math.max(0, node.amount - gatherChunk);
+  const baseChunk = Math.min(node.amount, 10);
+  const nextAmount = Math.max(0, node.amount - baseChunk);
+  let weatherBonusMultiplier = 1.0;
+  if (weather === 'rain' && (node.type === 'wood' || node.type === 'food')) {
+    weatherBonusMultiplier = 1.2;
+  } else if (weather === 'fog' && node.type === 'stone') {
+    weatherBonusMultiplier = 1.25;
+  }
+  const yieldAmount = Math.max(1, Math.round(baseChunk * weatherBonusMultiplier));
+  const respawnBase = 18;
   const updatedNode: ResourceNodeEntity = {
     ...node,
     amount: nextAmount,
     hitFlashTimer: 0.25,
-    respawnTimer: nextAmount <= 0 ? 18 : node.respawnTimer,
+    respawnTimer: nextAmount <= 0 ? respawnBase : node.respawnTimer,
   };
   const updatedResources: Resources = {
     ...resources,
-    [node.type]: resources[node.type] + gatherChunk,
+    [node.type]: resources[node.type] + yieldAmount,
   };
   return {
     gathered: true,
     updatedNode,
     updatedResources,
+    yieldAmount,
+  };
+}
+
+/**
+ * Returns the next weather state in the periodic Day weather cycle.
+ */
+export function getNextDayWeather(
+  current: WeatherType,
+  dayNumber = 1,
+  cycleIndex = 0
+): WeatherType {
+  const idx = WEATHER_ORDER.indexOf(current);
+  const step = ((dayNumber + cycleIndex) % 2 === 0 && cycleIndex > 0) ? 1 : 1;
+  return WEATHER_ORDER[(idx + step) % WEATHER_ORDER.length];
+}
+
+/**
+ * Advances the periodic Day weather state machine.
+ * During the Day phase, weather shifts every WEATHER_CYCLE_DURATION seconds (e.g. Clear -> Rain -> Fog),
+ * altering environmental lighting, fog visibility, and resource node growth rates.
+ * During the Night phase, daytime weather effects yield to Blood Moon night rules.
+ */
+export function stepDayWeather(params: {
+  phase: DayNightPhase;
+  currentWeather: WeatherType;
+  weatherTimer: number;
+  dt: number;
+  dayNumber?: number;
+  cycleCount?: number;
+}): {
+  weather: WeatherType;
+  weatherTimer: number;
+  cycleCount: number;
+  changed: boolean;
+} {
+  const {
+    phase,
+    currentWeather,
+    weatherTimer,
+    dt,
+    dayNumber = 1,
+    cycleCount = 0,
+  } = params;
+
+  if (phase !== 'day') {
+    return {
+      weather: 'clear',
+      weatherTimer: WEATHER_CYCLE_DURATION,
+      cycleCount,
+      changed: currentWeather !== 'clear',
+    };
+  }
+
+  const nextTimer = weatherTimer - Math.max(0, dt);
+  if (nextTimer <= 0) {
+    const nextCycle = cycleCount + 1;
+    const nextWeather = getNextDayWeather(currentWeather, dayNumber, nextCycle);
+    return {
+      weather: nextWeather,
+      weatherTimer: WEATHER_CYCLE_DURATION,
+      cycleCount: nextCycle,
+      changed: nextWeather !== currentWeather,
+    };
+  }
+
+  return {
+    weather: currentWeather,
+    weatherTimer: nextTimer,
+    cycleCount,
+    changed: false,
+  };
+}
+
+/**
+ * Advances a resource node's regrowth and respawn timers based on the active Day weather:
+ * - During Night: resource regrowth and depleted node respawns pause until dawn.
+ * - During Day:
+ *   - Depleted nodes (`respawnTimer > 0`) count down at `dt * WEATHER_CATALOG[weather].resourceGrowthMultiplier`
+ *     (65% faster in Rain, 35% slower in Fog).
+ *   - Partially harvested nodes (`0 < amount < maxAmount`) passively regenerate resources over time
+ *     at `WEATHER_CATALOG[weather].passiveRegrowPerSec * dt`.
+ */
+export function stepResourceNodeGrowth(params: {
+  node: ResourceNodeEntity;
+  dt: number;
+  phase: DayNightPhase;
+  weather: WeatherType;
+  regrowAccumulator?: number;
+}): {
+  updatedNode: ResourceNodeEntity;
+  respawned: boolean;
+  regrownAmount: number;
+  nextAccumulator: number;
+} {
+  const { node, dt, phase, weather, regrowAccumulator = 0 } = params;
+  if (phase !== 'day' || dt <= 0) {
+    return {
+      updatedNode: node,
+      respawned: false,
+      regrownAmount: 0,
+      nextAccumulator: regrowAccumulator,
+    };
+  }
+
+  const spec = WEATHER_CATALOG[weather] ?? WEATHER_CATALOG.clear;
+
+  // 1. Depleted node respawn timer scaled by weather resourceGrowthMultiplier
+  if (node.respawnTimer > 0) {
+    const nextRespawn = Math.max(0, node.respawnTimer - dt * spec.resourceGrowthMultiplier);
+    if (nextRespawn === 0) {
+      return {
+        updatedNode: {
+          ...node,
+          amount: node.maxAmount,
+          respawnTimer: 0,
+        },
+        respawned: true,
+        regrownAmount: node.maxAmount,
+        nextAccumulator: 0,
+      };
+    }
+    return {
+      updatedNode: {
+        ...node,
+        respawnTimer: nextRespawn,
+      },
+      respawned: false,
+      regrownAmount: 0,
+      nextAccumulator: 0,
+    };
+  }
+
+  // 2. Passive resource growth on partially harvested nodes during Day
+  if (node.amount > 0 && node.amount < node.maxAmount) {
+    const totalAcc = regrowAccumulator + dt * spec.passiveRegrowPerSec;
+    const wholeUnits = Math.floor(totalAcc);
+    if (wholeUnits >= 1) {
+      const nextAmt = Math.min(node.maxAmount, node.amount + wholeUnits);
+      const added = nextAmt - node.amount;
+      return {
+        updatedNode: {
+          ...node,
+          amount: nextAmt,
+        },
+        respawned: false,
+        regrownAmount: added,
+        nextAccumulator: totalAcc - wholeUnits,
+      };
+    }
+    return {
+      updatedNode: node,
+      respawned: false,
+      regrownAmount: 0,
+      nextAccumulator: totalAcc,
+    };
+  }
+
+  return {
+    updatedNode: node,
+    respawned: false,
+    regrownAmount: 0,
+    nextAccumulator: 0,
   };
 }
 

@@ -2,6 +2,24 @@ export type GameScreenState = 'title' | 'playing' | 'paused' | 'gameover';
 
 export type DayNightPhase = 'day' | 'night';
 
+export type WeatherType = 'clear' | 'rain' | 'fog';
+
+export interface WeatherSpec {
+  type: WeatherType;
+  fogDensity: number;
+  visibilityMultiplier: number;
+  resourceGrowthMultiplier: number;
+  passiveRegrowPerSec: number;
+  skyColorHex: number;
+  sunColorHex: number;
+  sunIntensity: number;
+  hemiSkyHex: number;
+  hemiGroundHex: number;
+  hemiIntensity: number;
+  rimColorHex: number;
+  rimIntensity: number;
+}
+
 export type HeroAnimState = 'idle' | 'walk' | 'combat' | 'construction';
 
 export type ResourceType = 'wood' | 'stone' | 'food';
@@ -285,6 +303,7 @@ export interface BonusTaskItem {
 export interface DailyPersistenceState {
   schemaVersion: number;
   tickets: number;
+  ticketsUsedTodayUTC?: number;
   maxDailyTickets: number;
   pendingBonusTicketsTomorrow: number;
   coins: number;
@@ -344,6 +363,8 @@ export interface RunCompletionSummary {
 export interface HudSnapshot {
   screen: GameScreenState;
   phase: DayNightPhase;
+  weather: WeatherType;
+  weatherTimeRemaining: number;
   dayNumber: number;
   maxDays: number;
   phaseTimeRemaining: number;

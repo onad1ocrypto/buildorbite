@@ -47,7 +47,9 @@ import {
   findNextFenceSegmentForHero,
   FLARE_NIGHT_LOCKED_MESSAGE,
   FORT_MAX_HP,
+  gatherFromResourceNode,
   getEffectiveBuildingStats,
+  getNextDayWeather,
   getWaveComposition,
   INITIAL_RESOURCES,
   LANTERN_FLARE_COOLDOWN,
@@ -60,7 +62,11 @@ import {
   startFenceConstructionTask,
   startPadConstructionTask,
   stepConstructionTask,
+  stepDayWeather,
+  stepResourceNodeGrowth,
   upgradeStructureOnPad,
+  WEATHER_CATALOG,
+  WEATHER_CYCLE_DURATION,
   ZOMBIE_CATALOG,
 } from '../game/rules';
 import {
@@ -72,8 +78,10 @@ import {
   isDevelopmentTestMode,
   LANTERN_COSMETICS,
   loadDailyStateFromStorage,
+  loadDevTestFortFromStorage,
   recordTaskProgress,
   saveDailyStateToStorage,
+  saveDevTestFortToStorage,
   saveFortAndResourcesToDailyState,
   shouldConsumeTicketForStart,
   shouldLockDailyProgression,
@@ -94,12 +102,14 @@ import {
   Resources,
   RunCompletionSummary,
   SlimePatch,
+  WeatherType,
   ZombieArchetype,
   ZombieEntity,
 } from '../game/types';
 
 export interface GameControllerApi {
   startGame: () => void;
+  startDevTestRun: () => void;
   startFreePlay: () => void;
   restartGame: () => void;
   returnToTitle: () => void;
@@ -118,6 +128,7 @@ export interface GameControllerApi {
   demolishSelectedPad: () => void;
   triggerLanternFlare: () => void;
   startNightEarly: () => void;
+  cycleWeather: () => void;
   toggleDock: () => void;
   adjustZoom: (delta: number) => void;
 }
@@ -133,6 +144,7 @@ const _vec3 = new THREE.Vector3();
 const _projVec = new THREE.Vector3();
 const _dummyObj = new THREE.Object3D();
 const _color = new THREE.Color();
+const _weatherTargetColor = new THREE.Color();
 const _daySkyColor = new THREE.Color(0x1b2e2b);
 const _nightSkyColor = new THREE.Color(0x2d1424);
 const _daySunColor = new THREE.Color(0xffdfa8);
@@ -145,6 +157,7 @@ const _dayRimColor = new THREE.Color(0x60a5fa);
 const _nightRimColor = new THREE.Color(0xfb7185);
 
 const MAX_PARTICLES = 220;
+const MAX_WEATHER_PARTICLES = 160;
 interface ParticleSlot {
   active: boolean;
   x: number;
@@ -157,6 +170,14 @@ interface ParticleSlot {
   maxLife: number;
   scale: number;
   colorHex: number;
+}
+interface WeatherParticleSlot {
+  x: number;
+  y: number;
+  z: number;
+  speed: number;
+  driftPhase: number;
+  scaleFactor: number;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -1243,6 +1264,33 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (particleMesh.instanceColor) particleMesh.instanceColor.needsUpdate = true;
     scene.add(particleMesh);
 
+    // Pre-allocated Daytime Weather Particle InstancedMesh (Rain Streaks & Swamp Fog Mist Puffs)
+    const weatherMat = new THREE.MeshBasicMaterial({
+      color: 0x93c5fd,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    });
+    const weatherMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      weatherMat,
+      MAX_WEATHER_PARTICLES
+    );
+    weatherMesh.frustumCulled = false;
+    weatherMesh.visible = false;
+    const weatherPool: WeatherParticleSlot[] = [];
+    for (let i = 0; i < MAX_WEATHER_PARTICLES; i++) {
+      weatherPool.push({
+        x: (Math.random() - 0.5) * 34,
+        y: Math.random() * 14,
+        z: (Math.random() - 0.5) * 34,
+        speed: 0.75 + Math.random() * 0.55,
+        driftPhase: Math.random() * Math.PI * 2,
+        scaleFactor: 0.75 + Math.random() * 0.5,
+      });
+    }
+    scene.add(weatherMesh);
+
     let nextParticleCursor = 0;
     function spawnParticles(
       x: number,
@@ -1276,9 +1324,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let lastRunSummary: RunCompletionSummary | null = null;
     let nightsSurvivedThisRun = 0;
     let isFreePlay = false;
-    // Development-only QA switch: append ?devTest=1 to the Vite URL.
-    // Production builds can never activate this bypass.
-    const devTestMode = isDevelopmentTestMode(import.meta.env.DEV, window.location.search);
+    // Development-only QA switch: activated via the visible in-app Test Run button in AI Studio Preview
+    // or by appending ?devTest=1 to the URL in dev mode. Production builds can never activate this bypass.
+    let devTestMode = isDevelopmentTestMode(import.meta.env.DEV, window.location.search, false);
 
     function isDailyProgressionLockedForGameplay(): boolean {
       return shouldLockDailyProgression(dailyState.dailyProgressionLocked, devTestMode);
@@ -1300,12 +1348,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     function persistFortAndWallet() {
       if (isFreePlay) return;
+      if (devTestMode) {
+        saveDevTestFortToStorage(pads, fenceSegments, resources);
+        return;
+      }
       dailyState = saveFortAndResourcesToDailyState(
         dailyState,
         pads,
         fenceSegments,
         resources,
-        true
+        true,
+        { isFreePlay, isDevTestMode: devTestMode }
       );
       saveDailyStateToStorage(dailyState);
     }
@@ -1320,7 +1373,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }) {
       if (isFreePlay || devTestMode) return;
       const wasLocked = dailyState.dailyProgressionLocked;
-      const res = recordTaskProgress(dailyState, event, { isFreePlay });
+      const res = recordTaskProgress(dailyState, event, { isFreePlay, isDevTestMode: devTestMode });
       dailyState = res.updatedState;
       saveDailyStateToStorage(dailyState);
       for (const title of res.newlyCompletedTaskTitles) {
@@ -1365,6 +1418,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let phase: DayNightPhase = 'day';
     let dayNumber = 1;
     let phaseTimeRemaining = DAY_DURATION_SECONDS;
+    let currentWeather: WeatherType = 'clear';
+    let weatherTimer = WEATHER_CYCLE_DURATION;
+    let weatherCycleCount = 0;
+    const nodeRegrowAccumulators = new Map<number, number>();
+    let currentDayFogDensity = WEATHER_CATALOG.clear.fogDensity;
+    let currentDaySunIntensity = WEATHER_CATALOG.clear.sunIntensity;
+    let currentDayHemiIntensity = WEATHER_CATALOG.clear.hemiIntensity;
+    let currentDayRimIntensity = WEATHER_CATALOG.clear.rimIntensity;
+    document.body.dataset.weather = currentWeather;
     let fortHp = FORT_MAX_HP;
     let fortGhostHp = FORT_MAX_HP;
     let resources: Resources = {
@@ -1689,6 +1751,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       dayNumber++;
       phase = 'day';
       phaseTimeRemaining = DAY_DURATION_SECONDS;
+      currentWeather = 'clear';
+      weatherTimer = WEATHER_CYCLE_DURATION;
+      weatherCycleCount = 0;
+      nodeRegrowAccumulators.clear();
+      document.body.dataset.weather = currentWeather;
 
       // Replenish resource nodes & heal surviving structures
       resourceNodes.forEach((n) => {
@@ -1723,15 +1790,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           food: resources.food + bonusFood,
           tickets: dailyState.tickets,
         };
-        dailyState = {
-          ...dailyState,
-          savedResources: {
-            wood: resources.wood,
-            stone: resources.stone,
-            food: resources.food,
-          },
-        };
-        saveDailyStateToStorage(dailyState);
+        if (devTestMode) {
+          saveDevTestFortToStorage(pads, fenceSegments, resources);
+        } else {
+          dailyState = {
+            ...dailyState,
+            savedResources: {
+              wood: resources.wood,
+              stone: resources.stone,
+              food: resources.food,
+            },
+          };
+          saveDailyStateToStorage(dailyState);
+        }
         setBanner(
           `Dawn of Day ${dayNumber}: +${bonusWood}W +15S +${bonusFood}F! Build before nightfall!`,
           4.5
@@ -1764,16 +1835,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         score,
         victory: outcome === 'victory',
         nightsSurvived: nightsSurvivedThisRun,
-        isFreePlay: isFreePlay || devTestMode,
+        isFreePlay,
+        isDevTestMode: devTestMode,
       });
       dailyState = completion.updatedState;
       lastRunSummary = completion.summary;
-      saveDailyStateToStorage(dailyState);
+      if (!devTestMode) {
+        saveDailyStateToStorage(dailyState);
+      }
 
       // Restore persistent fort & fences to full HP in scene so combat damage never permanently erases structures
-      pads = restorePadsFromPersistence(dailyState.savedPads, true);
+      const fortSource = devTestMode ? loadDevTestFortFromStorage(dailyState) : dailyState;
+      pads = restorePadsFromPersistence(fortSource.savedPads, true);
       rebuildPadVisuals();
-      fenceSegments = restoreFenceSegmentsFromPersistence(dailyState.savedFenceSegments, true);
+      fenceSegments = restoreFenceSegmentsFromPersistence(fortSource.savedFenceSegments, true);
       rebuildFenceVisuals();
 
       screenState = 'gameover';
@@ -1782,8 +1857,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       syncHud(true);
     }
 
-    function resetRunState(targetScreen: GameScreenState, freePlayMode = false) {
+    function resetRunState(
+      targetScreen: GameScreenState,
+      freePlayMode = false,
+      requestDevTest = false
+    ) {
       dailyState = checkAndApplyDailyReset(dailyState);
+      devTestMode = isDevelopmentTestMode(
+        import.meta.env.DEV,
+        window.location.search,
+        requestDevTest
+      );
+
       if (targetScreen === 'playing') {
         if (shouldConsumeTicketForStart(freePlayMode, devTestMode)) {
           const ticketCheck = consumeTicketForRun(dailyState);
@@ -1802,6 +1887,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         isFreePlay = false;
       }
 
+      const fortSource = devTestMode ? loadDevTestFortFromStorage(dailyState) : dailyState;
+
       screenState = targetScreen;
       document.body.dataset.state = screenState;
       phase = 'day';
@@ -1809,12 +1896,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       nightsSurvivedThisRun = 0;
       lastRunSummary = null;
       phaseTimeRemaining = DAY_DURATION_SECONDS;
+      currentWeather = 'clear';
+      weatherTimer = WEATHER_CYCLE_DURATION;
+      weatherCycleCount = 0;
+      nodeRegrowAccumulators.clear();
+      document.body.dataset.weather = currentWeather;
       fortHp = FORT_MAX_HP;
       fortGhostHp = FORT_MAX_HP;
       resources = {
-        wood: dailyState.savedResources?.wood ?? INITIAL_RESOURCES.wood,
-        stone: dailyState.savedResources?.stone ?? INITIAL_RESOURCES.stone,
-        food: dailyState.savedResources?.food ?? INITIAL_RESOURCES.food,
+        wood: fortSource.savedResources?.wood ?? INITIAL_RESOURCES.wood,
+        stone: fortSource.savedResources?.stone ?? INITIAL_RESOURCES.stone,
+        food: fortSource.savedResources?.food ?? INITIAL_RESOURCES.food,
         tickets: dailyState.tickets,
       };
       score = 0;
@@ -1853,10 +1945,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       callouts = [];
 
       // Restore persistent fort structures & fence segments to full HP for the new run
-      pads = restorePadsFromPersistence(dailyState.savedPads, true);
+      pads = restorePadsFromPersistence(fortSource.savedPads, true);
       rebuildPadVisuals();
 
-      fenceSegments = restoreFenceSegmentsFromPersistence(dailyState.savedFenceSegments, true);
+      fenceSegments = restoreFenceSegmentsFromPersistence(fortSource.savedFenceSegments, true);
       rebuildFenceVisuals();
 
       resourceNodes.forEach((n) => {
@@ -1885,22 +1977,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        resetRunState('playing', false);
+        resetRunState('playing', false, false);
+      },
+      startDevTestRun: () => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        if (!import.meta.env.DEV) return;
+        resetRunState('playing', false, true);
       },
       startFreePlay: () => {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        resetRunState('playing', true);
+        resetRunState('playing', true, false);
       },
       restartGame: () => {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        resetRunState('playing', false);
+        resetRunState('playing', false, devTestMode);
       },
       returnToTitle: () => {
-        resetRunState('title', false);
+        resetRunState('title', false, false);
       },
       togglePause: () => {
         if (screenState === 'playing') {
@@ -1921,7 +2020,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       },
       claimDailyCheckInReward: () => {
-        const res = claimDailyCheckIn(dailyState);
+        const res = claimDailyCheckIn(dailyState, Date.now(), { isDevTestMode: devTestMode });
         if (!res.claimed) return;
         dailyState = res.updatedState;
         if (lastRunSummary) {
@@ -2315,6 +2414,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           beginNightPhase(true);
         }
       },
+      cycleWeather: () => {
+        if (screenState !== 'playing' || phase !== 'day') return;
+        weatherCycleCount += 1;
+        currentWeather = getNextDayWeather(currentWeather, dayNumber, weatherCycleCount);
+        weatherTimer = WEATHER_CYCLE_DURATION;
+        document.body.dataset.weather = currentWeather;
+        const tr = TRANSLATIONS[langRef.current];
+        setBanner(tr.weatherChangedBanner(currentWeather), 2.8);
+        syncHud(true);
+      },
       toggleDock: () => {
         dockCollapsed = !dockCollapsed;
         syncHud(true);
@@ -2360,6 +2469,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       } else if (code === 'Enter' || code === 'KeyN') {
         e.preventDefault();
         api.startNightEarly();
+      } else if (code === 'KeyV') {
+        e.preventDefault();
+        api.cycleWeather();
       } else if (code === 'KeyH') {
         api.toggleDock();
       } else if (code === 'KeyR') {
@@ -2610,6 +2722,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       onHudUpdateRef.current({
         screen: screenState,
         phase,
+        weather: currentWeather,
+        weatherTimeRemaining: weatherTimer,
         dayNumber,
         maxDays: MAX_DAYS,
         phaseTimeRemaining,
@@ -2702,6 +2816,63 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       fortGhostHp = THREE.MathUtils.damp(fortGhostHp, fortHp, 3.2, dt);
 
+      // Step Daytime Weather Cycle & Interpolate Environmental Lighting + Visibility
+      if (screenState === 'playing') {
+        const wStep = stepDayWeather({
+          phase,
+          currentWeather,
+          weatherTimer,
+          dt,
+          dayNumber,
+          cycleCount: weatherCycleCount,
+        });
+        weatherTimer = wStep.weatherTimer;
+        weatherCycleCount = wStep.cycleCount;
+        if (wStep.changed || wStep.weather !== currentWeather) {
+          currentWeather = wStep.weather;
+          document.body.dataset.weather = currentWeather;
+          if (phase === 'day' && wStep.changed) {
+            const tr = TRANSLATIONS[langRef.current];
+            setBanner(tr.weatherChangedBanner(currentWeather), 3.0);
+          }
+        }
+      }
+
+      const activeWeatherSpec = WEATHER_CATALOG[currentWeather];
+      const weatherLerpAlpha = Math.min(1, dt * 2.8);
+      _daySkyColor.lerp(_weatherTargetColor.setHex(activeWeatherSpec.skyColorHex), weatherLerpAlpha);
+      _daySunColor.lerp(_weatherTargetColor.setHex(activeWeatherSpec.sunColorHex), weatherLerpAlpha);
+      _dayHemiSky.lerp(_weatherTargetColor.setHex(activeWeatherSpec.hemiSkyHex), weatherLerpAlpha);
+      _dayHemiGround.lerp(
+        _weatherTargetColor.setHex(activeWeatherSpec.hemiGroundHex),
+        weatherLerpAlpha
+      );
+      _dayRimColor.lerp(_weatherTargetColor.setHex(activeWeatherSpec.rimColorHex), weatherLerpAlpha);
+      currentDayFogDensity = THREE.MathUtils.damp(
+        currentDayFogDensity,
+        activeWeatherSpec.fogDensity,
+        2.6,
+        dt
+      );
+      currentDaySunIntensity = THREE.MathUtils.damp(
+        currentDaySunIntensity,
+        activeWeatherSpec.sunIntensity,
+        2.6,
+        dt
+      );
+      currentDayHemiIntensity = THREE.MathUtils.damp(
+        currentDayHemiIntensity,
+        activeWeatherSpec.hemiIntensity,
+        2.6,
+        dt
+      );
+      currentDayRimIntensity = THREE.MathUtils.damp(
+        currentDayRimIntensity,
+        activeWeatherSpec.rimIntensity,
+        2.6,
+        dt
+      );
+
       // Blood Moon Day <-> Night Lighting, Forest Darkening & Handheld Lantern Glow
       const targetNightBlend = phase === 'night' ? 1.0 : 0.0;
       nightBlend = THREE.MathUtils.damp(nightBlend, targetNightBlend, 2.2, dt);
@@ -2710,17 +2881,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       scene.background = _color.clone();
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.color.copy(_color);
-        scene.fog.density = THREE.MathUtils.lerp(0.014, 0.015, nightBlend);
+        scene.fog.density = THREE.MathUtils.lerp(currentDayFogDensity, 0.015, nightBlend);
       }
-      scene.environmentIntensity = THREE.MathUtils.lerp(1.0, 0.72, nightBlend);
+      scene.environmentIntensity = THREE.MathUtils.lerp(
+        currentWeather === 'clear' ? 1.0 : 0.84,
+        0.72,
+        nightBlend
+      );
       keyLight.color.copy(_daySunColor).lerp(_nightMoonColor, nightBlend);
-      keyLight.intensity = THREE.MathUtils.lerp(1.65, 1.25, nightBlend);
+      keyLight.intensity = THREE.MathUtils.lerp(currentDaySunIntensity, 1.25, nightBlend);
       hemiLight.color.copy(_dayHemiSky).lerp(_nightHemiSky, nightBlend);
       hemiLight.groundColor.copy(_dayHemiGround).lerp(_nightHemiGround, nightBlend);
-      hemiLight.intensity = THREE.MathUtils.lerp(0.85, 0.74, nightBlend);
+      hemiLight.intensity = THREE.MathUtils.lerp(currentDayHemiIntensity, 0.74, nightBlend);
       rimLight.color.copy(_dayRimColor).lerp(_nightRimColor, nightBlend);
-      rimLight.intensity = THREE.MathUtils.lerp(0.55, 0.82, nightBlend);
-      fortWarmLight.intensity = THREE.MathUtils.lerp(0.9, 3.8, nightBlend);
+      rimLight.intensity = THREE.MathUtils.lerp(currentDayRimIntensity, 0.82, nightBlend);
+      fortWarmLight.intensity = THREE.MathUtils.lerp(
+        currentWeather === 'clear' ? 0.9 : 1.75,
+        3.8,
+        nightBlend
+      );
 
       const flameFlicker =
         0.92 + Math.sin(windTime * 11.5) * 0.08 + Math.cos(windTime * 17.3) * 0.05;
@@ -3177,16 +3356,37 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (rueGatherCooldown > 0) {
         rueGatherCooldown = Math.max(0, rueGatherCooldown - dt);
       }
-      for (const node of resourceNodes) {
+      for (let nIdx = 0; nIdx < resourceNodes.length; nIdx++) {
+        const node = resourceNodes[nIdx];
         const mesh = nodeMeshesMap.get(node.id);
+        const prevAcc = nodeRegrowAccumulators.get(node.id) ?? 0;
+        const growthStep = stepResourceNodeGrowth({
+          node,
+          dt,
+          phase,
+          weather: currentWeather,
+          regrowAccumulator: prevAcc,
+        });
+        nodeRegrowAccumulators.set(node.id, growthStep.nextAccumulator);
+
         if (node.respawnTimer > 0) {
-          node.respawnTimer = Math.max(0, node.respawnTimer - dt);
-          if (node.respawnTimer === 0) {
-            node.amount = node.maxAmount;
-            if (mesh) mesh.visible = true;
+          node.respawnTimer = growthStep.updatedNode.respawnTimer;
+          node.amount = growthStep.updatedNode.amount;
+          if (growthStep.respawned && mesh) {
+            mesh.visible = true;
+            addCallout(
+              currentWeather === 'rain' ? 'Rain Regrowth!' : 'Node Regrown!',
+              node.x,
+              1.75,
+              node.z,
+              '#38bdf8',
+              1.1
+            );
           }
           continue;
         }
+        node.amount = growthStep.updatedNode.amount;
+
         if (node.hitFlashTimer > 0) {
           node.hitFlashTimer = Math.max(0, node.hitFlashTimer - dt);
           if (mesh) {
@@ -3206,22 +3406,34 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ) {
           rueGatherCooldown = 0.48;
           rueHammerSwingTimer = 1.0;
-          node.hitFlashTimer = 0.14;
-          const yieldAmt = node.type === 'wood' ? 10 : 8;
-          node.amount = Math.max(0, node.amount - yieldAmt);
-          resources = {
-            ...resources,
-            [node.type]: resources[node.type] + yieldAmt,
-          };
-          dailyState = {
-            ...dailyState,
-            savedResources: {
-              wood: resources.wood,
-              stone: resources.stone,
-              food: resources.food,
-            },
-          };
-          saveDailyStateToStorage(dailyState);
+          const gatherRes = gatherFromResourceNode({
+            node,
+            resources,
+            phase,
+            dailyLocked: isDailyProgressionLockedForGameplay(),
+            isFreePlay,
+            weather: currentWeather,
+          });
+          if (!gatherRes.gathered) break;
+          const yieldAmt = gatherRes.yieldAmount;
+          node.amount = gatherRes.updatedNode.amount;
+          node.respawnTimer = gatherRes.updatedNode.respawnTimer;
+          node.hitFlashTimer = gatherRes.updatedNode.hitFlashTimer;
+          resources = gatherRes.updatedResources;
+
+          if (devTestMode) {
+            saveDevTestFortToStorage(pads, fenceSegments, resources);
+          } else {
+            dailyState = {
+              ...dailyState,
+              savedResources: {
+                wood: resources.wood,
+                stone: resources.stone,
+                food: resources.food,
+              },
+            };
+            saveDailyStateToStorage(dailyState);
+          }
           score += 12;
           if (node.type === 'wood') {
             applyTaskEvent({ woodCollectedDelta: yieldAmt, runScore: score });
@@ -3232,8 +3444,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const chipColor =
             node.type === 'wood' ? 0xd97706 : node.type === 'stone' ? 0x94a3b8 : 0xf43f5e;
           spawnParticles(node.x, 0.7, node.z, 6, chipColor, 3.2);
+          const weatherBonusTag =
+            (currentWeather === 'rain' && (node.type === 'wood' || node.type === 'food')) ||
+            (currentWeather === 'fog' && node.type === 'stone')
+              ? ' ★'
+              : '';
           addCallout(
-            `+${yieldAmt} ${node.type.toUpperCase()}`,
+            `+${yieldAmt} ${node.type.toUpperCase()}${weatherBonusTag}`,
             node.x,
             1.6,
             node.z,
@@ -3242,7 +3459,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           );
 
           if (node.amount <= 0) {
-            node.respawnTimer = 18.0;
             addCallout('Node Depleted! +25 PTS', node.x, 2.2, node.z, '#4ade80', 1.5);
             score += 25;
             if (mesh) mesh.visible = false;
@@ -3515,7 +3731,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             const spec = ZOMBIE_CATALOG[z.type];
             zombiesDefeated++;
             score += spec.scoreValue;
-            if (!isFreePlay) {
+            if (!isFreePlay && !devTestMode) {
               resources = {
                 ...resources,
                 tickets: resources.tickets + spec.ticketReward,
@@ -3828,6 +4044,56 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       particleMesh.instanceMatrix.needsUpdate = true;
       if (particleMesh.instanceColor) particleMesh.instanceColor.needsUpdate = true;
+
+      // 11b. Update Daytime Weather Particle InstancedMesh (Rain Streaks & Drifting Swamp Fog Puffs)
+      if (phase === 'day' && currentWeather !== 'clear') {
+        weatherMesh.visible = true;
+        if (currentWeather === 'rain') {
+          weatherMat.color.setHex(0x93c5fd);
+          weatherMat.opacity = 0.58;
+          for (let i = 0; i < MAX_WEATHER_PARTICLES; i++) {
+            const wp = weatherPool[i];
+            wp.y -= (14.5 + wp.speed * 6.5) * dt;
+            wp.x -= 2.4 * dt;
+            if (wp.y < 0.1) {
+              if (Math.random() < 0.08) {
+                spawnParticles(wp.x, 0.12, wp.z, 1, 0xbae6fd, 1.4);
+              }
+              wp.y = 11.5 + Math.random() * 4.5;
+              wp.x = rueX * 0.25 + (Math.random() - 0.5) * 34;
+              wp.z = rueZ * 0.25 + (Math.random() - 0.5) * 34;
+            }
+            _dummyObj.position.set(wp.x, wp.y, wp.z);
+            _dummyObj.rotation.set(0, 0, 0.16);
+            _dummyObj.scale.set(0.036, 0.88 * wp.scaleFactor, 0.036);
+            _dummyObj.updateMatrix();
+            weatherMesh.setMatrixAt(i, _dummyObj.matrix);
+          }
+        } else {
+          // Dense Swamp Mist: low-lying drifting fog puffs across the clearing & moat
+          weatherMat.color.setHex(0xcbd5e1);
+          weatherMat.opacity = 0.24;
+          for (let i = 0; i < MAX_WEATHER_PARTICLES; i++) {
+            const wp = weatherPool[i];
+            wp.x += Math.cos(windTime * 0.35 + wp.driftPhase) * wp.speed * 1.45 * dt;
+            wp.z += Math.sin(windTime * 0.28 + wp.driftPhase) * wp.speed * 1.15 * dt;
+            if (wp.x > 18) wp.x = -18;
+            if (wp.x < -18) wp.x = 18;
+            if (wp.z > 18) wp.z = -18;
+            if (wp.z < -18) wp.z = 18;
+            const hoverY = 0.38 + (i % 5) * 0.26 + Math.sin(windTime * 1.2 + wp.driftPhase) * 0.12;
+            const puffScale = 1.45 * wp.scaleFactor;
+            _dummyObj.position.set(wp.x, hoverY, wp.z);
+            _dummyObj.rotation.set(0, wp.driftPhase + windTime * 0.15, 0);
+            _dummyObj.scale.set(puffScale * 1.4, 0.32 * wp.scaleFactor, puffScale * 1.4);
+            _dummyObj.updateMatrix();
+            weatherMesh.setMatrixAt(i, _dummyObj.matrix);
+          }
+        }
+        weatherMesh.instanceMatrix.needsUpdate = true;
+      } else {
+        weatherMesh.visible = false;
+      }
 
       // Update floating callouts, elite HP/Armor micro-bars & zombie speech bubbles in DOM overlay
       if (calloutContainerRef.current) {

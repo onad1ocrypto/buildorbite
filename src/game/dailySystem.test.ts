@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  canShowDevTestControl,
   checkAndApplyDailyReset,
   claimDailyCheckIn,
   completeRunProgression,
@@ -22,16 +23,32 @@ import {
   buildStructureOnPad,
   createInitialFenceSegments,
   createInitialPads,
+  gatherFromResourceNode,
   restoreFenceSegmentsFromPersistence,
   restorePadsFromPersistence,
+  salvageStructureOnPad,
   upgradeStructureOnPad,
 } from './rules';
+import { ResourceNodeEntity } from './types';
 
-test('developer test mode requires both a development build and the explicit devTest query flag', () => {
+test('developer test mode and UI control require a development build and support both in-app Test Run and ?devTest=1', () => {
+  // UI control visibility
+  assert.equal(canShowDevTestControl(true), true);
+  assert.equal(canShowDevTestControl(false), false);
+
+  // URL flag activation in dev build
   assert.equal(isDevelopmentTestMode(true, '?devTest=1'), true);
   assert.equal(isDevelopmentTestMode(true, '?devTest=0'), false);
   assert.equal(isDevelopmentTestMode(true, ''), false);
-  assert.equal(isDevelopmentTestMode(false, '?devTest=1'), false);
+
+  // In-app manual Test Run button activation in dev build (no URL edit required)
+  assert.equal(isDevelopmentTestMode(true, '', true), true);
+  assert.equal(isDevelopmentTestMode(true, '?devTest=0', true), true);
+
+  // Strictly disabled in production builds even if URL flag or manual trigger is passed
+  assert.equal(isDevelopmentTestMode(false, '?devTest=1', false), false);
+  assert.equal(isDevelopmentTestMode(false, '', true), false);
+  assert.equal(isDevelopmentTestMode(false, '?devTest=1', true), false);
 });
 
 test('developer QA mode bypasses only the daily lock and never spends tickets; production rules remain unchanged', () => {
@@ -41,6 +58,168 @@ test('developer QA mode bypasses only the daily lock and never spends tickets; p
   assert.equal(shouldConsumeTicketForStart(false, false), true);
   assert.equal(shouldConsumeTicketForStart(false, true), false);
   assert.equal(shouldConsumeTicketForStart(true, true), false);
+});
+
+test('Test Run strictly isolates production progression (no ticket spend, no task/XP/coin/streak/check-in/fort mutations)', () => {
+  const day1 = Date.UTC(2026, 10, 16, 14, 0, 0);
+  const prodState = createDefaultDailyState(day1);
+  const prodTickets = prodState.tickets;
+  const prodXp = prodState.xp;
+  const prodCoins = prodState.coins;
+  const prodStreak = prodState.streak;
+  const prodWood = prodState.savedResources.wood;
+
+  // 1. Fort & resource saves with isDevTestMode=true leave production state untouched
+  const testPads = createInitialPads();
+  const testFences = createInitialFenceSegments();
+  const built = buildStructureOnPad(
+    testPads[0],
+    { wood: 200, stone: 200, food: 200, tickets: 3 },
+    'watchtower',
+    'day',
+    false,
+    false
+  );
+  testPads[0] = built.updatedPad;
+  const afterFortSave = saveFortAndResourcesToDailyState(
+    prodState,
+    testPads,
+    testFences,
+    built.updatedResources,
+    false,
+    { isDevTestMode: true }
+  );
+  assert.equal(afterFortSave, prodState);
+  assert.equal(afterFortSave.savedPads[0].building, null);
+  assert.equal(afterFortSave.savedResources.wood, prodWood);
+
+  // 2. Task progress in Dev Test mode does not advance tasks or award bonus
+  const afterTasks = recordTaskProgress(
+    prodState,
+    {
+      woodCollectedDelta: 100,
+      flaresUsedDelta: 10,
+      buildingsBuiltDelta: 10,
+      consecutiveNightsSurvived: 3,
+      runScore: 2500,
+    },
+    { isDevTestMode: true }
+  );
+  assert.equal(afterTasks.allThreeJustCompleted, false);
+  assert.equal(afterTasks.updatedState, prodState);
+  assert.equal(
+    Object.values(afterTasks.updatedState.taskProgress).every((val) => val === 0),
+    true
+  );
+
+  // 3. Run completion in Dev Test mode grants 0 XP, 0 Coins, 0 streak, and does not unlock check-in
+  const afterRun = completeRunProgression(prodState, {
+    score: 2500,
+    victory: true,
+    nightsSurvived: 3,
+    nowMs: day1,
+    isDevTestMode: true,
+  });
+  assert.equal(afterRun.updatedState, prodState);
+  assert.equal(afterRun.summary.xpGained, 0);
+  assert.equal(afterRun.summary.coinsGained, 0);
+  assert.equal(afterRun.updatedState.xp, prodXp);
+  assert.equal(afterRun.updatedState.coins, prodCoins);
+  assert.equal(afterRun.updatedState.tickets, prodTickets);
+  assert.equal(afterRun.updatedState.streak, prodStreak);
+  assert.equal(afterRun.updatedState.checkInEligibleDateUTC, null);
+
+  // 4. Claiming Daily Check-In while in Dev Test mode is blocked
+  const eligibleProdState = {
+    ...prodState,
+    checkInEligibleDateUTC: prodState.lastResetDateUTC,
+  };
+  const checkInAttempt = claimDailyCheckIn(eligibleProdState, day1, { isDevTestMode: true });
+  assert.equal(checkInAttempt.claimed, false);
+  assert.equal(checkInAttempt.updatedState, eligibleProdState);
+});
+
+test('Test Run allows gathering, building, upgrading, and salvaging during Day even when dailyProgressionLocked is true, while still enforcing Night restrictions', () => {
+  const prodDailyLocked = true;
+  const devTestMode = true;
+  const effectiveLock = shouldLockDailyProgression(prodDailyLocked, devTestMode);
+  assert.equal(effectiveLock, false);
+
+  const sampleNode: ResourceNodeEntity = {
+    id: 1,
+    type: 'wood',
+    name: 'Timber Pile',
+    x: -14,
+    z: -8,
+    amount: 30,
+    maxAmount: 30,
+    hitFlashTimer: 0,
+    respawnTimer: 0,
+  };
+  const pads = createInitialPads();
+  const wallet = { wood: 150, stone: 150, food: 100, tickets: 0 };
+
+  // During Day in Test Run (effectiveLock === false): gathering, building, upgrading, salvaging all work
+  const gatherDay = gatherFromResourceNode({
+    node: sampleNode,
+    resources: wallet,
+    phase: 'day',
+    dailyLocked: effectiveLock,
+    isFreePlay: false,
+  });
+  assert.equal(gatherDay.gathered, true);
+  assert.equal(gatherDay.updatedResources.wood > wallet.wood, true);
+
+  const buildDay = buildStructureOnPad(
+    pads[0],
+    gatherDay.updatedResources,
+    'watchtower',
+    'day',
+    effectiveLock,
+    false
+  );
+  assert.equal(buildDay.success, true);
+
+  const upgradeDay = upgradeStructureOnPad(
+    buildDay.updatedPad,
+    buildDay.updatedResources,
+    'pathA',
+    'day',
+    effectiveLock,
+    false
+  );
+  assert.equal(upgradeDay.success, true);
+
+  const salvageDay = salvageStructureOnPad(
+    upgradeDay.updatedPad,
+    upgradeDay.updatedResources,
+    'day',
+    effectiveLock,
+    false
+  );
+  assert.equal(salvageDay.success, true);
+
+  // During Night in Test Run: Night restrictions STILL apply (no gathering or building at night)
+  const gatherNight = gatherFromResourceNode({
+    node: sampleNode,
+    resources: wallet,
+    phase: 'night',
+    dailyLocked: effectiveLock,
+    isFreePlay: false,
+  });
+  assert.equal(gatherNight.gathered, false);
+  assert.equal(gatherNight.reason, 'night_locked');
+
+  const buildNight = buildStructureOnPad(
+    pads[1],
+    wallet,
+    'watchtower',
+    'night',
+    effectiveLock,
+    false
+  );
+  assert.equal(buildNight.success, false);
+  assert.equal(buildNight.reason, 'night_locked');
 });
 
 test('daily state initializes with 3 tickets and 3 daily tasks for UTC date', () => {

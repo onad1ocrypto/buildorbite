@@ -4,7 +4,11 @@ import { HudOverlay } from './components/HudOverlay';
 import { Modals } from './components/Modals';
 import { TitleScreen } from './components/TitleScreen';
 import { soundFX } from './game/audio';
-import { isDevelopmentTestMode, loadDailyStateFromStorage } from './game/dailySystem';
+import {
+  canShowDevTestControl,
+  isDevelopmentTestMode,
+  loadDailyStateFromStorage,
+} from './game/dailySystem';
 import {
   LanguageCode,
   loadLanguageFromStorage,
@@ -18,6 +22,7 @@ import {
   MAX_DAYS,
   restoreFenceSegmentsFromPersistence,
   restorePadsFromPersistence,
+  WEATHER_CYCLE_DURATION,
 } from './game/rules';
 import { BuildingType, HudSnapshot } from './game/types';
 
@@ -26,6 +31,7 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [lang, setLang] = useState<LanguageCode>(() => loadLanguageFromStorage());
+  const showDevTestControl = canShowDevTestControl(import.meta.env.DEV);
 
   const handleSelectLanguage = (nextLang: LanguageCode) => {
     setLang(nextLang);
@@ -40,6 +46,8 @@ export default function App() {
     return {
       screen: autostart ? 'playing' : 'title',
       phase: 'day',
+      weather: 'clear',
+      weatherTimeRemaining: WEATHER_CYCLE_DURATION,
       dayNumber: 1,
       maxDays: MAX_DAYS,
       phaseTimeRemaining: DAY_DURATION_SECONDS,
@@ -110,7 +118,8 @@ export default function App() {
     >
       {hud.isDevTestMode && (
         <div
-          className="fixed top-2 left-1/2 -translate-x-1/2 z-[60] px-3 py-1 rounded-full bg-[#581c87]/95 border border-[#c084fc] text-[10px] font-bold tracking-wide text-white shadow-lg pointer-events-none"
+          data-testid="dev-test-active-banner"
+          className="fixed top-13 left-3 z-[60] px-3 py-1 rounded-full bg-[#581c87]/95 border border-[#c084fc] text-[10px] font-bold tracking-wide text-white shadow-lg pointer-events-none"
           title="Development-only: daily task locks are bypassed and tickets are not spent."
         >
           🧪 DEV TEST · NO TICKETS SPENT · DAILY LOCK BYPASSED
@@ -124,8 +133,10 @@ export default function App() {
       {hud.screen === 'title' && !showGuide && (
         <TitleScreen
           onStartGame={() => controllerRef.current?.startGame()}
+          onStartDevTestRun={() => controllerRef.current?.startDevTestRun()}
           onStartFreePlay={() => controllerRef.current?.startFreePlay()}
           devTestMode={hud.isDevTestMode}
+          showDevTestControl={showDevTestControl}
           onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
           onOpenGuide={() => setShowGuide(true)}
           bestScore={hud.bestScore}
@@ -159,6 +170,7 @@ export default function App() {
         onDemolishPad={() => controllerRef.current?.demolishSelectedPad()}
         onTriggerFlare={() => controllerRef.current?.triggerLanternFlare()}
         onStartNightEarly={() => controllerRef.current?.startNightEarly()}
+        onCycleWeather={() => controllerRef.current?.cycleWeather()}
         onToggleMute={handleToggleMute}
         onTogglePause={() => controllerRef.current?.togglePause()}
         onOpenGuide={() => setShowGuide(true)}
@@ -173,12 +185,14 @@ export default function App() {
       <Modals
         hud={hud}
         devTestMode={hud.isDevTestMode}
+        showDevTestControl={showDevTestControl}
         lang={lang}
         onSelectLanguage={handleSelectLanguage}
         showGuide={showGuide}
         onCloseGuide={() => setShowGuide(false)}
         onResume={() => controllerRef.current?.togglePause()}
         onRestart={() => controllerRef.current?.restartGame()}
+        onStartDevTestRun={() => controllerRef.current?.startDevTestRun()}
         onStartFreePlay={() => controllerRef.current?.startFreePlay()}
         onClaimDailyCheckIn={() => controllerRef.current?.claimDailyCheckInReward()}
         onReturnTitle={() => controllerRef.current?.returnToTitle()}

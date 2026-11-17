@@ -1,4 +1,4 @@
-import { BuildingType, UpgradePathId, ZombieArchetype } from './types';
+import { BuildingType, UpgradePathId, WeatherType, ZombieArchetype } from './types';
 
 export type LanguageCode = 'en' | 'id' | 'zh' | 'vi' | 'ru';
 
@@ -219,6 +219,10 @@ export interface UiTranslations {
   lockedUntilUtcDesc: string;
   buildDurationLabel: (sec: string) => string;
   salvagedStructureBanner: (padId: number, wood: number, stone: number) => string;
+  weatherLabel: (w: WeatherType) => string;
+  weatherModifierShort: (w: WeatherType) => string;
+  weatherTooltip: (w: WeatherType) => string;
+  weatherChangedBanner: (w: WeatherType) => string;
 
   // Dynamic Task & Cosmetic Translators
   translateTaskTitle: (taskId: string, fallback: string) => string;
@@ -1380,6 +1384,26 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       'New resource gathering, building, upgrades, repairs & salvage (Hero combat & Free Play stay open).',
     buildDurationLabel: (sec) => `⏱ ${sec}s`,
     salvagedStructureBanner: (id, w, s) => `Salvaged Pad P${id} (+${w} Wood, +${s} Stone refunded)`,
+    weatherLabel: (w) =>
+      w === 'rain' ? '🌧️ Rain' : w === 'fog' ? '🌫️ Dense Fog' : '☀️ Clear',
+    weatherModifierShort: (w) =>
+      w === 'rain'
+        ? '+65% Regrow · 82% Vis'
+        : w === 'fog'
+        ? '-35% Regrow · 65% Vis'
+        : '100% Growth · 100% Vis',
+    weatherTooltip: (w) =>
+      w === 'rain'
+        ? 'Woodland Rainshower: +65% resource regrowth & +20% Wood/Food gather yield; visibility reduced to 82%. (Click to cycle weather)'
+        : w === 'fog'
+        ? 'Dense Swamp Mist: -35% resource regrowth & visibility reduced to 65%, +25% Stone gather yield. (Click to cycle weather)'
+        : 'Sunlit Clearing: 100% clear visibility & standard resource growth rate. (Click to cycle weather)',
+    weatherChangedBanner: (w) =>
+      w === 'rain'
+        ? '🌧️ Weather Shift: Woodland Rain! Resource regrowth +65% & +20% Wood/Food yield (Visibility 82%).'
+        : w === 'fog'
+        ? '🌫️ Weather Shift: Dense Swamp Fog! Visibility 65% & slower regrowth (-35%), +25% Stone yield.'
+        : '☀️ Weather Shift: Sunlit Clearing! Full visibility & normal resource growth restored.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.en[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.en[id] ?? fb,
@@ -1555,6 +1579,26 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       'Mengumpulkan resource, membangun, upgrade, perbaiki & bongkar (Pertarungan Hero & Free Play tetap aktif).',
     buildDurationLabel: (sec) => `⏱ ${sec}d`,
     salvagedStructureBanner: (id, w, s) => `Pad P${id} dibongkar (+${w} Kayu, +${s} Batu kembali)`,
+    weatherLabel: (w) =>
+      w === 'rain' ? '🌧️ Hujan' : w === 'fog' ? '🌫️ Kabut Tebal' : '☀️ Cerah',
+    weatherModifierShort: (w) =>
+      w === 'rain'
+        ? '+65% Tumbuh · 82% Vis'
+        : w === 'fog'
+        ? '-35% Tumbuh · 65% Vis'
+        : '100% Normal · 100% Vis',
+    weatherTooltip: (w) =>
+      w === 'rain'
+        ? 'Hujan Hutan: Pertumbuhan resource +65% & hasil Kayu/Makanan +20%; jarak pandang 82%. (Klik untuk ganti cuaca)'
+        : w === 'fog'
+        ? 'Kabut Rawa Tebal: Pertumbuhan resource -35% & jarak pandang 65%, hasil Batu +25%. (Klik untuk ganti cuaca)'
+        : 'Cerah: Jarak pandang 100% & pertumbuhan resource normal. (Klik untuk ganti cuaca)',
+    weatherChangedBanner: (w) =>
+      w === 'rain'
+        ? '🌧️ Cuaca Berubah: Hujan Hutan! Pertumbuhan resource +65% & hasil Kayu/Makanan +20% (Jarak pandang 82%).'
+        : w === 'fog'
+        ? '🌫️ Cuaca Berubah: Kabut Rawa Tebal! Jarak pandang 65% & pertumbuhan resource -35% (+25% hasil Batu).'
+        : '☀️ Cuaca Berubah: Langit Cerah! Jarak pandang penuh & pertumbuhan resource kembali normal.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.id[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.id[id] ?? fb,
@@ -1725,6 +1769,26 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       '采集资源、建造、升级、修复与拆除（英雄战斗与自由试玩依然开放）。',
     buildDurationLabel: (sec) => `⏱ ${sec}秒`,
     salvagedStructureBanner: (id, w, s) => `已拆除 P${id} 建筑 (返还 +${w} 木材, +${s} 石料)`,
+    weatherLabel: (w) =>
+      w === 'rain' ? '🌧️ 阵雨' : w === 'fog' ? '🌫️ 浓雾' : '☀️ 晴朗',
+    weatherModifierShort: (w) =>
+      w === 'rain'
+        ? '+65% 生长 · 82% 视野'
+        : w === 'fog'
+        ? '-35% 生长 · 65% 视野'
+        : '100% 生长 · 100% 视野',
+    weatherTooltip: (w) =>
+      w === 'rain'
+        ? '森林阵雨：资源再生速度 +65%，木材/食物采集量 +20%；视野降至 82%。（点击切换天气）'
+        : w === 'fog'
+        ? '沼泽浓雾：资源再生速度 -35%，视野降至 65%，石料采集量 +25%。（点击切换天气）'
+        : '晴朗空地：100% 清晰视野与标准资源生长速度。（点击切换天气）',
+    weatherChangedBanner: (w) =>
+      w === 'rain'
+        ? '🌧️ 天气变化：森林阵雨！资源再生速度 +65%，木材/食物采集 +20%（视野 82%）。'
+        : w === 'fog'
+        ? '🌫️ 天气变化：沼泽浓雾！视野降至 65%，资源再生减缓 -35%（石料采集 +25%）。'
+        : '☀️ 天气变化：阳光放晴！视野与资源生长速度恢复正常。',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.zh[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.zh[id] ?? fb,
@@ -1896,6 +1960,26 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       'Thu thập tài nguyên, xây mới, nâng cấp, sửa chữa & tháo dỡ (Chiến đấu & Chơi Tự Do vẫn mở).',
     buildDurationLabel: (sec) => `⏱ ${sec}s`,
     salvagedStructureBanner: (id, w, s) => `Đã tháo dỡ Bệ P${id} (+${w} Gỗ, +${s} Đá hoàn lại)`,
+    weatherLabel: (w) =>
+      w === 'rain' ? '🌧️ Mưa Rừng' : w === 'fog' ? '🌫️ Sương Mù' : '☀️ Nắng Đẹp',
+    weatherModifierShort: (w) =>
+      w === 'rain'
+        ? '+65% Mọc · 82% Tầm nhìn'
+        : w === 'fog'
+        ? '-35% Mọc · 65% Tầm nhìn'
+        : '100% Mọc · 100% Tầm nhìn',
+    weatherTooltip: (w) =>
+      w === 'rain'
+        ? 'Mưa Rừng: Tốc độ hồi tài nguyên +65% & sản lượng Gỗ/Thức ăn +20%; tầm nhìn 82%. (Nhấn để đổi thời tiết)'
+        : w === 'fog'
+        ? 'Sương Mù Đầm Lầy: Tốc độ hồi tài nguyên -35% & tầm nhìn 65%, sản lượng Đá +25%. (Nhấn để đổi thời tiết)'
+        : 'Nắng Quang Đãng: Tầm nhìn 100% & tốc độ hồi tài nguyên tiêu chuẩn. (Nhấn để đổi thời tiết)',
+    weatherChangedBanner: (w) =>
+      w === 'rain'
+        ? '🌧️ Thời Tiết Đổi: Mưa Rừng! Tốc độ mọc tài nguyên +65% & Gỗ/Thức ăn +20% (Tầm nhìn 82%).'
+        : w === 'fog'
+        ? '🌫️ Thời Tiết Đổi: Sương Mù Đầm Lầy! Tầm nhìn 65% & mọc tài nguyên -35% (+25% Đá).'
+        : '☀️ Thời Tiết Đổi: Trời Quang Mây Tạnh! Tầm nhìn và tốc độ mọc tài nguyên trở lại bình thường.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.vi[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.vi[id] ?? fb,
@@ -2067,6 +2151,26 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
       'Сбор ресурсов, постройка, улучшения, починка и снос (бой героя и Свободная игра доступны).',
     buildDurationLabel: (sec) => `⏱ ${sec}с`,
     salvagedStructureBanner: (id, w, s) => `Разобрана площадка P${id} (+${w} дерева, +${s} камня)`,
+    weatherLabel: (w) =>
+      w === 'rain' ? '🌧️ Дождь' : w === 'fog' ? '🌫️ Туман' : '☀️ Ясно',
+    weatherModifierShort: (w) =>
+      w === 'rain'
+        ? '+65% Рост · 82% Обзор'
+        : w === 'fog'
+        ? '-35% Рост · 65% Обзор'
+        : '100% Рост · 100% Обзор',
+    weatherTooltip: (w) =>
+      w === 'rain'
+        ? 'Лесной ливень: восстановление ресурсов +65%, сбор дерева/еды +20%; видимость 82%. (Нажмите для смены погоды)'
+        : w === 'fog'
+        ? 'Густой туман: восстановление ресурсов -35%, видимость 65%, сбор камня +25%. (Нажмите для смены погоды)'
+        : 'Ясная погода: 100% видимость и обычная скорость роста ресурсов. (Нажмите для смены погоды)',
+    weatherChangedBanner: (w) =>
+      w === 'rain'
+        ? '🌧️ Смена погоды: Лесной дождь! Рост ресурсов +65% и сбор дерева/еды +20% (Видимость 82%).'
+        : w === 'fog'
+        ? '🌫️ Смена погоды: Густой туман! Видимость 65% и рост ресурсов -35% (+25% камня).'
+        : '☀️ Смена погоды: Ясное небо! Полная видимость и обычный рост ресурсов.',
 
     translateTaskTitle: (id, fb) => TASK_TITLES.ru[id] ?? fb,
     translatePadLabel: (id, fb) => PAD_LABELS.ru[id] ?? fb,

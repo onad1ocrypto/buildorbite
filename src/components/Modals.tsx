@@ -11,12 +11,14 @@ import { HudSnapshot, ZombieArchetype } from '../game/types';
 interface ModalsProps {
   hud: HudSnapshot;
   devTestMode: boolean;
+  showDevTestControl: boolean;
   lang: LanguageCode;
   onSelectLanguage: (lang: LanguageCode) => void;
   showGuide: boolean;
   onCloseGuide: () => void;
   onResume: () => void;
   onRestart: () => void;
+  onStartDevTestRun: () => void;
   onStartFreePlay: () => void;
   onClaimDailyCheckIn: () => void;
   onReturnTitle: () => void;
@@ -28,12 +30,14 @@ interface ModalsProps {
 export const Modals: React.FC<ModalsProps> = ({
   hud,
   devTestMode,
+  showDevTestControl,
   lang,
   onSelectLanguage,
   showGuide,
   onCloseGuide,
   onResume,
   onRestart,
+  onStartDevTestRun,
   onStartFreePlay,
   onClaimDailyCheckIn,
   onReturnTitle,
@@ -199,6 +203,16 @@ export const Modals: React.FC<ModalsProps> = ({
               >
                 {tr.freePlayBtn}
               </button>
+              {showDevTestControl && (
+                <button
+                  type="button"
+                  data-testid="btn-pause-dev-test-run"
+                  onClick={onStartDevTestRun}
+                  className="w-full py-2 px-4 rounded-lg bg-[#581c87] hover:bg-[#6b21a8] border border-[#c084fc] text-white font-semibold text-xs cursor-pointer transition-colors"
+                >
+                  🧪 Test Run (DEV QA · No Ticket · Bypass Daily Lock)
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onOpenGuide}
@@ -482,6 +496,20 @@ export const Modals: React.FC<ModalsProps> = ({
                   ? tr.playAgainBtn(daily.tickets)
                   : tr.noTicketsBtn(daily.maxDailyTickets)}
               </button>
+
+              {showDevTestControl && (
+                <button
+                  type="button"
+                  data-testid="btn-result-dev-test-run"
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    onStartDevTestRun();
+                  }}
+                  className="py-3 px-4 rounded-lg bg-[#581c87] hover:bg-[#6b21a8] border border-[#c084fc] text-white font-display font-bold text-xs sm:text-sm cursor-pointer whitespace-nowrap"
+                >
+                  🧪 Test Run (DEV QA · No Ticket)
+                </button>
+              )}
 
               <button
                 type="button"
