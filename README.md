@@ -2,7 +2,7 @@
 
 **A 3D dark-comedy forest-fort defense game: build by day, survive the night.**
 
-> **Status:** playable web prototype with a Reddit Devvit Web integration. Reddit identity-scoped Redis saves, server-side daily ticket checks, and server-calculated XP/coin/task/check-in rewards are implemented, with fort layout/resource snapshots still client-submitted. A Devvit playtest install succeeded in `r/playthisgames` (v0.0.1.1); that install does not create a playable post automatically. A moderator-only subreddit menu action is included to create the game post. App Directory review/publication and event-rule checks are not confirmed, so this is **not yet confirmed ready for submission**.
+> **Status:** playable web prototype with a Reddit Devvit Web integration. Reddit identity-scoped Redis saves, server-side daily ticket checks, and server-calculated XP/coin/task/check-in rewards are implemented, with fort layout/resource snapshots still client-submitted. A Devvit playtest install succeeded in `r/playthisgames` (v0.0.1.1); that install does not create a playable post automatically. A moderator-only subreddit menu action is included to create the game post. Its inline entrypoint presents a clear Start Playing button that opens the full game view. App Directory review/publication and event-rule checks are not confirmed, so this is **not yet confirmed ready for submission**.
 
 ## Game overview
 

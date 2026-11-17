@@ -149,7 +149,7 @@ app.post('/internal/menu/create-game-post', async (c) => {
     if (!subredditName) {
       return c.json({ showToast: { text: 'Open this action from a subreddit.', appearance: 'neutral' } });
     }
-    const post = await reddit.submitCustomPost({
+    await reddit.submitCustomPost({
       subredditName,
       title: 'Build or Bite — Play the Game',
       entry: 'default',
@@ -158,8 +158,7 @@ app.post('/internal/menu/create-game-post', async (c) => {
       },
     });
     return c.json({
-      showToast: { text: 'Build or Bite game post created.', appearance: 'success' },
-      navigateTo: post.permalink,
+      showToast: { text: 'Build or Bite game post created. Open it from the community feed.', appearance: 'success' },
     });
   } catch (error) {
     console.error('Could not create Build or Bite post:', error);
