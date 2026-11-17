@@ -1,114 +1,96 @@
 # Build or Bite
 
-**A 3D dark-comedy forest fort defense game — build by day, survive the night.**
+**A 3D dark-comedy forest-fort defense game: build by day, survive the night.**
 
-> ⚠️ **Status: prototype / work in progress.** This project is an early playable prototype and is **not finished**. Gameplay balance, content, and platform integration are still being developed.
+> **Status:** playable web prototype. The current repository is a React + Vite browser game; a Reddit Devvit build has not yet been implemented.
 
----
+## Game overview
 
-## Overview
+**Build or Bite** is set in a spooky forest clearing. During the day, Ranger Rue gathers wood, stone, and food, then builds and upgrades the fort. At night, waves of cartoonish undead attack. Survive the final night to win; if the fort is destroyed, the run ends in defeat.
 
-**Build or Bite** is a 3D browser game set in a clearing in a spooky forest. By **day**, you gather resources (wood, stone, food) and build up your fort — walls, towers, traps, campfires and catapults. By **night**, waves of "polite-yet-terrifying" zombies shamble in from the treeline. Survive all the waves to win; if the fort's health reaches zero, you lose.
-
-Sessions are short (about **3 minutes**) and are designed for a **daily play habit**: a small, repeatable loop you can return to every day.
-
-**Who it is for:** players who enjoy light strategy, base building, and spooky-but-funny characters. The game is **all-ages / SFW** (no gore) and runs in the browser on **desktop and mobile**.
+The intended tone is spooky but funny. The game supports desktop keyboard/mouse and touch interaction.
 
 ## How to play
 
-**Day phase (build)**
-- Move with **WASD / arrow keys** or **click/tap** to walk.
-- Collect resources from nodes in the forest.
-- Place and upgrade buildings on the building pads.
-- Press **Enter / N** to start the night early.
+### Day
+- Move with **WASD / arrow keys**, click to move, or touch-drag on the ground.
+- Gather wood, stone, and food from resource nodes.
+- Build, upgrade, repair, or salvage fort structures using the pads and menus.
+- Use **Enter** or **N** to start the night early.
+- Daytime weather cycles through clear, rain, and fog. The weather indicator can also be used to cycle conditions.
 
-**Night phase (defend)**
-- Zombies attack from the forest edges and target your walls and fort.
-- Your towers and hero defend automatically.
-- Use the **Lantern Flare** skill (**Space**) to slow and knock back zombies — it has a cooldown.
-- Survive every wave to win.
+### Night
+- Undead attack the fort and its structures.
+- The hero and defensive structures fight automatically.
+- Use **Space** or the Flare button to cast Lantern Flare; it has a cooldown.
+- Survive the waves through the final night.
 
-**Controls:** WASD/arrows = move · mouse/tap = interact · **Space** = skill · **Enter/N** = start night · **P/Esc** = pause
+**Controls:** WASD/arrows = move · click/touch = interact or move · Space = Lantern Flare · Enter/N = start night early · P/Esc = pause
 
-## Features
+## Current features
 
-- **Day/night core loop** — build, then defend.
-- **6 building types** (palisade wall, watchtower, spike trap, campfire, catapult, guard tent) with **2 upgrade paths** each.
-- **6 enemy types** — including **Shamble**, **The Grinner**, **Old Grumble**, **Gawp**, **Brine**, and the boss **Baron Blight**.
-- **Hero** with an active skill.
-- **Daily system** — 3 tickets per day, 3 daily tasks, XP + player level, streaks, and rewards.
-- **Low-poly 3D art** with a warm lantern-lit night mood.
-- **Sound effects** and responsive controls for desktop and mobile.
+- Three-day day/night survival loop.
+- Six building types: Palisade Wall, Watchtower, Spike Trap, Campfire, Catapult, and Guard Tent; each has two upgrade paths.
+- Nine undead archetypes, including Baron Blight, with a boss health display.
+- Dynamic daytime weather: clear, rain, and fog affect the environment and resource gathering/regrowth.
+- Daily tickets, daily tasks, XP/levels, streaks, check-in rewards, and persistent fort progression.
+- Responsive 3D scene, sound effects, and multiple UI languages.
 
-## Daily system (prototype)
+## Daily tickets and progression
 
-- **Tickets:** 3 per day; each run costs 1. Tickets refill at the **daily reset (00:00 UTC)**.
-- **Daily tasks:** 3 tasks drawn from a pool, refreshed daily; completing all 3 grants a bonus.
-- **XP & levels:** earn XP per run; levels unlock rewards (buildings, cosmetics, variants).
-- **Streaks:** complete at least 1 run per day to keep your streak; milestones at 3 / 7 / 30 days.
-- **Persistence:** currently stored in the browser's `localStorage` (prototype only).
+- A normal player has **at most 3 tickets per UTC day**. A standard run costs 1 ticket.
+- Tickets reset at **00:00 UTC**; unused tickets do not carry over.
+- Three daily tasks are selected for each UTC day. Completing all three grants the configured task bonus and locks further daily progression activities (such as gathering, building, upgrading, repairing, and salvaging) until the next UTC reset. Combat is not part of that lock.
+- Demo/Test Run is a development/preview testing tool, not a player-facing Free Play mode. It spends no tickets, bypasses the daily progression lock for testing, and writes its test fort separately from the normal save. It is intended to be unavailable in Production.
+- A **new local profile** starts at **0 XP / Level 1**. Existing browser saves are migrated to preserve recorded progression, so an old saved level can remain visible in that browser.
 
-> **Note:** the current daily system is **client-side** and not secure against tampering. A production version must verify tickets, tasks, and streaks **server-side**.
+## Save data and limitations
+
+The current web prototype stores player progression in browser `localStorage` (including `build_or_bite_daily_v1`). This is local to the browser/site origin, is not an account system, and is not authoritative against client-side tampering. The game does not currently have username/password authentication or a server-backed player database.
+
+Before using persistent player accounts in a Reddit/Devvit build, the game will need a separate Devvit integration and server-side persistence design. The Devvit version is **planned, not implemented in this repository**.
 
 ## Technology
 
-- **React 19 + TypeScript + Vite**
-- **Three.js** (3D rendering)
-- **Tailwind CSS**
-- **Express** (server)
-- **Google Gemini API** (`@google/genai`) for optional AI features
+- React 19, TypeScript, and Vite
+- Three.js for 3D rendering
+- Tailwind CSS
 
-## Local setup
+The repository currently runs as a Vite SPA. Although Express and `@google/genai` are listed as dependencies, there is no active Express backend or Gemini API feature in the current game code.
 
-1. Install **Node.js** (and **Bun** or npm).
-2. Install dependencies:
-   ```bash
-   bun install
-   ```
-3. Run the dev server:
-   ```bash
-   bun run dev
-   ```
-   The app is served at `http://localhost:3000`.
-4. (Optional) create a `.env` file based on `.env.example` and set `GEMINI_API_KEY` for AI features.
+## Local development
 
-## Configuration
+Requirements: Node.js and npm.
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `GEMINI_API_KEY` | Optional | Enables AI features (Gemini API). |
-| `APP_URL` | Optional | Public URL of the app (used for links/callbacks). |
-
-## Repository structure
-
+```bash
+npm install --legacy-peer-deps
+npm run dev
 ```
+
+Vite serves the app at `http://localhost:3000`.
+
+Useful checks:
+
+```bash
+npm run lint
+npx tsx --test src/game/dailySystem.test.ts src/game/rules.test.ts src/game/i18n.test.ts
+npm run build
+```
+
+## Repository layout
+
+```text
 buildorbite/
 ├── index.html
 ├── package.json
 ├── vite.config.ts
-├── tsconfig.json
-├── public/
-│   └── assets/aistudio/      # original design prompts
+├── public/assets/aistudio/   # game title and character artwork
 └── src/
     ├── App.tsx
-    ├── components/           # GameCanvas, HudOverlay, Modals, TitleScreen
-    └── game/                 # models, rules, dailySystem, types, audio + tests
+    ├── components/           # screens, HUD, modals, boss health bar
+    └── game/                 # simulation, rules, daily system, i18n, audio, tests
 ```
 
-## Planned platform (Reddit Devvit)
+## Reddit event direction
 
-This prototype is a standalone web app. The intended final version will be ported to **Reddit Devvit Web**:
-
-- `src/client` (Three.js webview) + `src/server` (`/api/` endpoints)
-- `devvit.json` configuration
-- Daily state (tickets, XP, streak, tasks) moved to **Redis**
-- Daily posting via the **scheduler**
-- Telemetry via **Devvit Journeys**
-
-Per the hackathon rules, the app will be **uploaded privately and playtested** — **not published** — until the hackathon concludes.
-
-## Hackathon submission (planned)
-
-- **App listing:** (pending Devvit upload)
-- **Demo post:** `r/playthisgames` (pending)
-- **Repository:** private for now, to avoid plagiarism before submission.
+The project is intended for a Reddit event, but this repository is not yet a Devvit app. A future Devvit version must be implemented and reviewed against the event's current rules before submission. No claim is made here that the app has been uploaded, privately playtested, approved, or published.
