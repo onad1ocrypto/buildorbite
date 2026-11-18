@@ -71,7 +71,7 @@ export const Modals: React.FC<ModalsProps> = ({
   const checkInClaimedToday = daily.lastCheckInClaimedDateUTC === todayUTC;
   const checkInReady =
     !checkInClaimedToday &&
-    (daily.checkInEligibleDateUTC === todayUTC || daily.lastPlayedDateUTC === todayUTC);
+    (daily.checkInEligibleDateUTC === todayUTC);
 
   return (
     <>

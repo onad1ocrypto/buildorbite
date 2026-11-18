@@ -78,6 +78,7 @@ import {
   clearDevTestFortFromStorage,
   completeRunProgression,
   consumeTicketForRun,
+  recordStartedRun,
   isDevelopmentTestMode,
   LANTERN_COSMETICS,
   loadDailyStateFromStorage,
@@ -1443,7 +1444,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       } else {
         const ticketRes = consumeTicketForRun(dailyState);
         if (ticketRes.allowed) {
-          dailyState = ticketRes.updatedState;
+          dailyState = recordStartedRun(ticketRes.updatedState);
           saveDailyStateToStorage(dailyState);
           screenState = 'playing';
         }
@@ -1965,7 +1966,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             syncHud(true);
             return;
           }
-          dailyState = ticketCheck.updatedState;
+          dailyState = recordStartedRun(ticketCheck.updatedState);
         }
         saveDailyStateToStorage(dailyState);
       }
@@ -2079,6 +2080,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ticketsUsedTodayUTC?: number;
           ticketsRemaining?: number;
           utcDate?: string;
+          daily?: DailyPersistenceState;
         };
 
         if (!response.ok || result.allowed !== true) {
@@ -2098,6 +2100,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           return;
         }
 
+        if (result.daily) {
+          dailyState = {
+            ...result.daily,
+            savedPads: dailyState.savedPads,
+            savedFenceSegments: dailyState.savedFenceSegments,
+            savedResources: dailyState.savedResources,
+          };
+        }
         dailyState = {
           ...dailyState,
           tickets: Math.max(0, Math.min(MAX_DAILY_TICKETS, result.ticketsRemaining ?? 0)),

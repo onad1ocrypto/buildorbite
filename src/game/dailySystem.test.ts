@@ -23,6 +23,7 @@ import {
   shouldConsumeTicketForStart,
   shouldLockDailyProgression,
   migrateDailyState,
+  recordStartedRun,
   recordTaskProgress,
   saveDevTestFortToStorage,
   saveFortAndResourcesToDailyState,
@@ -305,56 +306,37 @@ test('completing all 3 daily tasks awards bonus coins & XP, locks daily progress
   assert.equal(nextDayState.dailyProgressionLocked, false);
 });
 
-test('streak increments +1 per consecutive UTC day played, resets if day missed, and unlocks 3-day milestone', () => {
-  const d1 = Date.UTC(2026, 10, 16, 14, 0, 0);
-  const d2 = Date.UTC(2026, 10, 17, 14, 0, 0);
-  const d3 = Date.UTC(2026, 10, 18, 14, 0, 0);
-  const d5 = Date.UTC(2026, 10, 20, 14, 0, 0); // Skipped Nov 19!
-
-  let state = createDefaultDailyState(d1);
-  state = completeRunProgression(state, {
-    score: 900,
-    victory: true,
-    nightsSurvived: 3,
-    nowMs: d1,
-  }).updatedState;
+test('streak advances on normal starts once per UTC day, including unfinished runs and milestones', () => {
+  const d1 = Date.UTC(2026, 10, 16, 14);
+  const d2 = Date.UTC(2026, 10, 17, 14);
+  const d3 = Date.UTC(2026, 10, 18, 14);
+  const d5 = Date.UTC(2026, 10, 20, 14);
+  let state = recordStartedRun(createDefaultDailyState(d1), d1);
   assert.equal(state.streak, 1);
-
-  // Playing a second run on the same UTC day keeps streak at 1
-  state = completeRunProgression(state, {
-    score: 500,
-    victory: false,
-    nightsSurvived: 1,
-    nowMs: d1 + 3600 * 1000,
-  }).updatedState;
+  state = recordStartedRun(state, d1 + 1000);
   assert.equal(state.streak, 1);
-
-  // Day 2 consecutive
-  state = checkAndApplyDailyReset(state, d2);
-  state = completeRunProgression(state, {
-    score: 850,
-    victory: true,
-    nightsSurvived: 3,
-    nowMs: d2,
-  }).updatedState;
+  state = recordStartedRun(state, d2);
   assert.equal(state.streak, 2);
-
-  // Day 3 consecutive -> triggers 3-day milestone reward!
-  state = checkAndApplyDailyReset(state, d3);
-  const day3Result = completeRunProgression(state, {
-    score: 1000,
-    victory: true,
-    nightsSurvived: 3,
-    nowMs: d3,
-  });
-  state = day3Result.updatedState;
+  state = recordStartedRun(state, d3);
   assert.equal(state.streak, 3);
   assert.equal(state.claimedStreakMilestones.includes(3), true);
   assert.equal(state.unlockedTitles.includes('Tri-Night Survivor'), true);
-
-  // Skip Day 4 -> reset on Day 5
+  const coins = state.coins;
+  state = recordStartedRun(state, d3 + 5000);
+  assert.equal(state.coins, coins);
   state = checkAndApplyDailyReset(state, d5);
   assert.equal(state.streak, 0);
+  state = recordStartedRun(state, d5);
+  assert.equal(state.streak, 1);
+});
+
+test('completion after UTC midnight does not advance streak for a day with no start', () => {
+  const start = Date.UTC(2026, 10, 16, 23, 59);
+  const next = Date.UTC(2026, 10, 17, 0, 1);
+  const state = recordStartedRun(createDefaultDailyState(start), start);
+  const result = completeRunProgression(state, { score: 0, victory: false, nightsSurvived: 0, nowMs: next });
+  assert.equal(result.updatedState.streak, 1);
+  assert.equal(result.updatedState.lastPlayedDateUTC, '2026-11-16');
 });
 
 test('normal players can never hold or receive more than 3 tickets per UTC day', () => {

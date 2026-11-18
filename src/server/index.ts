@@ -8,6 +8,7 @@ import {
   createDefaultDailyState,
   getUTCDateString,
   migrateDailyState,
+  recordStartedRun,
   recordTaskProgress,
 } from '../game/dailySystem';
 import type { DailyPersistenceState } from '../game/types';
@@ -231,6 +232,7 @@ app.post('/api/runs/start', async (c) => {
           ticketsUsedTodayUTC: used,
           ticketsRemaining: getServerTicketSnapshot(used).ticketsRemaining,
           utcDate,
+          daily: await loadProfile(userId, nowMs),
         });
       }
       return c.json({ allowed: false, reason: 'request_pending' }, 409);
@@ -249,8 +251,12 @@ app.post('/api/runs/start', async (c) => {
       }, 409);
     }
     await redis.expire(ticketKey, Math.ceil(RUN_ID_TTL_MS / 1000));
+    const current = await readStoredProfile(userId, nowMs);
+    const daily = applyServerTicketCount(recordStartedRun(current, nowMs), incrementedUsage, utcDate);
+    await redis.set(playerProfileKey(userId), JSON.stringify(daily));
     await redis.set(idempotencyKey, 'accepted', { expiration: expiresAt });
     return c.json({
+      daily,
       allowed: true,
       alreadyStarted: false,
       ticketsUsedTodayUTC: incrementedUsage,

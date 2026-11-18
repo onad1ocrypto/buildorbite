@@ -35,7 +35,7 @@ Help Ranger Rue gather supplies and turn a forest clearing into a fort. When nig
 
 The Reddit version uses the Reddit user ID supplied to the Devvit server. A player who is signed in to Reddit does **not** need to create a separate game account or password. A valid Reddit session is required to load a profile and start a standard run; if the identity or save is unavailable, the game cannot load the profile.
 
-Each player starts with **up to 3 tickets per UTC day**. A standard run costs one ticket, and tickets reset at **00:00 UTC**; unused tickets do not carry over. The server tracks starts and associates the profile with the Reddit user ID. The client submits fort and resource snapshots; these and gameplay events are not fully server-simulated or tamper-proof.
+Each player starts with **up to 3 tickets per UTC day**. A standard run costs one ticket, and tickets reset at **00:00 UTC**; unused tickets do not carry over. The first successfully started standard run each UTC day advances the daily streak, even if the run is not finished or tasks are incomplete. Further starts on the same day do not add streak days; missing a full UTC day breaks the streak. Demo runs never spend tickets or advance the normal streak. The server tracks starts and associates the profile with the Reddit user ID. The client submits fort and resource snapshots; these and gameplay events are not fully server-simulated or tamper-proof.
 
 Daily tasks and their rewards are for standard play. Completing all three locks further daily gathering and construction until the UTC reset; combat remains available.
 

@@ -654,6 +654,30 @@ export function checkAndApplyDailyReset(
   };
 }
 
+/** Record a successfully started normal run once per UTC day. Demo callers must not invoke this. */
+export function recordStartedRun(state: DailyPersistenceState, nowMs: number = Date.now()): DailyPersistenceState {
+  const working = checkAndApplyDailyReset(state, nowMs);
+  const today = getUTCDateString(nowMs);
+  if (working.lastPlayedDateUTC === today) return working;
+  const streak = working.lastPlayedDateUTC && getUTCDayDifference(working.lastPlayedDateUTC, today) === 1
+    ? working.streak + 1 : 1;
+  const cosmetics = new Set(working.cosmetics);
+  const titles = new Set(working.unlockedTitles);
+  const claimed = new Set(working.claimedStreakMilestones);
+  let coins = working.coins;
+  for (const milestone of STREAK_MILESTONES) {
+    if (streak >= milestone.days && !claimed.has(milestone.days)) {
+      claimed.add(milestone.days);
+      coins += milestone.coins;
+      if (milestone.cosmeticId) cosmetics.add(milestone.cosmeticId);
+      if (milestone.title) titles.add(milestone.title);
+    }
+  }
+  return { ...working, streak, bestStreak: Math.max(working.bestStreak, streak),
+    lastPlayedDateUTC: today, coins, cosmetics: Array.from(cosmetics),
+    unlockedTitles: Array.from(titles), claimedStreakMilestones: Array.from(claimed) };
+}
+
 export function consumeTicketForRun(state: DailyPersistenceState): {
   updatedState: DailyPersistenceState;
   allowed: boolean;
@@ -841,7 +865,7 @@ export function claimDailyCheckIn(
       reason: 'already_claimed_today',
     };
   }
-  if (state.checkInEligibleDateUTC !== todayUTC && state.lastPlayedDateUTC !== todayUTC) {
+  if (state.checkInEligibleDateUTC !== todayUTC) {
     return {
       updatedState: state,
       claimed: false,
@@ -874,8 +898,8 @@ export function claimDailyCheckIn(
 }
 
 /**
- * Evaluates end-of-run XP, player level-ups, daily streak (+1 on first run of the UTC day),
- * and 3 / 7 / 30 day streak milestones.
+ * Evaluates end-of-run XP, player level-ups, and any unclaimed streak milestones.
+ * Daily streak is recorded when a normal run starts.
  * Also restores saved persistent fort structures & fences to full HP so combat damage during
  * a run never permanently erases structures or upgrades.
  * In Demo / Dev Test mode, grants 0 repeatable XP/coins and does not modify streak,
@@ -906,7 +930,7 @@ export function completeRunProgression(
     const checkInClaimedToday = state.lastCheckInClaimedDateUTC === todayUTC;
     const checkInAvailableToClaim =
       !checkInClaimedToday &&
-      (state.checkInEligibleDateUTC === todayUTC || state.lastPlayedDateUTC === todayUTC);
+      (state.checkInEligibleDateUTC === todayUTC);
 
     return {
       updatedState: state,
@@ -960,24 +984,9 @@ export function completeRunProgression(
   const newXp = working.xp + totalRunXpGained;
   const levelInfo = getLevelForXp(newXp);
 
-  // 3. Streak update (+1 if first completed run today; reset to 1 if missed a day)
-  let newStreak = working.streak;
-  let streakIncrementedToday = false;
-  if (working.lastPlayedDateUTC === todayUTC) {
-    newStreak = working.streak;
-  } else if (working.lastPlayedDateUTC) {
-    const diff = getUTCDayDifference(working.lastPlayedDateUTC, todayUTC);
-    if (diff === 1) {
-      newStreak = working.streak + 1;
-    } else {
-      newStreak = 1;
-    }
-    streakIncrementedToday = true;
-  } else {
-    newStreak = 1;
-    streakIncrementedToday = true;
-  }
-
+  // Streak is recorded on run start, never again on completion (including across UTC midnight).
+  const newStreak = working.streak;
+  const streakIncrementedToday = false;
   const bestStreak = Math.max(working.bestStreak, newStreak);
 
   // 4. Unlocks from Level & Streak Milestones (3 / 7 / 30)
@@ -1020,7 +1029,6 @@ export function completeRunProgression(
     coins: working.coins + extraCoins,
     streak: newStreak,
     bestStreak,
-    lastPlayedDateUTC: todayUTC,
     checkInEligibleDateUTC: todayUTC,
     savedPads: restoredSavedPads,
     savedFenceSegments: restoredSavedFences,

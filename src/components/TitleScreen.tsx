@@ -48,7 +48,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   const checkInClaimedToday = daily.lastCheckInClaimedDateUTC === todayUTC;
   const checkInReady =
     !checkInClaimedToday &&
-    (daily.checkInEligibleDateUTC === todayUTC || daily.lastPlayedDateUTC === todayUTC);
+    (daily.checkInEligibleDateUTC === todayUTC);
 
   useEffect(() => {
     const handlePointerDown = (e: MouseEvent) => {
