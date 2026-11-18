@@ -7,6 +7,18 @@ import {
 import { HERO_RUE_PORTRAIT_URL, ZOMBIE_CATALOG } from '../game/rules';
 import { HudSnapshot, ZombieArchetype } from '../game/types';
 
+// Small derivatives are used only for bestiary cards; original art stays intact.
+const bestiaryPortrait = (url: string) => url.replace('/aistudio/', '/aistudio/portraits/').replace(/\.png$/, '.webp');
+const useOriginalPortraitOnError = (event: React.SyntheticEvent<HTMLImageElement>, originalUrl: string) => {
+  const img = event.currentTarget;
+  if (img.dataset.originalAttempted) {
+    img.style.visibility = 'hidden';
+    return;
+  }
+  img.dataset.originalAttempted = 'true';
+  img.src = originalUrl;
+};
+
 interface ModalsProps {
   hud: HudSnapshot;
   devTestMode: boolean;
@@ -515,7 +527,8 @@ export const Modals: React.FC<ModalsProps> = ({
               {/* Hero Reference Card: Ranger Rue */}
               <div className="p-3.5 rounded-xl bg-[#0b1016] border border-[#f59e0b]/50 flex flex-col sm:flex-row items-center gap-3.5 mb-3">
                 <img
-                  src={HERO_RUE_PORTRAIT_URL}
+                  src={bestiaryPortrait(HERO_RUE_PORTRAIT_URL)}
+                  onError={(event) => useOriginalPortraitOnError(event, HERO_RUE_PORTRAIT_URL)}
                   alt="Ranger Rue Concept Art"
                   className="w-16 h-16 rounded-xl object-cover border border-[#f59e0b] shrink-0 bg-[#070b12]"
                 />
@@ -557,7 +570,8 @@ export const Modals: React.FC<ModalsProps> = ({
                     >
                       {z.portraitUrl ? (
                         <img
-                          src={z.portraitUrl}
+                          src={bestiaryPortrait(z.portraitUrl)}
+                          onError={(event) => useOriginalPortraitOnError(event, z.portraitUrl!)}
                           alt={zLoc.name}
                           className="w-14 h-14 rounded-lg object-cover border border-[#334155] shrink-0 bg-[#070b12]"
                         />
