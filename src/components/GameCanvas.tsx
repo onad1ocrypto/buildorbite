@@ -41,6 +41,7 @@ import {
   createInitialPads,
   DAY_DURATION_SECONDS,
   deductCost,
+  earlyRunOutcome,
   evaluateGameOutcome,
   FENCE_HALF_EXTENT,
   findBlockingFenceSegment,
@@ -1559,6 +1560,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
         if (pad.building) {
           const bldMesh = createBuildingModel(pad.building.type, pad.building.upgradePath);
+          if (pad.building.level >= 3) {
+            const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.24), new THREE.MeshStandardMaterial({ color: 0xffdb63, emissive: 0x9a5800, emissiveIntensity: 0.7 }));
+            marker.position.set(0, 3.6, 0);
+            bldMesh.add(marker);
+          }
           bldMesh.position.set(pad.x, 0.14, pad.z);
           if (pad.rotationY) bldMesh.rotation.y = pad.rotationY;
           bldMesh.userData = { kind: 'pad', padId: pad.id };
@@ -1844,7 +1850,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       syncHud(true);
     }
 
-    function finalizeRunOutcome(outcome: 'victory' | 'defeat') {
+    function finalizeRunOutcome(outcome: 'victory' | 'defeat', endedEarly = false) {
       if (screenState === 'gameover') return;
       const completedRunId = isDevvitRuntime ? activeRunId : null;
       runOutcome = outcome;
@@ -1890,6 +1896,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           runId: completedRunId,
           score,
           victory: outcome === 'victory',
+          endedEarly,
           nightsSurvived: nightsSurvivedThisRun,
           daily: dailyState,
         };
@@ -2185,7 +2192,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       finishRunEarly: () => {
         if (screenState === 'playing' || screenState === 'paused') {
-          finalizeRunOutcome(fortHp > 0 && dayNumber >= MAX_DAYS ? 'victory' : 'defeat');
+          finalizeRunOutcome(earlyRunOutcome(), true);
         }
       },
       claimDailyCheckInReward: () => {
@@ -2262,11 +2269,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
         const selectedSeg =
           selectedFenceId !== null
-            ? fenceSegments.find(
-                (f) =>
-                  f.id === selectedFenceId &&
-                  (f.level === 0 || f.hp < f.maxHp || f.level === 1)
-              ) ?? null
+            ? fenceSegments.find((f) => f.id === selectedFenceId) ?? null
             : null;
         const targetSeg = selectedSeg ?? findNextFenceSegmentForHero(rueX, rueZ, fenceSegments);
 
@@ -2300,7 +2303,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           } else if (startRes.reason === 'insufficient_resources') {
             setBanner(tr.notEnoughResourcesBanner, 2.5);
           } else if (startRes.reason === 'max_level') {
-            setBanner(tr.allFencesMaxBanner, 2.2);
+            setBanner('This fence is already at maximum level.', 2.2);
           }
           syncHud(true);
           return;
@@ -2656,9 +2659,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       } else if (code.startsWith('Digit')) {
         const num = parseInt(code.replace('Digit', ''), 10);
         const selPad = pads.find((p) => p.id === selectedPadId);
-        if (selPad && selPad.building && selPad.building.upgradePath === null) {
-          if (num === 1) api.upgradeSelectedPad('pathA');
-          if (num === 2) api.upgradeSelectedPad('pathB');
+        if (selPad && selPad.building && selPad.building.level < 3) {
+          if (selPad.building.upgradePath) {
+            if (num === 1) api.upgradeSelectedPad(selPad.building.upgradePath);
+          } else {
+            if (num === 1) api.upgradeSelectedPad('pathA');
+            if (num === 2) api.upgradeSelectedPad('pathB');
+          }
         } else {
           const buildOrder: BuildingType[] = [
             'palisade',
@@ -3420,7 +3427,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               action === 'built'
                 ? `Fence Built: ${doneTask.label}!`
                 : action === 'upgraded'
-                ? `Fence Upgraded (Lv.2 Spikes): ${doneTask.label}!`
+                ? `Fence Upgraded (Lv.${fenceSegments.find((f) => f.id === doneTask.targetId)?.level ?? 2}): ${doneTask.label}!`
                 : `Fence Repaired: ${doneTask.label}!`;
             addCallout(msg, doneTask.targetX, 2.2, doneTask.targetZ, '#4ade80');
           } else {
@@ -3728,7 +3735,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       for (const pad of pads) {
         const bld = pad.building;
         if (!bld) continue;
-        const stats = getEffectiveBuildingStats(bld.type, bld.upgradePath);
+        const stats = getEffectiveBuildingStats(bld.type, bld.upgradePath, bld.level);
         const rateMult = hasBonfireBuff ? 1.18 : 1.0;
 
         // Passive Palisade Tar-Pitch slow aura
@@ -4081,7 +4088,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               z.attackCooldown = spec.attackInterval;
               if (blockingFence) {
                 blockingFence.hp = Math.max(0, blockingFence.hp - z.damage);
-                if (blockingFence.level === 2) {
+                if (blockingFence.level >= 2) {
                   const thornRes = applyDamageToZombie(z, 18, 'trap');
                   if (thornRes.armorShattered) stripZombieArmorVisuals(z);
                 }

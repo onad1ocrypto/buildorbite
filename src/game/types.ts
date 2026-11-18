@@ -112,7 +112,7 @@ export interface FenceSegment {
   z: number;
   rotationY: number;
   length: number;
-  level: 0 | 1 | 2;
+  level: 0 | 1 | 2 | 3;
   hp: number;
   maxHp: number;
   buildProgress: number;
@@ -287,7 +287,7 @@ export interface SavedPadState {
 
 export interface SavedFenceState {
   id: number;
-  level: 0 | 1 | 2;
+  level: 0 | 1 | 2 | 3;
   hp: number;
   maxHp: number;
   buildProgress: number;

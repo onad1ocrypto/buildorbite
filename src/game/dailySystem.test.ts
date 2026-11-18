@@ -671,3 +671,21 @@ test('UTC reset checks strict 00:00 UTC boundary rather than local calendar day'
 });
 
 
+
+test('level three upgrades survive normal save migration', () => {
+  const state = createDefaultDailyState();
+  const wallet = { wood: 500, stone: 500, food: 500, tickets: 3 };
+  const pads = createInitialPads();
+  const fences = createInitialFenceSegments();
+  const built = buildStructureOnPad(pads[0], wallet, 'watchtower', 'day');
+  const upgraded = upgradeStructureOnPad(built.updatedPad, wallet, 'pathB', 'day');
+  pads[0] = upgradeStructureOnPad(upgraded.updatedPad, wallet, 'pathB', 'day').updatedPad;
+  const fence2 = buildOrUpgradeFenceSegment(fences[1], wallet);
+  fences[1] = buildOrUpgradeFenceSegment(fence2.updatedSegment, wallet).updatedSegment;
+  const saved = saveFortAndResourcesToDailyState(state, pads, fences, wallet);
+  const migrated = migrateDailyState(saved);
+  assert.equal(migrated.savedPads[0].building?.level, 3);
+  assert.equal(migrated.savedPads[0].building?.upgradePath, 'pathB');
+  assert.equal(migrated.savedFenceSegments[1].level, 3);
+  assert.equal(migrated.savedFenceSegments[1].maxHp, 600);
+});

@@ -47,5 +47,10 @@ test('run rewards are bounded and a victory requires surviving every night', () 
     victory: false,
     nightsSurvived: 2,
   });
+  assert.deepEqual(sanitizeRunResult({ score: 20, victory: true, nightsSurvived: 3, endedEarly: true }), {
+    score: 20,
+    victory: false,
+    nightsSurvived: 2,
+  });
   assert.equal(sanitizeRunResult({ score: Number.NaN, victory: false, nightsSurvived: 0 }), null);
 });

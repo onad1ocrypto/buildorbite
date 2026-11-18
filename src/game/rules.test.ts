@@ -17,7 +17,9 @@ import {
   computeZombieEffectiveSpeed,
   createInitialFenceSegments,
   createInitialPads,
+  earlyRunOutcome,
   evaluateGameOutcome,
+  getLevel3BuildingUpgradeCost,
   FENCE_HALF_EXTENT,
   findBlockingFenceSegment,
   findNextFenceSegmentForHero,
@@ -864,3 +866,71 @@ test('computeBossHealthBarState clamps boss HP bounds and detects critical thres
 
 
 
+
+test('ending a run early is always defeat, while victory requires clearing final wave', () => {
+  assert.equal(earlyRunOutcome(), 'defeat');
+  for (const phase of ['day', 'night'] as const) {
+    assert.equal(evaluateGameOutcome({ fortHp: 500, dayNumber: 3, maxDays: 3, phase, activeZombiesCount: 1, pendingWaveSpawns: 1 }), null);
+  }
+  assert.equal(evaluateGameOutcome({ fortHp: 500, dayNumber: 3, maxDays: 3, phase: 'night', activeZombiesCount: 0, pendingWaveSpawns: 0 }), 'victory');
+});
+
+test('level three fence upgrades use correct cost, persist and preserve older saves', () => {
+  const wallet = { wood: 500, stone: 500, food: 500, tickets: 3 };
+  const initial = createInitialFenceSegments()[1];
+  const level2 = buildOrUpgradeFenceSegment(initial, wallet);
+  assert.equal(level2.updatedSegment.level, 2);
+  const denied = buildOrUpgradeFenceSegment(level2.updatedSegment, { ...wallet, wood: 29 });
+  assert.equal(denied.success, false);
+  const task = startFenceConstructionTask({ segment: level2.updatedSegment, resources: wallet, phase: 'day', currentTask: null });
+  assert.equal(task.started, true);
+  const finished = stepConstructionTask({ task: task.task, dt: 100, phase: 'day', fenceSegments: [level2.updatedSegment], pads: createInitialPads(), resources: wallet });
+  assert.equal(finished.completed, true);
+  assert.equal(finished.fenceSegments[0].level, 3);
+  const night = buildOrUpgradeFenceSegment(level2.updatedSegment, wallet, 'night');
+  assert.equal(night.success, false);
+  const level3 = buildOrUpgradeFenceSegment(level2.updatedSegment, wallet);
+  assert.equal(level3.updatedSegment.level, 3);
+  assert.equal(level3.updatedSegment.maxHp, 600);
+  assert.equal(level3.updatedResources.wood, 470);
+  assert.equal(level3.updatedResources.stone, 475);
+  assert.equal(buildOrUpgradeFenceSegment(level3.updatedSegment, wallet).reason, 'max_level');
+  const restored3 = restoreFenceSegmentsFromPersistence(serializeFenceSegmentsForPersistence([level3.updatedSegment]));
+  assert.equal(restored3[1].level, 3);
+  assert.equal(restored3[1].maxHp, 600);
+  const restored2 = restoreFenceSegmentsFromPersistence(serializeFenceSegmentsForPersistence([level2.updatedSegment]));
+  assert.equal(restored2[1].level, 2);
+});
+
+test('every level three building retains its upgrade path, gets 20% stats and survives save restoration', () => {
+  const wallet = { wood: 500, stone: 500, food: 500, tickets: 3 };
+  for (const type of ['palisade', 'watchtower', 'spiketrap', 'campfire', 'catapult', 'guardtent'] as const) {
+    for (const path of ['pathA', 'pathB'] as const) {
+      const base = buildStructureOnPad(createInitialPads()[0], wallet, type, 'day');
+      const level2 = upgradeStructureOnPad(base.updatedPad, wallet, path, 'day');
+      assert.equal(level2.updatedPad.building?.level, 2);
+      const cost = getLevel3BuildingUpgradeCost(type, path);
+      assert.equal(upgradeStructureOnPad(level2.updatedPad, { ...wallet, wood: 0 }, path).success, false);
+      assert.equal(upgradeStructureOnPad(level2.updatedPad, wallet, path === 'pathA' ? 'pathB' : 'pathA').success, false);
+      assert.equal(upgradeStructureOnPad(level2.updatedPad, wallet, path, 'night').success, false);
+      const task = startPadConstructionTask({ pad: level2.updatedPad, resources: wallet, phase: 'day', currentTask: null, action: 'upgrade_pad', upgradePath: path });
+      assert.equal(task.started, true);
+      const finished = stepConstructionTask({ task: task.task, dt: 100, phase: 'day', fenceSegments: createInitialFenceSegments(), pads: [level2.updatedPad], resources: wallet });
+      assert.equal(finished.completed, true);
+      assert.equal(finished.pads[0].building?.level, 3);
+      const level3 = upgradeStructureOnPad(level2.updatedPad, wallet, path, 'day');
+      assert.equal(level3.updatedPad.building?.level, 3);
+      assert.equal(level3.updatedPad.building?.upgradePath, path);
+      assert.equal(level3.updatedResources.wood, wallet.wood - cost.wood);
+      assert.equal(getEffectiveBuildingStats(type, path, 3).damage, Math.round(getEffectiveBuildingStats(type, path, 2).damage * 1.2));
+      assert.equal(level3.updatedPad.building?.maxHp, Math.round(level2.updatedPad.building!.maxHp * 1.2));
+      assert.equal(upgradeStructureOnPad(level3.updatedPad, wallet, path).success, false);
+      const restored = restorePadsFromPersistence(serializePadsForPersistence([level3.updatedPad]));
+      assert.equal(restored[0].building?.level, 3);
+      assert.equal(restored[0].building?.upgradePath, path);
+      assert.equal(restored[0].building?.maxHp, level3.updatedPad.building?.maxHp);
+      const oldSave = restorePadsFromPersistence(serializePadsForPersistence([level2.updatedPad]));
+      assert.equal(oldSave[0].building?.level, 2);
+    }
+  }
+});

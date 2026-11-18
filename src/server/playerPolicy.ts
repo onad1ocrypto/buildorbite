@@ -60,10 +60,10 @@ export function sanitizeRunResult(value: unknown): {
   if (typeof src.score !== 'number' || !Number.isFinite(src.score)) return null;
   if (typeof src.victory !== 'boolean') return null;
   if (typeof src.nightsSurvived !== 'number' || !Number.isFinite(src.nightsSurvived)) return null;
-  const nightsSurvived = Math.max(0, Math.min(3, Math.floor(src.nightsSurvived)));
+  const nightsSurvived = Math.max(0, Math.min(src.endedEarly === true ? 2 : 3, Math.floor(src.nightsSurvived)));
   return {
     score: Math.max(0, Math.min(SERVER_RUN_SCORE_CAP, Math.floor(src.score))),
-    victory: src.victory && nightsSurvived >= 3,
+    victory: src.victory && src.endedEarly !== true && nightsSurvived >= 3,
     nightsSurvived,
   };
 }

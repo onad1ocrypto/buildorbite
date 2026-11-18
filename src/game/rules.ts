@@ -85,6 +85,8 @@ export const FENCE_HALF_EXTENT = 9.6;
 export const FENCE_SEGMENT_LENGTH = 6.2;
 export const FENCE_LEVEL1_MAX_HP = 240;
 export const FENCE_LEVEL2_MAX_HP = 420;
+export const FENCE_LEVEL3_MAX_HP = 600;
+export const FENCE_LEVEL3_UPGRADE_COST = { wood: 30, stone: 25, food: 0 };
 export const FENCE_BUILD_COST = { wood: 15, stone: 5, food: 0 };
 export const FENCE_UPGRADE_COST = { wood: 20, stone: 15, food: 0 };
 export const FENCE_REPAIR_COST = { wood: 8, stone: 4, food: 0 };
@@ -883,6 +885,17 @@ export function buildOrUpgradeFenceSegment(
     };
   }
 
+  if (segment.level === 2) {
+    if (!canAfford(resources, FENCE_LEVEL3_UPGRADE_COST)) {
+      return { updatedSegment: segment, updatedResources: resources, action: 'none', success: false, reason: 'insufficient_resources' };
+    }
+    return {
+      updatedSegment: { ...segment, level: 3, hp: FENCE_LEVEL3_MAX_HP, maxHp: FENCE_LEVEL3_MAX_HP, buildProgress: 1 },
+      updatedResources: deductCost(resources, FENCE_LEVEL3_UPGRADE_COST),
+      action: 'upgraded', success: true,
+    };
+  }
+
   return {
     updatedSegment: segment,
     updatedResources: resources,
@@ -917,7 +930,7 @@ export function findNextFenceSegmentForHero(
     return damaged[0];
   }
   // 3. Level 1 segments ready for Level 2 upgrade
-  const upgradable = fenceSegments.filter((s) => s.level === 1);
+  const upgradable = fenceSegments.filter((s) => s.level === 1 || s.level === 2);
   if (upgradable.length > 0) {
     upgradable.sort(
       (a, b) => Math.hypot(a.x - rueX, a.z - rueZ) - Math.hypot(b.x - rueX, b.z - rueZ)
@@ -1083,7 +1096,7 @@ export function upgradeStructureOnPad(
       reason: 'daily_locked',
     };
   }
-  if (!pad.building || pad.building.upgradePath !== null) {
+  if (!pad.building || pad.building.level >= 3 || (pad.building.upgradePath !== null && pad.building.upgradePath !== pathId)) {
     return {
       updatedPad: pad,
       updatedResources: resources,
@@ -1093,7 +1106,9 @@ export function upgradeStructureOnPad(
   }
   const spec = BUILDING_CATALOG[pad.building.type];
   const pathSpec = spec.paths[pathId];
-  if (!canAfford(resources, pathSpec.cost)) {
+  const upgradingToLevel3 = pad.building.level === 2;
+  const upgradeCost = upgradingToLevel3 ? getLevel3BuildingUpgradeCost(pad.building.type, pathId) : pathSpec.cost;
+  if (!canAfford(resources, upgradeCost)) {
     return {
       updatedPad: pad,
       updatedResources: resources,
@@ -1101,8 +1116,10 @@ export function upgradeStructureOnPad(
       reason: 'insufficient_resources',
     };
   }
-  const updatedResources = deductCost(resources, pathSpec.cost);
-  const newMaxHp = pad.building.maxHp + pathSpec.hpBonus;
+  const updatedResources = deductCost(resources, upgradeCost);
+  const newMaxHp = upgradingToLevel3
+    ? getEffectiveBuildingStats(pad.building.type, pathId, 3).maxHp
+    : pad.building.maxHp + pathSpec.hpBonus;
   const updatedPad: PlacementPad = {
     ...pad,
     building: {
@@ -1110,7 +1127,7 @@ export function upgradeStructureOnPad(
       hp: newMaxHp,
       maxHp: newMaxHp,
       upgradePath: pathId,
-      level: 2,
+      level: upgradingToLevel3 ? 3 : 2,
     },
   };
   return { updatedPad, updatedResources, success: true };
@@ -1246,9 +1263,9 @@ export function startFenceConstructionTask(params: {
         reason: 'insufficient_resources',
       };
     }
-  } else if (segment.level === 1) {
+  } else if (segment.level === 1 || segment.level === 2) {
     fenceAction = 'upgrade_fence';
-    if (!canAfford(resources, FENCE_UPGRADE_COST)) {
+    if (!canAfford(resources, segment.level === 1 ? FENCE_UPGRADE_COST : FENCE_LEVEL3_UPGRADE_COST)) {
       return {
         started: false,
         heroAnimState: 'idle',
@@ -1382,7 +1399,7 @@ export function startPadConstructionTask(params: {
     }
     label = `${spec.name} (P${pad.id})`;
   } else if (action === 'upgrade_pad') {
-    if (!pad.building || pad.building.upgradePath !== null || !upgradePath) {
+    if (!pad.building || !upgradePath || pad.building.level >= 3 || (pad.building.upgradePath !== null && pad.building.upgradePath !== upgradePath)) {
       return {
         started: false,
         heroAnimState: 'idle',
@@ -1391,7 +1408,8 @@ export function startPadConstructionTask(params: {
       };
     }
     const pathSpec = BUILDING_CATALOG[pad.building.type].paths[upgradePath];
-    if (!canAfford(resources, pathSpec.cost)) {
+    const upgradeCost = pad.building.level === 2 ? getLevel3BuildingUpgradeCost(pad.building.type, upgradePath) : pathSpec.cost;
+    if (!canAfford(resources, upgradeCost)) {
       return {
         started: false,
         heroAnimState: 'idle',
@@ -1667,9 +1685,15 @@ export function stepConstructionTask(params: {
   };
 }
 
+export function getLevel3BuildingUpgradeCost(type: BuildingType, path: 'pathA' | 'pathB') {
+  const cost = BUILDING_CATALOG[type].paths[path].cost;
+  return { wood: Math.ceil(cost.wood * 1.25), stone: Math.ceil(cost.stone * 1.25), food: Math.ceil(cost.food * 1.25) };
+}
+
 export function getEffectiveBuildingStats(
   type: BuildingType,
-  upgradePath: UpgradePathId
+  upgradePath: UpgradePathId,
+  level = upgradePath ? 2 : 1
 ): {
   damage: number;
   range: number;
@@ -1689,10 +1713,10 @@ export function getEffectiveBuildingStats(
   }
   const up = base.paths[upgradePath];
   return {
-    damage: base.damage + up.damageBonus,
+    damage: Math.round((base.damage + up.damageBonus) * (level >= 3 ? 1.2 : 1)),
     range: base.range + up.rangeBonus,
     attackInterval: base.attackInterval / up.attackRateMultiplier,
-    maxHp: base.maxHp + up.hpBonus,
+    maxHp: Math.round((base.maxHp + up.hpBonus) * (level >= 3 ? 1.2 : 1)),
     specialEffect: up.specialEffect,
   };
 }
@@ -1962,6 +1986,10 @@ export function calculateRunScore(params: {
   const waveBonus = params.dayNumber * 200;
   const victoryBonus = params.victory ? 1000 : 0;
   return Math.max(0, base + fortBonus + resourceBonus + waveBonus + victoryBonus);
+}
+
+export function earlyRunOutcome(): 'defeat' {
+  return 'defeat';
 }
 
 export function evaluateGameOutcome(params: {
@@ -2281,13 +2309,14 @@ export function restorePadsFromPersistence(
     if (!bType || !(bType in BUILDING_CATALOG)) {
       return pad;
     }
-    const level = saved.building.level === 2 ? 2 : 1;
+    const hasPath = saved.building.upgradePath === 'pathA' || saved.building.upgradePath === 'pathB';
+    const level = saved.building.level === 3 && hasPath ? 3 : saved.building.level >= 2 && hasPath ? 2 : 1;
     const upgradePath: UpgradePathId =
-      level === 2 &&
+      level >= 2 &&
       (saved.building.upgradePath === 'pathA' || saved.building.upgradePath === 'pathB')
         ? saved.building.upgradePath
         : null;
-    const stats = getEffectiveBuildingStats(bType, upgradePath);
+    const stats = getEffectiveBuildingStats(bType, upgradePath, level);
     const maxHp = stats.maxHp;
     const rawHp =
       typeof saved.building.hp === 'number' && saved.building.hp > 0
@@ -2342,7 +2371,7 @@ export function restoreFenceSegmentsFromPersistence(
     if (!saved) {
       return seg;
     }
-    const level: 0 | 1 | 2 = saved.level === 2 ? 2 : saved.level === 1 ? 1 : 0;
+    const level: 0 | 1 | 2 | 3 = saved.level === 3 ? 3 : saved.level === 2 ? 2 : saved.level === 1 ? 1 : 0;
     if (level === 0) {
       const progress =
         typeof saved.buildProgress === 'number'
@@ -2356,7 +2385,7 @@ export function restoreFenceSegmentsFromPersistence(
         buildProgress: progress,
       };
     }
-    const maxHp = level === 2 ? FENCE_LEVEL2_MAX_HP : FENCE_LEVEL1_MAX_HP;
+    const maxHp = level === 3 ? FENCE_LEVEL3_MAX_HP : level === 2 ? FENCE_LEVEL2_MAX_HP : FENCE_LEVEL1_MAX_HP;
     const rawHp = typeof saved.hp === 'number' && saved.hp > 0 ? saved.hp : maxHp;
     const hp = restoreFullHp ? maxHp : Math.min(maxHp, rawHp);
     return {

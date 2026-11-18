@@ -10,6 +10,8 @@ import {
   canAfford,
   FENCE_BUILD_COST,
   FENCE_UPGRADE_COST,
+  FENCE_LEVEL3_UPGRADE_COST,
+  getLevel3BuildingUpgradeCost,
   getConstructionDuration,
   getWaveThreatArchetypes,
   HERO_RUE_PORTRAIT_URL,
@@ -118,7 +120,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   const selectedFence =
     hud.fenceSegments.find((f) => f.id === hud.selectedFenceId) ?? null;
   const isNight = hud.phase === 'night';
-  const isDailyLocked = Boolean(hud.daily.dailyProgressionLocked);
+  const isDailyLocked = Boolean(hud.daily.dailyProgressionLocked) && !hud.isDevTestMode;
   const isConstructionLocked = isNight || isDailyLocked;
   const isConstructing =
     hud.heroAnimState === 'construction' && hud.pendingConstruction !== null;
@@ -137,11 +139,14 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
       )
     : 0;
   const builtFenceCount = hud.fenceSegments.filter((f) => f.level > 0 && f.hp > 0).length;
-  const upgradedFenceCount = hud.fenceSegments.filter((f) => f.level === 2 && f.hp > 0).length;
+  const upgradedFenceCount = hud.fenceSegments.filter((f) => f.level >= 2 && f.hp > 0).length;
   const canBuildFence =
     !isConstructionLocked && !isConstructing && canAfford(hud.resources, FENCE_BUILD_COST);
   const canUpgradeFence =
-    !isConstructionLocked && !isConstructing && canAfford(hud.resources, FENCE_UPGRADE_COST);
+    !isConstructionLocked && !isConstructing && canAfford(
+      hud.resources,
+      selectedFence?.level === 2 ? FENCE_LEVEL3_UPGRADE_COST : FENCE_UPGRADE_COST
+    );
   const fortHpPct = Math.max(0, Math.min(100, (hud.fortHp / hud.fortMaxHp) * 100));
   const fortGhostPct = Math.max(fortHpPct, Math.min(100, (hud.fortGhostHp / hud.fortMaxHp) * 100));
   const isCriticalHp = fortHpPct <= 30;
@@ -1081,7 +1086,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2 text-xs">
                             <span className="font-mono-tabular font-bold text-[#4ade80]">
-                              HP {Math.round(bld.hp)}/{Math.round(bld.maxHp)}
+                              LV {bld.level} · HP {Math.round(bld.hp)}/{Math.round(bld.maxHp)}
                             </span>
                             {bld.upgradePath && (
                               <span className="text-[#fbbf24] font-semibold">
@@ -1213,17 +1218,27 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                             </button>
                           </div>
                         ) : (
-                          <div className="px-2.5 py-1 rounded-lg bg-[#0b1016] border border-[#1e293b] text-xs text-[#cbd5e1]">
+                          <div className="px-2.5 py-1 rounded-lg bg-[#0b1016]/80 border border-[#1e293b] text-xs text-[#cbd5e1]">
                             {tr.masteryActiveLabel}{' '}
                             <strong className="text-[#fbbf24]">
-                              {bld.upgradePath === 'pathA'
-                                ? bLoc.paths.pathA.name
-                                : bLoc.paths.pathB.name}
-                            </strong>{' '}
-                            —{' '}
-                            {bld.upgradePath === 'pathA'
-                              ? bLoc.paths.pathA.tagline
-                              : bLoc.paths.pathB.tagline}
+                              {bld.upgradePath === 'pathA' ? bLoc.paths.pathA.name : bLoc.paths.pathB.name}
+                            </strong>
+                            {bld.level < 3 && (() => {
+                              const cost = getLevel3BuildingUpgradeCost(bld.type, bld.upgradePath);
+                              const canUpgrade = !isConstructionLocked && !isConstructing && canAfford(hud.resources, cost);
+                              return (
+                                <button
+                                  type="button"
+                                  data-testid="btn-upgrade-level3"
+                                  disabled={!canUpgrade}
+                                  onClick={() => onUpgradeOnPad(bld.upgradePath!)}
+                                  className="block mt-1 px-3 py-1 rounded-lg bg-[#78350f] border border-[#fbbf24] text-[#fef3c7] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Upgrade to LV 3 · {cost.wood}W {cost.stone}S {cost.food}F · +20% HP & damage · {upgDurationSec}s
+                                </button>
+                              );
+                            })()}
+                            {bld.level >= 3 && <span className="text-[#fbbf24]"> · MAX LEVEL</span>}
                           </div>
                         )}
                       </div>
@@ -1328,7 +1343,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     : isConstructing
                     ? `🔨 ${constructionPct}%`
                     : selectedFence
-                    ? tr.fenceSelectedBtn(selectedFence.label.replace(' Fence', ''))
+                    ? `${tr.fenceSelectedBtn(selectedFence.label.replace(' Fence', ''))} · LV${selectedFence.level}${selectedFence.level === 2 && selectedFence.hp >= selectedFence.maxHp ? ` → 3 (${FENCE_LEVEL3_UPGRADE_COST.wood}W ${FENCE_LEVEL3_UPGRADE_COST.stone}S)` : selectedFence.level === 3 ? ' · MAX' : ''}`
                     : builtFenceCount < hud.fenceSegments.length
                     ? tr.fenceBuildBtn(builtFenceCount, hud.fenceSegments.length)
                     : tr.fenceUpgradeBtn}

@@ -1379,7 +1379,7 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
     flatShading: true,
   });
   const woodMat = new THREE.MeshStandardMaterial({
-    color: segment.level === 2 ? 0x6e3219 : 0x8b542f,
+    color: segment.level >= 2 ? 0x6e3219 : 0x8b542f,
     roughness: 0.78,
     metalness: 0.08,
     flatShading: true,
@@ -1397,7 +1397,7 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
     flatShading: true,
   });
   const ironMat = new THREE.MeshStandardMaterial({
-    color: segment.level === 2 ? 0xf59e0b : 0x334155,
+    color: segment.level === 3 ? 0x60cfff : segment.level >= 2 ? 0xf59e0b : 0x334155,
     roughness: 0.34,
     metalness: 0.84,
     flatShading: true,
@@ -1533,7 +1533,7 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
       log.position.set(lx, 0.92 * hScale, 0);
       log.scale.set(1, hScale, 1);
       log.castShadow = true;
-      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? steelMat : cutWoodMat);
+      const tip = new THREE.Mesh(tipGeo, segment.level >= 2 ? steelMat : cutWoodMat);
       tip.position.set(lx, 1.98 * hScale, 0);
       group.add(log, tip);
     });
@@ -1556,7 +1556,7 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
       const collar = new THREE.Mesh(collarGeo, barkMat);
       collar.position.set(lx, 1.72 * hScale, zJitter);
 
-      const tip = new THREE.Mesh(tipGeo, segment.level === 2 ? steelMat : cutWoodMat);
+      const tip = new THREE.Mesh(tipGeo, segment.level >= 2 ? steelMat : cutWoodMat);
       tip.position.set(lx, 1.98 * hScale, zJitter);
       group.add(log, collar, tip);
     }
@@ -1593,7 +1593,7 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
   }
 
   // Level 2 Upgrade: Outward-pointing Ironbark & Steel Chevaux-de-Frise Pikes
-  if (segment.level === 2) {
+  if (segment.level >= 2) {
     const pikeShaftGeo = new THREE.CylinderGeometry(0.055, 0.075, 0.78, 6);
     const pikeHeadGeo = new THREE.ConeGeometry(0.095, 0.34, 5);
     const bracketBar = new THREE.Mesh(new THREE.BoxGeometry(len - 0.3, 0.14, 0.54), ironMat);

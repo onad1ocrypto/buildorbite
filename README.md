@@ -30,7 +30,8 @@ The intended tone is spooky but funny. The game supports desktop keyboard/mouse 
 ## Current features
 
 - Three-day day/night survival loop.
-- Six building types: Palisade Wall, Watchtower, Spike Trap, Campfire, Catapult, and Guard Tent; each has two upgrade paths.
+- Six building types: Palisade Wall, Watchtower, Spike Trap, Campfire, Catapult, and Guard Tent; each has two upgrade paths. Buildings and fences reach level 3. Level 3 buildings retain their chosen path and gain 20% HP and damage; level 3 fences have 600 HP and cost 30 wood and 25 stone to upgrade.
+- Ending a run early counts as a defeat. A normal victory requires clearing the final night.
 - Nine undead archetypes, including Baron Blight, with a boss health display.
 - Dynamic daytime weather: clear and rain affect the environment and resource gathering/regrowth.
 - Daily tickets, daily tasks, XP/levels, streaks, check-in rewards, and persistent fort progression.

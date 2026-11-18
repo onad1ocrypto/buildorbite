@@ -1321,7 +1321,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     dayWaveLabel: 'Day / Wave',
     runScoreLabel: 'Run Score',
     resumeDefenseBtn: 'Resume Defense (P / Esc)',
-    endRunEarlyBtn: 'End Run & Claim XP / Streak Result Card',
+    endRunEarlyBtn: 'End Run Early · Counts as Defeat',
     restartBtn: 'Restart (-1)',
     titleScreenBtn: 'Title Screen',
     victoryHeaderBadge: 'All 3 Nights Survived · Dawn Breaks!',
