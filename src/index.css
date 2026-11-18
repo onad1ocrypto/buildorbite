@@ -43,9 +43,10 @@
 
 .title-screen .horror-title-text,
 .title-screen button {
-  font-family: 'Creepster', Georgia, serif;
-  letter-spacing: 0.04em;
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.01em;
 }
 .title-screen .horror-title-text {
-  text-shadow: 0 2px 5px #16040a, 0 0 15px rgba(220, 38, 38, .3);
+  font-weight: 700;
+  text-shadow: 0 2px 5px #16040a, 0 0 15px rgba(0, 0, 0, .9);
 }

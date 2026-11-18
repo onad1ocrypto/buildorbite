@@ -175,7 +175,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         {/* One-line description */}
         <p
           data-testid="title-tagline"
-          className="horror-title-text text-xl sm:text-2xl text-[#ff666b] leading-relaxed mb-4 max-w-md drop-shadow"
+          className="horror-title-text text-xl sm:text-2xl text-[#fff1dc] leading-relaxed mb-4 max-w-md drop-shadow"
         >
           {tr.tagline}
         </p>
