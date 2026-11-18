@@ -23,11 +23,7 @@ Help Ranger Rue gather supplies and turn a forest clearing into a fort. When nig
 
 ## Screenshots
 
-These screenshots show the game in playtest; the illustration above is promotional artwork.
-
-| Main menu | Build your fort | Defend at night |
-| :---: | :---: | :---: |
-| ![Build or Bite main menu](docs/images/main-menu.jpg) | ![Daytime fort and defenses](docs/images/daytime-fort.jpg) | ![Nighttime defense against zombies](docs/images/night-defense.jpg) |
+![Build or Bite main menu](docs/images/main-menu.jpg)
 
 Images in `docs/images/` are not included in the MIT source-code license; see the credits and license information below.
 
