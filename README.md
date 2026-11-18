@@ -1,104 +1,90 @@
-# Build or Bite
+<p align="center">
+  <img src="public/assets/aistudio/build-or-bite-title-removebg-preview_49acf47a.png" alt="Build or Bite" width="520" />
+</p>
 
-**A 3D dark-comedy forest-fort defense game: build by day, survive the night.**
+<p align="center"><strong>Build by day. Bite back at night.</strong><br />
+A spooky-funny 3D fort-defense game built for Reddit.</p>
 
-> **Status:** playable web prototype with a Reddit Devvit Web integration. Reddit identity-scoped Redis saves, server-side daily ticket checks, and server-calculated XP/coin/task/check-in rewards are implemented, with fort layout/resource snapshots still client-submitted. A Devvit playtest install succeeded in `r/playthisgames` (v0.0.1.1); that install does not create a playable post automatically. A moderator-only subreddit menu action is included to create the game post. Its inline entrypoint uses the game's original title-logo asset and a Start Run button. Pressing it starts a server-authorized run (spending one daily ticket) in the expanded game view. App Directory review/publication and event-rule checks are not confirmed, so this is **not yet confirmed ready for submission**.
+---
 
-## Game overview
+## The game
 
-**Build or Bite** is set in a spooky forest clearing. During the day, Ranger Rue gathers wood, stone, and food, then builds and upgrades the fort. At night, waves of cartoonish undead attack. Survive the final night to win; if the fort is destroyed, the run ends in defeat.
+Help Ranger Rue gather supplies and turn a forest clearing into a fort. When night falls, fend off waves of cartoonish zombies and survive the final encounter with Baron Blight.
 
-The intended tone is spooky but funny. The game supports desktop keyboard/mouse and touch interaction.
+- **Gather & build:** collect wood, stone, and food; choose from six defensive structures.
+- **Choose your upgrades:** pick one of two paths for each structure, then strengthen it to level 3. Fences can also reach level 3.
+- **Survive three nights:** deploy your defenses, use the Lantern Flare, and protect the fort.
+- **Return each day:** keep your fort and progress through daily tasks, XP, cosmetics, and streaks.
+- **Play on desktop or mobile:** keyboard and mouse controls are complemented by touch controls.
 
 ## How to play
 
-### Day
-- Move with **WASD / arrow keys**, click to move, or touch-drag on the ground.
-- Gather wood, stone, and food from resource nodes.
-- Build, upgrade, repair, or salvage fort structures using the pads and menus.
-- Use **Enter** or **N** to start the night early.
-- Daytime weather cycles through clear and rain. The weather indicator can also be used to cycle conditions.
+**Day:** move to resource nodes, gather supplies, and use the build pads or fence button to construct, upgrade, and repair defenses. Each day lasts 65 seconds of active simulation; you can start night early.
 
-### Night
-- Undead attack the fort and its structures.
-- The hero and defensive structures fight automatically.
-- Use **Space** or the Flare button to cast Lantern Flare; it has a cooldown.
-- Survive the waves through the final night.
+**Night:** Rue and the defenses attack automatically. Use Lantern Flare strategically. Night ends once all zombies in the wave, including those still waiting to spawn, are defeated. Clear the third night to win; a destroyed fort or ending the run early is a defeat.
 
-**Controls:** WASD/arrows = move · click/touch = interact or move · Space = Lantern Flare · Enter/N = start night early · P/Esc = pause
+| Action | Desktop | Touch |
+| --- | --- | --- |
+| Move | WASD / arrow keys, or click | Tap or drag |
+| Build or upgrade | Select a pad or fence | Tap a pad or fence |
+| Lantern Flare | Space | Flare button |
+| Start night early | Enter / N | Night button |
+| Pause | P / Esc | Pause button |
 
-## Current features
+## Reddit identity, tickets & saves
 
-- Three-day day/night survival loop.
-- Six building types: Palisade Wall, Watchtower, Spike Trap, Campfire, Catapult, and Guard Tent; each has two upgrade paths. Buildings and fences reach level 3. Level 3 buildings retain their chosen path and gain 20% HP and damage; level 3 fences have 600 HP and cost 30 wood and 25 stone to upgrade.
-- Ending a run early counts as a defeat. A normal victory requires clearing the final night.
-- Nine undead archetypes, including Baron Blight, with a boss health display.
-- Dynamic daytime weather: clear and rain affect the environment and resource gathering/regrowth.
-- Daily tickets, daily tasks, XP/levels, streaks, check-in rewards, and persistent fort progression.
-- Responsive 3D scene, sound effects, and multiple UI languages.
+The Reddit version uses the Reddit user ID supplied to the Devvit server. A player who is signed in to Reddit does **not** need to create a separate game account or password. A valid Reddit session is required to load a profile and start a standard run; if the identity or save is unavailable, the game cannot load the profile.
 
-## Daily tickets and progression
+Each player starts with **up to 3 tickets per UTC day**. A standard run costs one ticket, and tickets reset at **00:00 UTC**; unused tickets do not carry over. The server tracks starts and associates the profile with the Reddit user ID. The client submits fort and resource snapshots; these and gameplay events are not fully server-simulated or tamper-proof.
 
-- A normal player has **at most 3 tickets per UTC day**. A standard run costs 1 ticket.
-- Tickets reset at **00:00 UTC**; unused tickets do not carry over.
-- Three daily tasks are selected for each UTC day. Completing all three grants the configured task bonus and locks further daily progression activities (such as gathering, building, upgrading, repairing, and salvaging) until the next UTC reset. Combat is not part of that lock.
-- Test Run is a development/preview testing tool, not a player-facing Free Play mode. It spends no tickets, bypasses the daily progression lock for testing, and writes its test fort separately from the normal save. Daily tasks are hidden during Demo and do not progress or give rewards. It is available in local/preview builds and Devvit prerelease playtests, and is hidden in production app versions.
-- A **new local profile** starts at **0 XP / Level 1**. Existing browser saves are migrated to preserve recorded progression, so an old saved level can remain visible in that browser.
+Daily tasks and their rewards are for standard play. Completing all three locks further daily gathering and construction until the UTC reset; combat remains available.
 
-## Save data and limitations
+### Playtest Demo
 
-The current standalone web game stores player progression in browser `localStorage` (including `build_or_bite_daily_v1`). This is local to the browser/site origin, is not an account system, and is not authoritative against client-side tampering. New local profiles start at 0 XP / Level 1; migration preserves progression from older browser saves.
+Devvit prerelease playtests provide an isolated **Demo / Test Run**. It does not consume tickets or change the normal profile. Tasks do not progress or pay rewards in Demo. Demo fort data is stored separately; **Reset Demo Data** clears that sandbox. The Demo control is not intended for production versions.
 
-The Devvit client bootstraps from a Redis profile namespaced to Reddit's server-provided user ID. The server counts run starts per player and UTC date, enforces the three-ticket cap, and calculates XP, coins, daily task rewards, streaks, and check-in rewards. Client profile saves cannot set those progression fields; run rewards are bounded and run/event requests are idempotency-protected. Fort layout and resource-wallet snapshots are still client-submitted save data with basic bounds, not a server-simulated economy. No username/password or external database login is used. Reddit playtesting remains unfinished.
+## Build and test
 
-## Technology
-
-- React 19, TypeScript, and Vite
-- Three.js for 3D rendering
-- Tailwind CSS
-
-The standalone game still runs as a Vite SPA. A separate Vite configuration builds the Devvit post client and Hono server. Express and `@google/genai` remain listed as dependencies but are not used by the current game features.
-
-## Local development
-
-Requirements: Node.js and npm.
+Requirements: Node.js, npm, and a Devvit developer account for Reddit playtesting.
 
 ```bash
 npm install --legacy-peer-deps
-npm run dev
-```
-
-Vite serves the app at `http://localhost:3000`.
-
-Useful checks:
-
-```bash
 npm run lint
-npx tsx --test src/server/playerPolicy.test.ts src/game/dailySystem.test.ts src/game/rules.test.ts src/game/i18n.test.ts
+node --import tsx --test src/components/*.test.tsx src/game/*.test.ts src/server/*.test.ts
 npm run build
 npm run build:devvit
 ```
 
-`npm run build:devvit` builds the Devvit client/server app. `npm run playtest:devvit -- <subreddit>` requires a Reddit developer login and test subreddit. After installing/updating the playtest, a subreddit moderator must open the subreddit menu and select **Create Build or Bite post**; this creates the interactive post separately from the installation. Confirm the post is visible and playable in Reddit before capturing gameplay or treating the playtest as complete.
+For local standalone development, run `npm run dev`. The standalone browser version uses local storage rather than Reddit identity and server-enforced tickets.
 
-## Repository layout
+To update a Devvit playtest:
 
-```text
-buildorbite/
-├── index.html
-├── package.json
-├── devvit.json               # Reddit post/server entrypoints
-├── vite.config.ts             # standalone web app
-├── vite.config.devvit.ts      # Devvit Web build
-├── public/assets/aistudio/    # game title and character artwork
-└── src/
-    ├── App.tsx
-    ├── client/                # Devvit webview entrypoint
-    ├── components/            # screens, HUD, modals, boss health bar
-    ├── game/                  # simulation, rules, daily system, i18n, audio, tests
-    └── server/                # Devvit Redis profile and ticket API
+```bash
+npm run playtest:devvit -- <subreddit>
 ```
 
-## Reddit event direction
+## Technology
 
-The project is intended for a Reddit event. A playtest install alone does not prove that a game post exists or works. Do not claim App Directory approval or publication unless confirmed in the Developer Portal; verify the specific event's submission and publication rules before release.
+React, TypeScript, Three.js, Vite, Tailwind CSS, and Reddit Devvit Web with a Hono server and Redis persistence.
+
+```text
+src/client/       Reddit splash and webview entrypoints
+src/components/   Game screens, HUD, and menus
+src/game/         Rules, simulation, audio, persistence, translations, tests
+src/server/       Reddit identity, ticket, profile, and progression endpoints
+public/assets/    Original title and character art, fonts, and music
+```
+
+## Credits
+
+- **Day music:** “Spooky Dungeon” by Memoraphile / You're Perfect Studio — [OpenGameArt](https://opengameart.org/content/spooky-dungeon), CC0.
+- **Night music:** “Spooky Tune” by tamesu — [OpenGameArt](https://opengameart.org/content/spooky-tune), CC0.
+- **Creepster font:** distributed under the SIL Open Font License; see `public/assets/fonts/Creepster-OFL.txt`.
+
+Music licensing details and source links are also recorded in `public/assets/music/CREDITS.md`.
+
+## Submission status and limitations
+
+A Reddit playtest has been confirmed playable by the developer. App Directory publication, production behavior, and the specific event's eligibility and submission requirements have not yet been verified. Automated tests and builds do not substitute for those checks.
+
+The Reddit server enforces a daily ticket counter and bounds reported progression, but the game simulation, fort/resource snapshots, and victory events are client-reported. They are not authoritative against a determined attacker. Dependency security warnings should also be reviewed before release.
