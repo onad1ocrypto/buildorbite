@@ -28,7 +28,9 @@ export const LANTERN_FLARE_RADIUS = 8.5;
 export const LANTERN_FLARE_DAMAGE = 28;
 export const LANTERN_FLARE_SLOW_DURATION = 4.5;
 export const LANTERN_FLARE_KNOCKBACK = 4.2;
-export const HERO_CONSTRUCTION_DURATION = 0.65;
+export const HERO_CONSTRUCTION_DURATION = 1.25;
+export const GATHER_COOLDOWN_SECONDS = 0.65;
+export const GATHER_CHUNK_SIZE = 6;
 
 export const WEATHER_ORDER: WeatherType[] = ['clear', 'rain'];
 
@@ -614,11 +616,11 @@ export const FLARE_NIGHT_LOCKED_MESSAGE = 'Lantern Flare can only be used at nig
 
 /**
  * Computes balanced, bounded construction durations (in seconds):
- * - Repairs are fastest (~0.45s - 0.48s)
- * - Basic structures (palisade, spiketrap, campfire) take ~0.55s
- * - Mid-tier structures (watchtower, guardtent) take ~0.60s
- * - Fence build & heavy siege (catapult) take ~0.65s
- * - Structure & fence upgrades take ~0.68s - 0.70s
+ * - Repairs are fastest (0.8s - 0.9s)
+ * - Basic structures (palisade, spiketrap, campfire) take 1.0s
+ * - Mid-tier structures (watchtower, guardtent) take 1.1s
+ * - Fence build & heavy siege (catapult) take 1.25s
+ * - Structure & fence upgrades take 1.4s to 1.5s
  * - Higher toolTier (>= 2) grants a modest 15% speed boost and never makes construction slower.
  */
 export function getConstructionDuration(params: {
@@ -636,29 +638,29 @@ export function getConstructionDuration(params: {
   let base = HERO_CONSTRUCTION_DURATION;
 
   if (action === 'repair_fence') {
-    base = 0.45;
+    base = 0.8;
   } else if (action === 'repair_pad') {
-    base = 0.48;
+    base = 0.9;
   } else if (action === 'build_fence') {
-    base = HERO_CONSTRUCTION_DURATION; // 0.65s
+    base = HERO_CONSTRUCTION_DURATION; // 1.25s
   } else if (action === 'upgrade_fence') {
-    base = 0.7;
+    base = 1.45;
   } else if (action === 'build_pad') {
     if (buildingType === 'catapult') {
-      base = 0.65;
+      base = 1.25;
     } else if (buildingType === 'watchtower' || buildingType === 'guardtent') {
-      base = 0.6;
+      base = 1.1;
     } else {
-      base = 0.55;
+      base = 1.0;
     }
   } else if (action === 'upgrade_pad') {
-    base = buildingType === 'catapult' ? 0.7 : 0.68;
+    base = buildingType === 'catapult' ? 1.5 : 1.4;
   }
 
   const safeTier = Math.max(1, Math.floor(toolTier));
   const speedMultiplier = safeTier >= 3 ? 0.78 : safeTier === 2 ? 0.85 : 1.0;
   const scaled = Number((base * speedMultiplier).toFixed(2));
-  return Math.max(0.35, Math.min(1.5, scaled));
+  return Math.max(0.6, Math.min(1.5, scaled));
 }
 
 /**
@@ -2079,7 +2081,7 @@ export function gatherFromResourceNode(params: {
       reason: 'already_harvested',
     };
   }
-  const baseChunk = Math.min(node.amount, 10);
+  const baseChunk = Math.min(node.amount, GATHER_CHUNK_SIZE);
   const nextAmount = Math.max(0, node.amount - baseChunk);
   let weatherBonusMultiplier = 1.0;
   if (weather === 'rain' && (node.type === 'wood' || node.type === 'food')) {

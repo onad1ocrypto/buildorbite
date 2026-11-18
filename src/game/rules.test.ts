@@ -29,6 +29,8 @@ import {
   getEffectiveBuildingStats,
   getNextDayWeather,
   getWaveComposition,
+  GATHER_CHUNK_SIZE,
+  GATHER_COOLDOWN_SECONDS,
   HERO_CONSTRUCTION_DURATION,
   INITIAL_RESOURCES,
   restoreFenceSegmentsFromPersistence,
@@ -485,10 +487,10 @@ test('Hero construction animation state: clicking a segment or pad enters constr
   assert.equal(midFenceStep.fenceSegments.find((f) => f.id === unbuiltFence.id)?.level, 0);
   assert.equal(midFenceStep.resources.wood, res.wood);
 
-  // Stepping the remaining time (0.5s) finishes the animation and applies the fence build!
+  // Stepping the remaining time finishes the animation and applies the fence build!
   const finishFenceStep = stepConstructionTask({
     task: midFenceStep.task,
-    dt: 0.5,
+    dt: HERO_CONSTRUCTION_DURATION,
     phase: 'day',
     fenceSegments: midFenceStep.fenceSegments,
     pads: midFenceStep.pads,
@@ -529,7 +531,7 @@ test('Hero construction animation state: clicking a segment or pad enters constr
 
   const finishPadStep = stepConstructionTask({
     task: midPadStep.task,
-    dt: 0.65,
+    dt: HERO_CONSTRUCTION_DURATION,
     phase: 'day',
     fenceSegments: midPadStep.fenceSegments,
     pads: midPadStep.pads,
@@ -557,7 +559,7 @@ test('Hero construction animation state: clicking a segment or pad enters constr
 
   const finishUpgradeStep = stepConstructionTask({
     task: startPadUpgrade.task,
-    dt: HERO_CONSTRUCTION_DURATION + 0.05,
+    dt: 1.5,
     phase: 'day',
     fenceSegments: fences,
     pads,
@@ -662,6 +664,10 @@ test('Construction timer hierarchy scales by structure complexity and toolTier s
   const heavyBuildTime = getConstructionDuration({ action: 'build_pad', buildingType: 'catapult', toolTier: 1 });
   const upgradeTime = getConstructionDuration({ action: 'upgrade_pad', buildingType: 'watchtower', toolTier: 1 });
 
+  assert.equal(basicBuildTime, 1);
+  assert.equal(midBuildTime, 1.1);
+  assert.equal(heavyBuildTime, 1.25);
+  assert.equal(upgradeTime, 1.4);
   assert.equal(repairTime < basicBuildTime, true);
   assert.equal(basicBuildTime < midBuildTime, true);
   assert.equal(midBuildTime < heavyBuildTime, true);
@@ -820,6 +826,10 @@ test('Dynamic daytime weather system transitions deterministically and modifies 
     phase: 'day',
     weather: 'rain',
   });
+  assert.equal(GATHER_CHUNK_SIZE, 6);
+  assert.equal(GATHER_COOLDOWN_SECONDS, 0.65);
+  assert.equal(woodClear.yieldAmount, 6);
+  assert.equal(woodRain.yieldAmount, 7);
   assert.equal(woodRain.yieldAmount > woodClear.yieldAmount, true);
 
   const stoneClear = gatherFromResourceNode({

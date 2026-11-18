@@ -42,7 +42,7 @@ The intended tone is spooky but funny. The game supports desktop keyboard/mouse 
 - A normal player has **at most 3 tickets per UTC day**. A standard run costs 1 ticket.
 - Tickets reset at **00:00 UTC**; unused tickets do not carry over.
 - Three daily tasks are selected for each UTC day. Completing all three grants the configured task bonus and locks further daily progression activities (such as gathering, building, upgrading, repairing, and salvaging) until the next UTC reset. Combat is not part of that lock.
-- Test Run is a development/preview testing tool, not a player-facing Free Play mode. It spends no tickets, bypasses the daily progression lock for testing, and writes its test fort separately from the normal save. It is available in local/preview builds and Devvit prerelease playtests, and is hidden in production app versions.
+- Test Run is a development/preview testing tool, not a player-facing Free Play mode. It spends no tickets, bypasses the daily progression lock for testing, and writes its test fort separately from the normal save. Daily tasks are hidden during Demo and do not progress or give rewards. It is available in local/preview builds and Devvit prerelease playtests, and is hidden in production app versions.
 - A **new local profile** starts at **0 XP / Level 1**. Existing browser saves are migrated to preserve recorded progression, so an old saved level can remain visible in that browser.
 
 ## Save data and limitations

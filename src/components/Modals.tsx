@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { getLevelForXp, getTimeUntilNextUTCReset } from '../game/dailySystem';
 import {
-  LANGUAGE_OPTIONS,
   LanguageCode,
   TRANSLATIONS,
 } from '../game/i18n';
@@ -13,7 +12,6 @@ interface ModalsProps {
   devTestMode: boolean;
   showDevTestControl: boolean;
   lang: LanguageCode;
-  onSelectLanguage: (lang: LanguageCode) => void;
   showGuide: boolean;
   onCloseGuide: () => void;
   onResume: () => void;
@@ -30,7 +28,6 @@ export const Modals: React.FC<ModalsProps> = ({
   devTestMode,
   showDevTestControl,
   lang,
-  onSelectLanguage,
   showGuide,
   onCloseGuide,
   onResume,
@@ -41,11 +38,8 @@ export const Modals: React.FC<ModalsProps> = ({
   onOpenGuide,
   onFinishRunEarly,
 }) => {
-  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
 
   const tr = TRANSLATIONS[lang];
-  const currentLangOpt =
-    LANGUAGE_OPTIONS.find((o) => o.code === lang) ?? LANGUAGE_OPTIONS[0];
 
   const formatTime = (sec: number) => {
     const total = Math.max(0, Math.round(sec));
@@ -90,39 +84,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 </p>
               </div>
 
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setLangDropdownOpen((v) => !v)}
-                  className="px-2.5 py-1 rounded-lg bg-[#0b1016] hover:bg-[#1e293b] border border-[#334155] text-xs font-semibold text-[#fef3c7] flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>🌐</span>
-                  <span className="text-[#fbbf24] font-bold">{currentLangOpt.shortLabel}</span>
-                  <span className="text-[10px] text-[#94a3b8]">{langDropdownOpen ? '▴' : '▾'}</span>
-                </button>
-                {langDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-1 z-40 w-40 rounded-xl bg-[#0b1016] border border-[#334155] p-1 shadow-2xl flex flex-col gap-0.5">
-                    {LANGUAGE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.code}
-                        type="button"
-                        onClick={() => {
-                          onSelectLanguage(opt.code);
-                          setLangDropdownOpen(false);
-                        }}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold text-left flex items-center justify-between cursor-pointer ${
-                          lang === opt.code
-                            ? 'bg-[#f59e0b] text-[#090d16] font-bold'
-                            : 'text-[#cbd5e1] hover:bg-[#1e293b]'
-                        }`}
-                      >
-                        <span>{opt.nativeName}</span>
-                        <span className="font-mono-tabular text-[10px]">{opt.shortLabel}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+
             </div>
 
             <div className="grid grid-cols-3 gap-2.5 mb-3.5 p-3 rounded-lg bg-[#0b1016] border border-[#1e293b]">
@@ -383,6 +345,12 @@ export const Modals: React.FC<ModalsProps> = ({
               )}
             </div>
 
+            {devTestMode ? (
+              <div className="p-3 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-3.5 text-xs text-[#cbd5e1]">
+                Daily tasks are available in real play only. Demo runs do not change task progress or rewards.
+              </div>
+            ) : (
+              <>
             {/* Daily Tasks Completed Summary */}
             <div className="p-3 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-3.5">
               <div className="flex items-center justify-between text-xs mb-1.5">
@@ -412,6 +380,9 @@ export const Modals: React.FC<ModalsProps> = ({
                 })}
               </div>
             </div>
+
+              </>
+            )}
 
             {/* 3-Way Persistence & Reset Breakdown (Saved Permanently vs Resets For Run vs Locked Until 00:00 UTC) */}
             <div
@@ -525,43 +496,6 @@ export const Modals: React.FC<ModalsProps> = ({
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Click-to-Open Language Dropdown in Guide Modal */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setLangDropdownOpen((v) => !v)}
-                    className="px-3 py-1.5 rounded-lg bg-[#0b1016] hover:bg-[#161f2c] border border-[#334155] text-xs font-semibold text-[#fef3c7] flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>🌐</span>
-                    <span className="text-[#fbbf24] font-bold">
-                      {currentLangOpt.shortLabel} · {currentLangOpt.nativeName}
-                    </span>
-                    <span className="text-[10px] text-[#94a3b8]">{langDropdownOpen ? '▴' : '▾'}</span>
-                  </button>
-                  {langDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl bg-[#0b1016] border border-[#334155] p-1 shadow-2xl flex flex-col gap-0.5">
-                      {LANGUAGE_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.code}
-                          type="button"
-                          onClick={() => {
-                            onSelectLanguage(opt.code);
-                            setLangDropdownOpen(false);
-                          }}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold text-left flex items-center justify-between cursor-pointer ${
-                            lang === opt.code
-                              ? 'bg-[#f59e0b] text-[#090d16] font-bold'
-                              : 'text-[#cbd5e1] hover:bg-[#1e293b]'
-                          }`}
-                        >
-                          <span>{opt.nativeName}</span>
-                          <span className="font-mono-tabular text-[10px]">{opt.shortLabel}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 <button
                   type="button"
                   onClick={onCloseGuide}

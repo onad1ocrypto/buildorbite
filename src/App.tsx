@@ -222,7 +222,6 @@ export default function App() {
         hud={hud}
         muted={muted}
         lang={lang}
-        onSelectLanguage={handleSelectLanguage}
         onSelectPad={(padId) => controllerRef.current?.selectPad(padId)}
         onSelectFence={(fenceId) => controllerRef.current?.selectFence(fenceId)}
         onBuildNextFence={() => controllerRef.current?.buildNextFence()}
@@ -253,7 +252,6 @@ export default function App() {
         devTestMode={hud.isDevTestMode}
         showDevTestControl={showDevTestControl}
         lang={lang}
-        onSelectLanguage={handleSelectLanguage}
         showGuide={showGuide}
         onCloseGuide={() => setShowGuide(false)}
         onResume={() => controllerRef.current?.togglePause()}

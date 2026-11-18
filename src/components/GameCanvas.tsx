@@ -48,6 +48,7 @@ import {
   findNextFenceSegmentForHero,
   FLARE_NIGHT_LOCKED_MESSAGE,
   FORT_MAX_HP,
+  GATHER_COOLDOWN_SECONDS,
   gatherFromResourceNode,
   getEffectiveBuildingStats,
   getNextDayWeather,
@@ -3592,7 +3593,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           rueGatherCooldown <= 0 &&
           node.amount > 0
         ) {
-          rueGatherCooldown = 0.48;
+          rueGatherCooldown = GATHER_COOLDOWN_SECONDS;
           rueHammerSwingTimer = 1.0;
           const gatherRes = gatherFromResourceNode({
             node,

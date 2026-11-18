@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getLevelForXp, getTimeUntilNextUTCReset } from '../game/dailySystem';
 import {
-  LANGUAGE_OPTIONS,
   LanguageCode,
   TRANSLATIONS,
 } from '../game/i18n';
@@ -24,7 +23,6 @@ interface HudOverlayProps {
   hud: HudSnapshot;
   muted: boolean;
   lang: LanguageCode;
-  onSelectLanguage: (lang: LanguageCode) => void;
   onSelectPad: (padId: number | null) => void;
   onSelectFence: (fenceId: number | null) => void;
   onBuildNextFence: () => void;
@@ -58,7 +56,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   hud,
   muted,
   lang,
-  onSelectLanguage,
   onSelectPad,
   onSelectFence,
   onBuildNextFence,
@@ -78,7 +75,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onExitDemoMode,
 }) => {
   const [showTasksPopover, setShowTasksPopover] = useState(false);
-  const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showDemoPanel, setShowDemoPanel] = useState(false);
 
   useEffect(() => {
@@ -92,7 +88,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   }, [hud.isDevTestMode]);
 
   const tasksMenuRef = useRef<HTMLDivElement | null>(null);
-  const langMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handlePointerDown = (e: MouseEvent) => {
@@ -100,17 +95,12 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
       if (tasksMenuRef.current && !tasksMenuRef.current.contains(target)) {
         setShowTasksPopover(false);
       }
-      if (langMenuRef.current && !langMenuRef.current.contains(target)) {
-        setShowLangDropdown(false);
-      }
     };
     window.addEventListener('mousedown', handlePointerDown);
     return () => window.removeEventListener('mousedown', handlePointerDown);
   }, []);
 
   const tr = TRANSLATIONS[lang];
-  const currentLangOpt =
-    LANGUAGE_OPTIONS.find((o) => o.code === lang) ?? LANGUAGE_OPTIONS[0];
 
   if (hud.screen === 'title') return null;
 
@@ -351,6 +341,8 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
 
             <div className="h-5 w-[1px] bg-[#1e293b]" />
 
+            {!hud.isDevTestMode && (
+              <>
             {/* Clickable In-Game Daily Tasks Menu Button */}
             <button
               type="button"
@@ -378,6 +370,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </span>
               <span className="text-[9px] opacity-80">{showTasksPopover ? '▴' : '▾'}</span>
             </button>
+
+              </>
+            )}
 
             {/* Read-Only Daily Ticket Counter (Strict 3/3 UTC Cap) */}
             <div
@@ -426,7 +421,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           </div>
 
           {/* IN-GAME DAILY TASKS & PROGRESSION POPOVER (Appears when user clicks 📋 Tasks) */}
-          {showTasksPopover && (
+          {!hud.isDevTestMode && showTasksPopover && (
             <div
               data-testid="hud-daily-tasks-panel"
               className="absolute left-0 top-full mt-1.5 z-40 w-[335px] sm:w-[385px] max-h-[82vh] overflow-y-auto rounded-xl border border-[#334155] p-3.5 shadow-2xl"
@@ -708,63 +703,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               {tr.startNightBtn}
             </button>
           )}
-
-          {/* Click-to-Open Language Dropdown Menu in HUD */}
-          <div
-            ref={langMenuRef}
-            className="relative"
-            data-testid="hud-language-selector"
-          >
-            <button
-              type="button"
-              tabIndex={-1}
-              data-testid="btn-hud-language-menu"
-              onClick={(e) => {
-                e.currentTarget.blur();
-                setShowLangDropdown((v) => !v);
-              }}
-              className="h-8 px-2.5 rounded-xl bg-[#131b26] hover:bg-[#1e293b] border border-[#334155] flex items-center gap-1 text-xs font-mono-tabular font-bold text-[#fef3c7] cursor-pointer transition-colors shadow-md"
-              title="Change Language"
-            >
-              <span>🌐</span>
-              <span className="text-[#fbbf24]">{currentLangOpt.shortLabel}</span>
-              <span className="text-[9px] text-[#94a3b8]">{showLangDropdown ? '▴' : '▾'}</span>
-            </button>
-
-            {showLangDropdown && (
-              <div
-                data-testid="hud-language-dropdown"
-                className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-xl bg-[#0d131c] border border-[#334155] p-1.5 shadow-2xl flex flex-col gap-1"
-              >
-                {LANGUAGE_OPTIONS.map((opt) => {
-                  const active = lang === opt.code;
-                  return (
-                    <button
-                      key={opt.code}
-                      type="button"
-                      tabIndex={-1}
-                      data-testid={`hud-lang-btn-${opt.code}`}
-                      onClick={(e) => {
-                        e.currentTarget.blur();
-                        onSelectLanguage(opt.code);
-                        setShowLangDropdown(false);
-                      }}
-                      className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold text-left flex items-center justify-between cursor-pointer transition-colors ${
-                        active
-                          ? 'bg-[#f59e0b] text-[#090d16] font-bold'
-                          : 'text-[#cbd5e1] hover:bg-[#1e293b]'
-                      }`}
-                    >
-                      <span>{opt.nativeName}</span>
-                      <span className="font-mono-tabular text-[10px] opacity-85">
-                        {opt.shortLabel}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
           {/* Utility Buttons: Guide [?], Mute [M], Pause [P] */}
           <div className="flex items-center gap-1 shrink-0">
