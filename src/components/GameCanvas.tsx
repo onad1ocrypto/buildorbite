@@ -140,6 +140,7 @@ export interface GameControllerApi {
 
 interface GameCanvasProps {
   onHudUpdate: (snapshot: HudSnapshot) => void;
+  onOutcomeAudio: () => void;
   controllerRef: React.MutableRefObject<GameControllerApi | null>;
   lang?: LanguageCode;
 }
@@ -187,11 +188,14 @@ interface WeatherParticleSlot {
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
   onHudUpdate,
+  onOutcomeAudio,
   controllerRef,
   lang = 'en',
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const calloutContainerRef = useRef<HTMLDivElement | null>(null);
+  const onOutcomeAudioRef = useRef(onOutcomeAudio);
+  onOutcomeAudioRef.current = onOutcomeAudio;
   const onHudUpdateRef = useRef(onHudUpdate);
   onHudUpdateRef.current = onHudUpdate;
   const langRef = useRef<LanguageCode>(lang);
@@ -1333,17 +1337,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let nightsSurvivedThisRun = 0;
     const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
     const isDevvitRuntime = document.documentElement.dataset.devvitRuntime === 'true';
-    const isDevvitPlaytest = document.documentElement.dataset.devvitPlaytest === 'true';
     const canStartDevTestRun =
-      canShowDevTestControl(import.meta.env.DEV, vercelEnv) || isDevvitPlaytest;
-    // The isolated Test Run is available in local/preview builds and Devvit prereleases,
-    // but never in a production Devvit app version.
+      canShowDevTestControl(import.meta.env.DEV, vercelEnv) || isDevvitRuntime;
+    // Reddit players can explicitly choose the isolated Demo without using a ticket.
     let devTestMode = isDevelopmentTestMode(
       import.meta.env.DEV,
       window.location.search,
       false,
       vercelEnv,
-      isDevvitPlaytest
+      isDevvitRuntime
     );
 
     function isDailyProgressionLockedForGameplay(): boolean {
@@ -1584,9 +1586,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Forest Resource Nodes (Wood, Stone, Food) positioned in clear visible zones outside the ±9.6m Square Fence
     const nodeMeshesMap = new Map<number, THREE.Group>();
+    const nodeHighlightMap = new Map<number, THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>>();
+    const nodeHighlightGeometry = new THREE.RingGeometry(1.05, 1.17, 32);
+    nodeHighlightGeometry.rotateX(-Math.PI / 2);
     resourceNodes.forEach((node) => {
       const m = createResourceNodeModel(node.type);
       m.position.set(node.x, 0, node.z);
+      const highlight = new THREE.Mesh(nodeHighlightGeometry, new THREE.MeshBasicMaterial({
+        color: node.type === 'wood' ? 0xfbbf24 : node.type === 'food' ? 0x86efac : 0x7dd3fc,
+        transparent: true, opacity: 0.26, depthWrite: false, side: THREE.DoubleSide,
+      }));
+      highlight.position.y = 0.06;
+      highlight.raycast = () => {};
+      m.add(highlight);
+      nodeHighlightMap.set(node.id, highlight);
       m.userData = { kind: 'node', nodeId: node.id };
       m.traverse((c) => {
         c.userData = { kind: 'node', nodeId: node.id };
@@ -1733,6 +1746,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         slimeDropTimer: type === 'swift_stumbler' ? 0 : 1.5,
       };
       zombies.push(zEntity);
+      if (type !== 'baron') soundFX.playZombieSpawn();
 
       const zMesh = createZombieModel(type, pajamaTex);
       zMesh.position.set(sx, 0, sz);
@@ -1890,6 +1904,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       screenState = 'gameover';
       document.body.dataset.state = 'gameover';
+      onOutcomeAudioRef.current();
       soundFX.playOutcome(outcome === 'victory');
       syncHud(true);
 
@@ -1954,7 +1969,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         window.location.search,
         requestDevTest,
         vercelEnv,
-        isDevvitPlaytest
+        isDevvitRuntime
       );
 
       if (targetScreen === 'playing' && shouldConsumeTicketForStart(devTestMode)) {
@@ -2687,7 +2702,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             'catapult',
             'guardtent',
           ];
-          if (num >= 1 && num <= 6) {
+          // Key 1 formerly built an inner Palisade. Fences are managed separately.
+          if (num >= 2 && num <= 6) {
             api.buildOnSelectedPad(buildOrder[num - 1]);
           }
         }
@@ -3559,6 +3575,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       for (let nIdx = 0; nIdx < resourceNodes.length; nIdx++) {
         const node = resourceNodes[nIdx];
         const mesh = nodeMeshesMap.get(node.id);
+        const highlight = nodeHighlightMap.get(node.id);
+        if (highlight) {
+          highlight.visible = phase === 'day' && node.amount > 0 && node.respawnTimer <= 0;
+          highlight.material.opacity = 0.23 + 0.09 * (0.5 + 0.5 * Math.sin(windTime * 1.4 + nIdx));
+        }
         const prevAcc = nodeRegrowAccumulators.get(node.id) ?? 0;
         const growthStep = stepResourceNodeGrowth({
           node,
@@ -3811,6 +3832,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           soundFX.playAttackHit(false);
         } else {
           // Spawn Projectile (Watchtower bolt, Catapult boulder, Campfire ember, Guard Tent badger strike)
+          if (bld.type === 'watchtower') soundFX.playProjectile();
           const pId = nextEntityId++;
           const isCatapult = bld.type === 'catapult';
           const isEmber = bld.type === 'campfire';
@@ -3896,7 +3918,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             }
           }
           spawnParticles(p.targetX, 0.6, p.targetZ, isSplash ? 14 : 6, p.colorHex, 4.0);
-          soundFX.playAttackHit(isSplash);
+          soundFX.playProjectileHit();
           if (pMesh) {
             scene.remove(pMesh);
             projectileMeshesMap.delete(p.id);
@@ -4419,66 +4441,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
-        // Render crisp interactive WOOD / FOOD / STONE world labels & P1-P8 Build Pad indicators during Day Phase
-        if (phase === 'day') {
-          const tr = TRANSLATIONS[langRef.current];
-          for (const pad of pads) {
-            const isSel = pad.id === selectedPadId;
-            _projVec.set(pad.x, pad.building ? 1.85 : isSel ? 0.85 : 0.28, pad.z).project(camera);
-            if (_projVec.z >= -1 && _projVec.z <= 1) {
-              const sxNum = (_projVec.x + 1) * 0.5 * w;
-              const syNum = (-_projVec.y + 1) * 0.5 * h;
-              if (syNum < 82 || syNum > h - 84) continue;
-              const sx = sxNum.toFixed(0);
-              const sy = syNum.toFixed(0);
-              const padStyle = isSel
-                ? 'border-[#fbbf24] text-[#090d16] bg-[#fbbf24]'
-                : pad.building
-                ? 'border-[#4ade80]/70 text-[#86efac]'
-                : 'border-[#f59e0b]/60 text-[#fde68a]';
-              const padBg = isSel ? '' : 'background:rgba(13,19,28,0.82);';
-              const bldLocName = pad.building
-                ? (tr.buildings[pad.building.type]?.shortName ?? BUILDING_CATALOG[pad.building.type].name)
-                : '';
-              const padText = pad.building
-                ? `P${pad.id} · ${bldLocName}`
-                : isSel
-                ? tr.padSelectedWorldBadge(pad.id)
-                : `P${pad.id}`;
-              htmlParts.push(
-                `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-50%);${padBg}" class="px-1.5 py-0.5 rounded border ${padStyle} text-[8.5px] font-mono-tabular font-bold tracking-wider whitespace-nowrap pointer-events-none shadow">${padText}</div>`
-              );
-            }
-          }
-
-          for (const node of resourceNodes) {
-            if (node.amount <= 0 || node.respawnTimer > 0) continue;
-            _projVec.set(node.x, 1.95, node.z).project(camera);
-            if (_projVec.z >= -1 && _projVec.z <= 1) {
-              const sxNum = (_projVec.x + 1) * 0.5 * w;
-              const syNum = (-_projVec.y + 1) * 0.5 * h;
-              if (syNum < 88 || syNum > h - 84) continue;
-              const sx = sxNum.toFixed(0);
-              const sy = syNum.toFixed(0);
-              const badgeStyle =
-                node.type === 'wood'
-                  ? 'border-[#f59e0b] text-[#fde68a]'
-                  : node.type === 'food'
-                  ? 'border-[#fb7185] text-[#fecdd3]'
-                  : 'border-[#38bdf8] text-[#bae6fd]';
-              const labelText =
-                node.type === 'wood'
-                  ? `${tr.woodLabel} · ${node.amount}`
-                  : node.type === 'food'
-                  ? `${tr.foodLabel} · ${node.amount}`
-                  : `${tr.stoneLabel} · ${node.amount}`;
-              htmlParts.push(
-                `<div style="position:absolute;left:${sx}px;top:${sy}px;transform:translate(-50%,-100%);background:rgba(13,19,28,0.88);" class="px-1.5 py-0.5 rounded border ${badgeStyle} text-[9px] font-mono-tabular font-bold tracking-wider whitespace-nowrap pointer-events-none shadow">${labelText}</div>`
-              );
-            }
-          }
-        }
-
         calloutContainerRef.current.innerHTML = htmlParts.join('');
       }
 
@@ -4522,6 +4484,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (import.meta.env.DEV) {
         delete (window as unknown as Record<string, unknown>).__bobDevSpawnBoss;
       }
+      nodeHighlightGeometry.dispose();
+      nodeHighlightMap.forEach((marker) => marker.material.dispose());
       renderer.dispose();
     };
   }, [controllerRef]);

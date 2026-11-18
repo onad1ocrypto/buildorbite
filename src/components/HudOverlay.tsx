@@ -31,7 +31,6 @@ interface HudOverlayProps {
   onRepairPad: () => void;
   onDemolishPad: () => void;
   onTriggerFlare: () => void;
-  onStartNightEarly: () => void;
   onCycleWeather?: () => void;
   onToggleMute: () => void;
   onTogglePause: () => void;
@@ -44,7 +43,6 @@ interface HudOverlayProps {
 }
 
 const BUILDING_LIST: BuildingType[] = [
-  'palisade',
   'watchtower',
   'spiketrap',
   'campfire',
@@ -64,7 +62,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onRepairPad,
   onDemolishPad,
   onTriggerFlare,
-  onStartNightEarly,
   onCycleWeather,
   onToggleMute,
   onTogglePause,
@@ -213,20 +210,19 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
       )}
 
       {/* TOP PERIMETER BAR: Single Slim, Uncluttered Row */}
-      <div className="w-full flex flex-wrap items-start justify-between gap-1.5">
+      <div className="w-full flex items-center gap-1">
         {/* Top-Left Compact Pill: Fort HP + Day/Night Phase + In-Game Daily Tasks Menu + Tickets + Score */}
-        <div ref={tasksMenuRef} className="relative pointer-events-auto max-w-full">
+        <div ref={tasksMenuRef} className="relative pointer-events-auto w-full">
           <div
-            className="flex flex-wrap items-center gap-2 sm:gap-2.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-[#334155] shadow-lg"
-            style={{ backgroundColor: 'rgba(13, 19, 28, 0.76)' }}
+            className="flex flex-nowrap items-center justify-between gap-0.5 sm:gap-1 px-1 sm:px-2 py-1 hud-stroke"
           >
             {/* Fort Vitality Bar */}
-            <div className="min-w-[96px] sm:min-w-[122px]">
+            <div className="w-[52px] sm:w-[90px] shrink-0">
               <div className="flex items-baseline justify-between gap-1 mb-0.5">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[#94a3b8]">
                   {tr.fortHpLabel}
                 </span>
-                <span className="text-[11px] sm:text-xs font-mono-tabular font-bold text-[#fef3c7]">
+                <span className="text-[9px] sm:text-xs font-mono-tabular font-bold text-[#fef3c7]">
                   {Math.round(hud.fortHp)}/{Math.round(hud.fortMaxHp)}
                 </span>
               </div>
@@ -248,7 +244,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </div>
             </div>
 
-            <div className="h-5 w-[1px] bg-[#1e293b]" />
+            <div className="hidden lg:block h-5 w-[1px] bg-[#1e293b]" />
 
             {/* Day / Night Indicator */}
             <div className="flex items-center gap-1.5">
@@ -279,7 +275,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 >
                   {hud.phase === 'day' ? tr.dayBuildLabel : tr.bloodMoonLabel}
                 </div>
-                <div className="text-xs sm:text-sm font-mono-tabular font-extrabold text-[#fef3c7] mt-0.5">
+                <div className="text-[9px] sm:text-xs font-mono-tabular font-extrabold text-[#fef3c7] mt-0.5">
                   {tr.dayShort(hud.dayNumber, hud.maxDays)}{' '}
                   <span className="text-[#94a3b8] font-normal">·</span>{' '}
                   {hud.phase === 'day' ? (
@@ -296,7 +292,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             {/* Daytime Dynamic Weather Indicator & Cycle Button */}
             {hud.phase === 'day' && (
               <>
-                <div className="h-5 w-[1px] bg-[#1e293b]" />
+                <div className="hidden lg:block h-5 w-[1px] bg-[#1e293b]" />
                 <button
                   type="button"
                   tabIndex={-1}
@@ -307,7 +303,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     onCycleWeather?.();
                   }}
                   title={tr.weatherTooltip(hud.weather)}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-left cursor-pointer transition-colors ${
+                  className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg border text-left cursor-pointer transition-colors ${
                     hud.weather === 'rain'
                       ? 'bg-[#0c233b] hover:bg-[#123152] border-[#38bdf8]/70 text-[#bae6fd]'
                       : hud.weather === 'fog'
@@ -339,7 +335,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </>
             )}
 
-            <div className="h-5 w-[1px] bg-[#1e293b]" />
+            <div className="hidden lg:block h-5 w-[1px] bg-[#1e293b]" />
 
             {!hud.isDevTestMode && (
               <>
@@ -352,14 +348,14 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 e.currentTarget.blur();
                 setShowTasksPopover((v) => !v);
               }}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+              className={`flex items-center gap-0.5 px-1 py-1 rounded-lg border text-[9px] sm:text-xs font-semibold cursor-pointer transition-colors ${
                 showTasksPopover
                   ? 'bg-[#f59e0b] border-[#fef08a] text-[#090d16] font-bold'
                   : 'bg-[#161f2c] hover:bg-[#1e293b] border-[#334155] text-[#fef3c7]'
               }`}
               title={tr.dailyTasksChecklistTitle}
             >
-              <span>📋 {tr.tasksLabel}</span>
+              <span>📋 <span className="hidden lg:inline">{tr.tasksLabel}</span></span>
               <span
                 className={`font-mono-tabular font-extrabold ${
                   showTasksPopover ? 'text-[#090d16]' : 'text-[#4ade80]'
@@ -379,11 +375,11 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               title={tr.ticketTooltip}
               className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg"
             >
-              <span className="text-[9px] font-bold uppercase text-[#94a3b8]">
+              <span className="hidden lg:inline text-[9px] font-bold uppercase text-[#94a3b8]">
                 {tr.ticketLabel}
               </span>
               <span
-                className="text-xs font-mono-tabular font-extrabold text-[#fbbf24]"
+                className="text-[9px] sm:text-xs font-mono-tabular font-extrabold text-[#fbbf24]"
                 data-testid="hud-tickets"
               >
                 {hud.daily.tickets}/{hud.daily.maxDailyTickets}
@@ -391,7 +387,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             </div>
 
             {/* Compact Fence & Score */}
-            <div className="hidden md:flex items-center gap-2 text-xs font-mono-tabular">
+            <div className="hidden xl:flex items-center gap-1 text-xs font-mono-tabular">
               <span className="text-[#94a3b8] text-[9px] uppercase font-bold">
                 {tr.fenceLabel}:
               </span>
@@ -401,7 +397,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-1 text-xs font-mono-tabular">
+            <div className="hidden lg:flex items-center gap-1 text-xs font-mono-tabular">
               <span className="text-[#94a3b8] text-[9px] uppercase font-bold hidden sm:inline">
                 {tr.scoreLabel}:
               </span>
@@ -418,6 +414,76 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 🔒 {tr.dailyLockedBadgeShort}
               </span>
             )}
+          {/* Resource Counters */}
+          <div
+            className="flex items-center gap-0.5 sm:gap-2 px-0.5 py-1"
+          >
+            {/* Wood */}
+            <div className="flex items-center gap-1">
+              <svg viewBox="0 0 24 24" className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0">
+                <rect x="3" y="7" width="18" height="10" rx="3" fill="#92400e" stroke="#451a03" strokeWidth="1.5" />
+                <circle cx="18" cy="12" r="3" fill="#fde68a" />
+              </svg>
+              <span className="text-[9px] font-bold uppercase text-[#94a3b8] hidden xl:inline">
+                {tr.woodLabel}
+              </span>
+              <span
+                className="text-[9px] sm:text-xs font-mono-tabular font-bold text-[#fef3c7]"
+                data-testid="hud-wood"
+              >
+                {Math.round(hud.resources.wood)}
+              </span>
+            </div>
+
+            {/* Stone */}
+            <div className="flex items-center gap-1">
+              <svg viewBox="0 0 24 24" className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0">
+                <polygon
+                  points="12,3 21,9 18,20 6,20 3,9"
+                  fill="#64748b"
+                  stroke="#1e293b"
+                  strokeWidth="1.5"
+                />
+                <polygon points="12,5 17,10 12,14 8,10" fill="#94a3b8" />
+              </svg>
+              <span className="text-[9px] font-bold uppercase text-[#94a3b8] hidden xl:inline">
+                {tr.stoneLabel}
+              </span>
+              <span
+                className="text-[9px] sm:text-xs font-mono-tabular font-bold text-[#fef3c7]"
+                data-testid="hud-stone"
+              >
+                {Math.round(hud.resources.stone)}
+              </span>
+            </div>
+
+            {/* Food */}
+            <div className="flex items-center gap-1">
+              <svg viewBox="0 0 24 24" className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0">
+                <circle cx="9" cy="14" r="5" fill="#facc15" stroke="#854d0e" strokeWidth="1.5" />
+                <circle cx="15" cy="15" r="4.5" fill="#ef4444" stroke="#881337" strokeWidth="1.5" />
+                <path d="M12 5c2 0 4 2 4 4-2 0-4-1-4-4z" fill="#22c55e" />
+              </svg>
+              <span className="text-[9px] font-bold uppercase text-[#94a3b8] hidden xl:inline">
+                {tr.foodLabel}
+              </span>
+              <span
+                className="text-[9px] sm:text-xs font-mono-tabular font-bold text-[#fef3c7]"
+                data-testid="hud-food"
+              >
+                {Math.round(hud.resources.food)}
+              </span>
+            </div>
+          </div>
+
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button type="button" aria-label={muted ? 'Unmute music and sound' : 'Mute music and sound'} aria-pressed={muted}
+                onClick={onToggleMute} className="w-7 h-8 sm:w-8 rounded-lg hover:bg-[#1e293b] cursor-pointer text-[#e2dacb]">
+                {muted ? '🔇' : '🔊'}
+              </button>
+              <button type="button" aria-label="Pause Game" onClick={onTogglePause}
+                className="w-7 h-8 sm:w-8 rounded-lg hover:bg-[#1e293b] cursor-pointer text-[#e2dacb]">Ⅱ</button>
+            </div>
           </div>
 
           {/* IN-GAME DAILY TASKS & PROGRESSION POPOVER (Appears when user clicks 📋 Tasks) */}
@@ -624,143 +690,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           )}
         </div>
 
-        {/* Top-Right Compact Pill: Wood, Stone, Food + Start Night Early + Click-to-Open Language Dropdown + Icons */}
-        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-1.5">
-          {/* Resource Counters */}
-          <div
-            className="flex items-center gap-2 sm:gap-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-[#334155] shadow-lg"
-            style={{ backgroundColor: 'rgba(13, 19, 28, 0.76)' }}
-          >
-            {/* Wood */}
-            <div className="flex items-center gap-1">
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0">
-                <rect x="3" y="7" width="18" height="10" rx="3" fill="#92400e" stroke="#451a03" strokeWidth="1.5" />
-                <circle cx="18" cy="12" r="3" fill="#fde68a" />
-              </svg>
-              <span className="text-[9px] font-bold uppercase text-[#94a3b8] hidden md:inline">
-                {tr.woodLabel}
-              </span>
-              <span
-                className="text-xs sm:text-sm font-mono-tabular font-bold text-[#fef3c7]"
-                data-testid="hud-wood"
-              >
-                {Math.round(hud.resources.wood)}
-              </span>
-            </div>
-
-            {/* Stone */}
-            <div className="flex items-center gap-1">
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0">
-                <polygon
-                  points="12,3 21,9 18,20 6,20 3,9"
-                  fill="#64748b"
-                  stroke="#1e293b"
-                  strokeWidth="1.5"
-                />
-                <polygon points="12,5 17,10 12,14 8,10" fill="#94a3b8" />
-              </svg>
-              <span className="text-[9px] font-bold uppercase text-[#94a3b8] hidden md:inline">
-                {tr.stoneLabel}
-              </span>
-              <span
-                className="text-xs sm:text-sm font-mono-tabular font-bold text-[#fef3c7]"
-                data-testid="hud-stone"
-              >
-                {Math.round(hud.resources.stone)}
-              </span>
-            </div>
-
-            {/* Food */}
-            <div className="flex items-center gap-1">
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0">
-                <circle cx="9" cy="14" r="5" fill="#facc15" stroke="#854d0e" strokeWidth="1.5" />
-                <circle cx="15" cy="15" r="4.5" fill="#ef4444" stroke="#881337" strokeWidth="1.5" />
-                <path d="M12 5c2 0 4 2 4 4-2 0-4-1-4-4z" fill="#22c55e" />
-              </svg>
-              <span className="text-[9px] font-bold uppercase text-[#94a3b8] hidden md:inline">
-                {tr.foodLabel}
-              </span>
-              <span
-                className="text-xs sm:text-sm font-mono-tabular font-bold text-[#fef3c7]"
-                data-testid="hud-food"
-              >
-                {Math.round(hud.resources.food)}
-              </span>
-            </div>
-          </div>
-
-          {/* Start Night Early CTA during Day */}
-          {hud.phase === 'day' && (
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={(e) => {
-                e.currentTarget.blur();
-                onStartNightEarly();
-              }}
-              className="px-2.5 py-1.5 rounded-xl bg-[#f59e0b] hover:bg-[#fbbf24] text-[#090d16] font-display font-bold text-[10px] sm:text-xs uppercase tracking-wider cursor-pointer transition-colors whitespace-nowrap shrink-0 shadow-md"
-            >
-              {tr.startNightBtn}
-            </button>
-          )}
-
-          {/* Utility Buttons: Guide [?], Mute [M], Pause [P] */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label="How to Run and Controls"
-              onClick={(e) => {
-                e.currentTarget.blur();
-                onOpenGuide();
-              }}
-              className="w-8 h-8 rounded-xl bg-[#131b26] hover:bg-[#1e293b] border border-[#334155] flex items-center justify-center text-[#e2dacb] cursor-pointer transition-colors shadow-md"
-            >
-              <span className="font-display font-bold text-xs">?</span>
-            </button>
-
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label={muted ? 'Unmute Audio' : 'Mute Audio'}
-              onClick={(e) => {
-                e.currentTarget.blur();
-                onToggleMute();
-              }}
-              className="w-8 h-8 rounded-xl bg-[#131b26] hover:bg-[#1e293b] border border-[#334155] flex items-center justify-center text-[#e2dacb] cursor-pointer transition-colors shadow-md"
-            >
-              {muted ? (
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
-                  <line x1="23" y1="9" x2="17" y2="15" />
-                  <line x1="17" y1="9" x2="23" y2="15" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
-                  <path d="M15.54 8.46a5 5 0 010 7.07" />
-                  <path d="M19.07 4.93a10 10 0 010 14.14" />
-                </svg>
-              )}
-            </button>
-
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label="Pause Game"
-              onClick={(e) => {
-                e.currentTarget.blur();
-                onTogglePause();
-              }}
-              className="w-8 h-8 rounded-xl bg-[#131b26] hover:bg-[#1e293b] border border-[#334155] flex items-center justify-center text-[#e2dacb] cursor-pointer transition-colors shadow-md"
-            >
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor">
-                <rect x="6" y="5" width="4" height="14" rx="1" />
-                <rect x="14" y="5" width="4" height="14" rx="1" />
-              </svg>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* SLIM TOP-CENTER NOTIFICATION / DEMO BANNER / BOSS BARON BLIGHT BANNER */}
@@ -876,15 +805,12 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             {selectedPad && (
               <div
                 data-testid="pad-build-choice-menu"
-                className="w-full max-w-[760px] rounded-xl border-2 border-[#f59e0b] px-3 py-2 shadow-2xl"
+                className="w-full max-w-[600px] max-h-[45dvh] overflow-y-auto rounded-xl border border-[#f59e0b] px-2 py-1.5 shadow-2xl"
                 style={{ backgroundColor: 'rgba(13, 19, 28, 0.82)' }}
               >
                 {/* Header: Selected Pad Title + Close Button */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 mb-1.5 border-b border-[#1e293b]">
+                <div className="flex flex-wrap items-center justify-between gap-1 pb-1 mb-1 border-b border-[#1e293b]">
                   <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-[#f59e0b] text-[#090d16] font-mono-tabular font-extrabold text-[11px]">
-                      P{selectedPad.id}
-                    </span>
                     <span className="text-xs font-display font-bold text-[#fef3c7]">
                       {(() => {
                         const padLabelLoc = tr.translatePadLabel(selectedPad.id, selectedPad.label);
@@ -918,8 +844,8 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 </div>
 
                 {selectedPad.building === null ? (
-                  /* 6 Compact Building Choices for the Selected Empty Pad */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5">
+                  /* Five defenses for the selected empty pad; outer fences are separate. */
+                  <div className="grid grid-cols-3 gap-1">
                     {BUILDING_LIST.map((bType) => {
                       const spec = BUILDING_CATALOG[bType];
                       const bLoc = tr.buildings[bType];
@@ -938,6 +864,8 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                           key={bType}
                           type="button"
                           tabIndex={-1}
+                          title={`${bLoc.name} — ${bLoc.shortRole}`}
+                          aria-label={`${bLoc.name}: ${spec.cost.wood} wood, ${spec.cost.stone} stone, ${spec.cost.food} food`}
                           aria-disabled={!affordable}
                           data-night-locked={isConstructionLocked ? 'true' : 'false'}
                           data-new-player-highlight={highlightNewPlayer ? 'true' : 'false'}
@@ -946,7 +874,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                             e.currentTarget.blur();
                             onBuildOnPad(bType);
                           }}
-                          className={`relative p-1.5 rounded-lg border text-left transition-all flex flex-col justify-between min-h-[56px] ${
+                          className={`relative p-1 rounded-lg border text-left transition-all flex flex-col justify-between min-h-[44px] ${
                             highlightNewPlayer
                               ? 'bg-[#1e293b] hover:bg-[#263548] border-2 border-[#fbbf24] shadow-[0_0_14px_rgba(251,191,36,0.45)] cursor-pointer'
                               : affordable
@@ -954,7 +882,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                               : 'bg-[#0b1016] border-[#1e293b] opacity-55 cursor-not-allowed'
                           }`}
                         >
-                          {highlightNewPlayer && bType === 'palisade' && (
+                          {highlightNewPlayer && bType === 'watchtower' && (
                             <span
                               data-testid="new-player-build-indicator"
                               className="absolute -top-2 right-1 px-1.5 py-0.5 rounded bg-[#f59e0b] text-[#090d16] text-[8.5px] font-extrabold uppercase tracking-wider shadow"
@@ -969,9 +897,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                                 [{spec.keybind}]
                               </span>
                             </div>
-                            <div className="text-[9.5px] text-[#94a3b8] truncate">
-                              {bLoc.shortRole}
-                            </div>
+
                           </div>
                           <div className="flex items-center justify-between gap-1 text-[9.5px] font-mono-tabular font-bold text-[#fbbf24] mt-0.5">
                             <span>
@@ -1311,52 +1237,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               >
                 {buildMenuTargetPad?.building ? 'UPGRADE' : 'BUILD'}
               </button>
-
-              {/* Compact Build Pads (P1-P8) Strip */}
-              <div className="flex items-center gap-1 overflow-x-auto max-w-full">
-                {hud.pads.map((p) => {
-                  const isSelected = p.id === hud.selectedPadId;
-                  const hasBld = p.building !== null;
-                  const padLabelLoc = tr.translatePadLabel(p.id, p.label);
-                  const bldNameLoc = hasBld
-                    ? (tr.buildings[p.building!.type]?.name ??
-                      BUILDING_CATALOG[p.building!.type].name)
-                    : '';
-                  const highlightPad1 = showNewPlayerBuildGuide && !selectedPad && p.id === 1;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      tabIndex={-1}
-                      data-testid={`btn-select-pad-${p.id}`}
-                      data-new-player-highlight={highlightPad1 ? 'true' : 'false'}
-                      onClick={(e) => {
-                        e.currentTarget.blur();
-                        onSelectPad(isSelected ? null : p.id);
-                      }}
-                      title={
-                        hasBld
-                          ? `Pad #${p.id}: ${bldNameLoc}`
-                          : highlightPad1
-                          ? `${tr.newPlayerBuildHint} (Pad #${p.id}: ${padLabelLoc})`
-                          : `Pad #${p.id} (${padLabelLoc})`
-                      }
-                      className={`px-1.5 py-1 rounded-lg border text-[10.5px] font-mono-tabular font-bold cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
-                        isSelected
-                          ? 'bg-[#f59e0b] border-[#fef08a] text-[#090d16] shadow-md'
-                          : highlightPad1
-                          ? 'bg-[#f59e0b]/25 border-2 border-[#fbbf24] text-[#fef08a] shadow-[0_0_12px_rgba(251,191,36,0.45)]'
-                          : hasBld
-                          ? 'bg-[#14532d]/85 border-[#4ade80] text-[#86efac] hover:bg-[#166534]'
-                          : 'bg-[#161f2c] border-[#334155] text-[#fef3c7] hover:border-[#f59e0b]'
-                      }`}
-                    >
-                      {highlightPad1 ? '✨P1' : `P${p.id}`}
-                      {hasBld ? '✓' : ''}
-                    </button>
-                  );
-                })}
-              </div>
 
               {/* Collapse Dock [H] */}
               <button

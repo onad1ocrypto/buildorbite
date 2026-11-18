@@ -1082,18 +1082,19 @@ export function canShowDevTestControl(
 }
 
 /**
- * Enables the isolated Test Run only in local/preview builds or a Devvit prerelease
- * (identified by its four-part app version). Production app versions can never enable it.
+ * Allows an explicitly selected, isolated Demo on Reddit, as well as local/preview tests.
+ * Standalone production deployments remain blocked.
  */
 export function isDevelopmentTestMode(
   isDevBuild: boolean,
   search: string,
   manualTestRunActive = false,
   vercelEnv?: string,
-  isDevvitPlaytest = false
+  isDevvitRuntime = false
 ): boolean {
+  if (isDevvitRuntime) return manualTestRunActive;
   if (vercelEnv === 'production') return false;
-  if (!canShowDevTestControl(isDevBuild, vercelEnv) && !isDevvitPlaytest) return false;
+  if (!canShowDevTestControl(isDevBuild, vercelEnv)) return false;
   if (manualTestRunActive) return true;
   const params = new URLSearchParams(search);
   return params.get('devTest') === '1' || params.get('demo') === '1';

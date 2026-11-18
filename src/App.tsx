@@ -36,9 +36,9 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [lang, setLang] = useState<LanguageCode>(() => loadLanguageFromStorage());
   const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
-  const isDevvitPlaytest = document.documentElement.dataset.devvitPlaytest === 'true';
+  const isDevvitRuntime = document.documentElement.dataset.devvitRuntime === 'true';
   const showDevTestControl =
-    canShowDevTestControl(import.meta.env.DEV, vercelEnv) || isDevvitPlaytest;
+    canShowDevTestControl(import.meta.env.DEV, vercelEnv) || isDevvitRuntime;
 
   const handleSelectLanguage = (nextLang: LanguageCode) => {
     setLang(nextLang);
@@ -98,12 +98,16 @@ export default function App() {
           window.location.search,
           false,
           vercelEnv,
-          document.documentElement.dataset.devvitPlaytest === 'true'
+          isDevvitRuntime
         ),
       daily: initialDaily,
       lastRunSummary: null,
     };
   });
+
+  useEffect(() => {
+    if (hud.screen === 'playing') soundFX.stopAll();
+  }, [hud.screen]);
 
   useEffect(() => {
     musicRef.current?.sync(hud.phase, hud.screen === 'playing', muted);
@@ -197,7 +201,7 @@ export default function App() {
       )}
 
       {/* 3D WebGL Viewport */}
-      <GameCanvas onHudUpdate={setHud} controllerRef={controllerRef} lang={lang} />
+      <GameCanvas onHudUpdate={setHud} onOutcomeAudio={() => musicRef.current?.stop()} controllerRef={controllerRef} lang={lang} />
 
       {/* Title Screen Overlay */}
       {hud.screen === 'title' && !showGuide && (
@@ -210,7 +214,6 @@ export default function App() {
           onOpenGuide={() => setShowGuide(true)}
           bestScore={hud.bestScore}
           daily={hud.daily}
-          onEquipLantern={(id) => controllerRef.current?.equipLantern(id)}
           onEquipTitle={(t) => controllerRef.current?.equipTitle(t)}
           lang={lang}
           onSelectLanguage={handleSelectLanguage}
@@ -234,7 +237,6 @@ export default function App() {
         onRepairPad={() => controllerRef.current?.repairSelectedPad()}
         onDemolishPad={() => controllerRef.current?.demolishSelectedPad()}
         onTriggerFlare={() => controllerRef.current?.triggerLanternFlare()}
-        onStartNightEarly={() => controllerRef.current?.startNightEarly()}
         onCycleWeather={() => controllerRef.current?.cycleWeather()}
         onToggleMute={handleToggleMute}
         onTogglePause={() => controllerRef.current?.togglePause()}

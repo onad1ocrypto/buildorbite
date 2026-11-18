@@ -1297,14 +1297,14 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     padSelectedWorldBadge: (id) => `P${id} · SELECT`,
 
     dayStartBanner: (d) =>
-      `Day ${d}: Gather Wood, Stone & Food, or click any Build Pad (P1–P8) to choose a structure!`,
+      `Day ${d}: Gather Wood, Stone & Food, or click any Build Pad to choose a structure!`,
     padSelectedEmptyBanner: (id, label) =>
-      `Build Pad P${id} (${label}) selected — choose what Ranger Rue will build below!`,
+      `Build Pad (${label}) selected — choose what Ranger Rue will build below!`,
     padSelectedBuiltBanner: (id, bldName) =>
-      `Pad P${id}: ${bldName} selected — choose Upgrade, Repair, or Salvage below!`,
-    chooseBuildingCallout: (id) => `Choose Build (P${id})`,
+      `${bldName} selected — choose Upgrade, Repair, or Salvage below!`,
+    chooseBuildingCallout: (id) => `Choose Build`,
     fenceSelectedBanner: (label) =>
-      `${label} selected — press Outer Fence [F] to build/upgrade, or pick a Build Pad (P1–P8)!`,
+      `${label} selected — press Outer Fence [F] to build/upgrade, or pick a Build Pad!`,
     nightBuildLockedBanner: 'Night has fallen — building is locked until dawn!',
     flareNightLockedBanner: 'Lantern Flare can only be used during Night defense!',
     notEnoughResourcesBanner: 'Not enough Wood, Stone, or Food for that action!',
@@ -1352,11 +1352,11 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlsSectionTitle: '2. Controls Reference (PC & Mobile)',
     controlMoveDesc: 'WASD / Arrows / Click or Touch-Drag on ground to move & gather resources',
     controlFlareDesc: 'Spacebar / Flare Button: Cast Fire Lantern Flare (Night only)',
-    controlBuildDesc: 'Click any Build Pad (P1–P8) to open the 6-structure choice menu',
+    controlBuildDesc: 'Click any Build Pad to open the 5-structure choice menu',
     controlNightDesc: 'Enter / N: Start Night early · P: Pause',
     controlZoomDesc: 'Mouse Scroll Wheel (PC) or Two-Finger Pinch (Mobile) to Zoom In / Out',
 
-    newPlayerBuildHint: '✨ Ready to Build! Click P1 or a Build Pad to place your first defense',
+    newPlayerBuildHint: '✨ Ready to Build! Click a Build Pad to place your first defense',
     dailyLockedBanner:
       "🔒 Today's construction progression is complete! Your fort & resources are saved until 00:00 UTC. Hero combat stays open!",
     dailyProgressionCompleteTitle: 'Fort Saved · Daily Construction Complete',
@@ -1490,14 +1490,14 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     padSelectedWorldBadge: (id) => `P${id} · PILIH`,
 
     dayStartBanner: (d) =>
-      `Hari ${d}: Kumpulkan Kayu, Batu & Makanan, atau klik Titik Build (P1–P8) untuk memilih bangunan!`,
+      `Hari ${d}: Kumpulkan Kayu, Batu & Makanan, atau klik Titik Build untuk memilih bangunan!`,
     padSelectedEmptyBanner: (id, label) =>
-      `Titik Build P${id} (${label}) dipilih — pilih bangunan yang akan dibuat di menu bawah!`,
+      `Titik Build (${label}) dipilih — pilih bangunan yang akan dibuat di menu bawah!`,
     padSelectedBuiltBanner: (id, bldName) =>
-      `Pad P${id}: ${bldName} dipilih — pilih Upgrade, Perbaiki, atau Bongkar di menu bawah!`,
-    chooseBuildingCallout: (id) => `Pilih Bangunan (P${id})`,
+      `${bldName} dipilih — pilih Upgrade, Perbaiki, atau Bongkar di menu bawah!`,
+    chooseBuildingCallout: (id) => `Pilih Bangunan`,
     fenceSelectedBanner: (label) =>
-      `${label} dipilih — klik Pagar Luar [F] untuk membangun, atau pilih Titik Build P1–P8!`,
+      `${label} dipilih — klik Pagar Luar [F] untuk membangun, atau pilih Titik Build!`,
     nightBuildLockedBanner: 'Malam telah tiba — pembangunan dikunci hingga pagi!',
     flareNightLockedBanner: 'Lantern Flare hanya dapat digunakan saat Malam hari!',
     notEnoughResourcesBanner: 'Kayu, Batu, atau Makanan tidak cukup!',
@@ -1545,11 +1545,11 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlsSectionTitle: '2. Panduan Kontrol (PC & Handphone)',
     controlMoveDesc: 'WASD / Panah / Klik atau Geser Jari di tanah untuk bergerak & mengambil resource',
     controlFlareDesc: 'Spasi / Tombol Flare: Ledakan Api Lentera (Khusus Malam)',
-    controlBuildDesc: 'Klik Titik Build (P1–P8) untuk membuka menu pilihan 6 bangunan',
+    controlBuildDesc: 'Klik Titik Build untuk membuka menu pilihan 5 bangunan',
     controlNightDesc: 'Enter / N: Mulai Malam lebih awal · P: Jeda',
     controlZoomDesc: 'Scroll Mouse (PC) atau Cubit 2 Jari (HP) untuk Zoom In / Out',
 
-    newPlayerBuildHint: '✨ Siap Membangun! Klik P1 atau Titik Build untuk memasang pertahanan pertamamu',
+    newPlayerBuildHint: '✨ Siap Membangun! Klik Titik Build untuk memasang pertahanan pertamamu',
     dailyLockedBanner:
       '🔒 Progres pembangunan hari ini selesai! Benteng & resource tersimpan hingga 00:00 UTC. Pertarungan Hero tetap aktif!',
     dailyProgressionCompleteTitle: 'Benteng Tersimpan · Progres Harian Selesai',
@@ -1682,14 +1682,14 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     padSelectedWorldBadge: (id) => `P${id} · 选择`,
 
     dayStartBanner: (d) =>
-      `第 ${d} 天：收集木材、石料与食物，或点击任意建造点 (P1–P8) 选择要建造的防御设施！`,
+      `第 ${d} 天：收集木材、石料与食物，或点击任意建造点选择要建造的防御设施！`,
     padSelectedEmptyBanner: (id, label) =>
-      `已选中建造点 P${id} (${label}) — 请在下方菜单选择要建造的建筑！`,
+      `已选中建造点 (${label}) — 请在下方菜单选择要建造的建筑！`,
     padSelectedBuiltBanner: (id, bldName) =>
-      `已选中 P${id}: ${bldName} — 请在下方选择升级、修复或拆除！`,
-    chooseBuildingCallout: (id) => `选择建筑 (P${id})`,
+      `已选中 ${bldName} — 请在下方选择升级、修复或拆除！`,
+    chooseBuildingCallout: (id) => `选择建筑`,
     fenceSelectedBanner: (label) =>
-      `已选中 ${label} — 点击“外围木栏 [F]”进行建造/升级，或选择建造点 P1–P8！`,
+      `已选中 ${label} — 点击“外围木栏 [F]”进行建造/升级，或选择建造点！`,
     nightBuildLockedBanner: '夜幕已降临 — 黎明前无法进行建造与升级！',
     flareNightLockedBanner: '提灯烈焰闪光仅可在夜晚防守时使用！',
     notEnoughResourcesBanner: '木材、石料或食物不足！',
@@ -1734,11 +1734,11 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlsSectionTitle: '2. 操作指南 (电脑与手机)',
     controlMoveDesc: 'WASD / 方向键 / 点击或触屏拖动地面：移动并采集资源',
     controlFlareDesc: '空格键 / 闪光按钮：释放提灯烈焰闪光（仅限夜晚）',
-    controlBuildDesc: '点击任意建造点 (P1–P8)：打开 6 种防御建筑选择菜单',
+    controlBuildDesc: '点击任意建造点：打开 5 种防御建筑选择菜单',
     controlNightDesc: 'Enter / N：提前入夜 · P：暂停',
     controlZoomDesc: '鼠标滚轮 (电脑) 或 双指捏合 (手机)：缩放镜头',
 
-    newPlayerBuildHint: '✨ 资源充足！点击 P1 或建造点放置你的第一座防御建筑',
+    newPlayerBuildHint: '✨ 资源充足！点击建造点放置你的第一座防御建筑',
     dailyLockedBanner:
       '🔒 今日建造进度已完成！堡垒与资源已保存至 00:00 UTC。英雄战斗依然开放！',
     dailyProgressionCompleteTitle: '堡垒已保存 · 今日建造任务全部完成',
@@ -1819,7 +1819,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     coinsHeader: (c) => `Xu: ${c}`,
     dailyTicketsHeader: (t, m) => `Vé Hàng Ngày: ${t} / ${m}`,
     controlsFooter:
-      'WASD / Chạm & Kéo: Di chuyển · Chạm Bệ Xây (P1–P8): Chọn công trình · Lăn chuột / Chụm 2 ngón: Thu phóng · Space: Pháo sáng',
+      'WASD / Chạm & Kéo: Di chuyển · Chạm Bệ Xây: Chọn công trình · Lăn chuột / Chụm 2 ngón: Thu phóng · Space: Pháo sáng',
     schemaFooter: 'Làm Mới 00:00 UTC · Hỗ Trợ 5 Ngôn Ngữ · LocalStorage v3',
 
     fortHpLabel: 'MÁU PHÁO ĐÀI',
@@ -1871,14 +1871,14 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     padSelectedWorldBadge: (id) => `P${id} · CHỌN`,
 
     dayStartBanner: (d) =>
-      `Ngày ${d}: Thu thập Gỗ, Đá & Thức ăn, hoặc nhấn vào Bệ Xây (P1–P8) để chọn công trình!`,
+      `Ngày ${d}: Thu thập Gỗ, Đá & Thức ăn, hoặc nhấn vào Bệ Xây để chọn công trình!`,
     padSelectedEmptyBanner: (id, label) =>
-      `Đã chọn Bệ P${id} (${label}) — hãy chọn công trình muốn xây ở menu bên dưới!`,
+      `Đã chọn Bệ (${label}) — hãy chọn công trình muốn xây ở menu bên dưới!`,
     padSelectedBuiltBanner: (id, bldName) =>
-      `Bệ P${id}: ${bldName} — chọn Nâng cấp, Sửa chữa hoặc Tháo dỡ ở menu dưới!`,
-    chooseBuildingCallout: (id) => `Chọn Công Trình (P${id})`,
+      `${bldName} — chọn Nâng cấp, Sửa chữa hoặc Tháo dỡ ở menu dưới!`,
+    chooseBuildingCallout: (id) => `Chọn Công Trình`,
     fenceSelectedBanner: (label) =>
-      `Đã chọn ${label} — nhấn Rào Ngoài [F] để xây/nâng cấp, hoặc chọn Bệ Xây P1–P8!`,
+      `Đã chọn ${label} — nhấn Rào Ngoài [F] để xây/nâng cấp, hoặc chọn Bệ Xây!`,
     nightBuildLockedBanner: 'Đêm đã buông xuống — khóa xây dựng cho đến bình minh!',
     flareNightLockedBanner: 'Pháo sáng Đèn Lồng chỉ có thể sử dụng vào ban đêm!',
     notEnoughResourcesBanner: 'Không đủ Gỗ, Đá hoặc Thức ăn!',
@@ -1923,11 +1923,11 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlsSectionTitle: '2. Điều Khiển (PC & Điện Thoại)',
     controlMoveDesc: 'WASD / Mũi tên / Chạm & Kéo trên mặt đất để di chuyển & thu thập tài nguyên',
     controlFlareDesc: 'Phím Space / Nút Pháo Sáng: Bắn Pháo Sáng Lửa (Chỉ ban đêm)',
-    controlBuildDesc: 'Nhấn vào Bệ Xây (P1–P8) để mở menu chọn 6 công trình phòng thủ',
+    controlBuildDesc: 'Nhấn vào Bệ Xây để mở menu chọn 5 công trình phòng thủ',
     controlNightDesc: 'Enter / N: Bắt đầu Đêm sớm · P: Tạm dừng',
     controlZoomDesc: 'Con lăn chuột (PC) hoặc Chụm 2 ngón tay (Điện thoại) để Phóng to / Thu nhỏ',
 
-    newPlayerBuildHint: '✨ Đủ tài nguyên! Nhấn P1 hoặc Bệ Xây để đặt công trình phòng thủ đầu tiên',
+    newPlayerBuildHint: '✨ Đủ tài nguyên! Nhấn Bệ Xây để đặt công trình phòng thủ đầu tiên',
     dailyLockedBanner:
       '🔒 Tiến độ xây dựng hôm nay đã hoàn tất! Pháo đài & tài nguyên đã được lưu đến 00:00 UTC. Chiến đấu vẫn mở!',
     dailyProgressionCompleteTitle: 'Pháo Đài Đã Lưu · Hoàn Tất Tiến Độ Ngày',
@@ -2008,7 +2008,7 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     coinsHeader: (c) => `Монеты: ${c}`,
     dailyTicketsHeader: (t, m) => `Билеты: ${t} / ${m}`,
     controlsFooter:
-      'WASD / Клик и ведение: Движение · Клик по площадке (P1–P8): Выбор постройки · Колесо мыши / Щипок: Зум · Пробел: Вспышка',
+      'WASD / Клик и ведение: Движение · Клик по площадке: Выбор постройки · Колесо мыши / Щипок: Зум · Пробел: Вспышка',
     schemaFooter: 'Сброс в 00:00 UTC · 5 языков · LocalStorage v3',
 
     fortHpLabel: 'ОЗ ФОРТА',
@@ -2060,14 +2060,14 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     padSelectedWorldBadge: (id) => `P${id} · ВЫБОР`,
 
     dayStartBanner: (d) =>
-      `День ${d}: Собирайте дерево, камень и еду или нажмите на площадку (P1–P8), чтобы выбрать постройку!`,
+      `День ${d}: Собирайте дерево, камень и еду или нажмите на площадку, чтобы выбрать постройку!`,
     padSelectedEmptyBanner: (id, label) =>
-      `Выбрана площадка P${id} (${label}) — выберите постройку в нижнем меню!`,
+      `Выбрана площадка (${label}) — выберите постройку в нижнем меню!`,
     padSelectedBuiltBanner: (id, bldName) =>
-      `Площадка P${id}: ${bldName} — выберите улучшение, починку или снос!`,
-    chooseBuildingCallout: (id) => `Выбор постройки (P${id})`,
+      `${bldName} — выберите улучшение, починку или снос!`,
+    chooseBuildingCallout: (id) => `Выбор постройки`,
     fenceSelectedBanner: (label) =>
-      `Выбран ${label} — нажмите «Внешний забор [F]» для постройки или выберите площадку P1–P8!`,
+      `Выбран ${label} — нажмите «Внешний забор [F]» для постройки или выберите площадку!`,
     nightBuildLockedBanner: 'Наступила ночь — строительство заблокировано до рассвета!',
     flareNightLockedBanner: 'Огненная вспышка фонаря доступна только ночью!',
     notEnoughResourcesBanner: 'Недостаточно дерева, камня или еды!',
@@ -2112,11 +2112,11 @@ export const TRANSLATIONS: Record<LanguageCode, UiTranslations> = {
     controlsSectionTitle: '2. Управление (ПК и телефон)',
     controlMoveDesc: 'WASD / Стрелки / Клик или ведение пальцем по земле — движение и сбор ресурсов',
     controlFlareDesc: 'Пробел / Кнопка Вспышки — огненная вспышка фонаря (только ночью)',
-    controlBuildDesc: 'Нажмите на любую площадку (P1–P8), чтобы открыть меню выбора из 6 построек',
+    controlBuildDesc: 'Нажмите на любую площадку, чтобы открыть меню выбора из 5 построек',
     controlNightDesc: 'Enter / N — начать ночь досрочно · P — пауза',
     controlZoomDesc: 'Колесо мыши (ПК) или щипок двумя пальцами (телефон) — приближение и отдаление',
 
-    newPlayerBuildHint: '✨ Ресурсов достаточно! Нажмите P1 или площадку, чтобы построить первую защиту',
+    newPlayerBuildHint: '✨ Ресурсов достаточно! Нажмите площадку, чтобы построить первую защиту',
     dailyLockedBanner:
       '🔒 Дневной прогресс строительства завершен! Форт и ресурсы сохранены до 00:00 UTC. Бой героя открыт!',
     dailyProgressionCompleteTitle: 'Форт сохранен · Дневной прогресс завершен',

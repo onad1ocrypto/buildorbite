@@ -84,7 +84,7 @@ export const Modals: React.FC<ModalsProps> = ({
           aria-modal="true"
           aria-labelledby="pause-modal-title"
         >
-          <div className="w-full max-w-md rounded-xl bg-[#131b26]/90 border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6]">
+          <div className="w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-xl bg-[#131b26] border border-[#334155] p-3 sm:p-4 shadow-2xl text-[#f4efe6]">
             {/* Header + Click-to-Open Language Dropdown */}
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
@@ -99,7 +99,7 @@ export const Modals: React.FC<ModalsProps> = ({
 
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5 mb-3.5 p-3 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+            <div className="grid grid-cols-3 gap-1.5 mb-2 p-2 rounded-lg bg-[#0b1016] border border-[#1e293b]">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
                   {tr.dayWaveLabel}
@@ -126,8 +126,9 @@ export const Modals: React.FC<ModalsProps> = ({
               </div>
             </div>
 
-            {/* Live Daily Task Progress in Pause Menu */}
-            <div className="mb-4 p-3 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+            {/* Daily task details stay available without crowding the pause screen. */}
+            <details className="mb-2 p-2 rounded-lg bg-[#0b1016] border border-[#1e293b]">
+              <summary className="text-xs font-semibold cursor-pointer">{tr.tasksLabel} ({completedTasksCount}/{daily.tasks.length})</summary>
               <div className="text-[11px] font-bold uppercase tracking-wider text-[#f59e0b] mb-1.5">
                 📋 {tr.tasksLabel} ({completedTasksCount}/{daily.tasks.length})
               </div>
@@ -149,9 +150,9 @@ export const Modals: React.FC<ModalsProps> = ({
                   );
                 })}
               </div>
-            </div>
+            </details>
 
-            <div className="flex flex-col gap-2">
+            <div className="sticky bottom-0 bg-[#131b26] py-1 flex flex-col gap-1">
               <button
                 type="button"
                 onClick={onResume}
@@ -212,13 +213,14 @@ export const Modals: React.FC<ModalsProps> = ({
       {/* ONE UNIFIED END SCREEN RESULT CARD (gameover) */}
       {hud.screen === 'gameover' && !showGuide && (
         <div
-          className="fixed inset-0 z-30 flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-30 flex items-center justify-center p-2"
           style={{ backgroundColor: 'rgba(7, 10, 15, 0.58)' }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="gameover-modal-title"
         >
-          <div className="w-full max-w-2xl rounded-xl bg-[#131b26]/90 border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6] my-auto">
+          <div className="w-full max-w-2xl max-h-[94%] flex flex-col overflow-hidden rounded-xl bg-[#131b26] border border-[#334155] p-3 sm:p-4 shadow-2xl text-[#f4efe6]">
+            <div data-testid="result-content" className="min-h-0 overflow-y-auto">
             {/* Result Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
               <div className="flex items-center gap-2">
@@ -241,7 +243,7 @@ export const Modals: React.FC<ModalsProps> = ({
 
             <h2
               id="gameover-modal-title"
-              className="text-2xl sm:text-3xl font-display font-extrabold text-[#fef3c7] mb-1"
+              className="text-xl sm:text-2xl font-display font-extrabold text-[#fef3c7] mb-1"
             >
               {hud.runOutcome === 'victory' ? tr.victoryTitle : tr.defeatTitle}
             </h2>
@@ -255,7 +257,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
                   {tr.scoreLabel}
                 </div>
-                <div className="text-xl font-mono-tabular font-bold text-[#fbbf24]" data-testid="result-score">
+                <div className="text-sm sm:text-lg font-mono-tabular font-bold text-[#fbbf24]" data-testid="result-score">
                   {Math.round(hud.score)}
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
@@ -267,7 +269,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
                   {tr.xpGainedLabel}
                 </div>
-                <div className="text-xl font-mono-tabular font-bold text-[#38bdf8]" data-testid="result-xp">
+                <div className="text-sm sm:text-lg font-mono-tabular font-bold text-[#38bdf8]" data-testid="result-xp">
                   +{summary ? summary.xpGained : 0} XP
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
@@ -279,7 +281,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
                   {tr.dailyStreakLabel}
                 </div>
-                <div className="text-xl font-mono-tabular font-bold text-[#4ade80]" data-testid="result-streak">
+                <div className="text-sm sm:text-lg font-mono-tabular font-bold text-[#4ade80]" data-testid="result-streak">
                   {daily.streak}d
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
@@ -291,7 +293,7 @@ export const Modals: React.FC<ModalsProps> = ({
                 <div className="text-[10px] uppercase tracking-wider text-[#94a3b8]">
                   {tr.ticketsLeftLabel}
                 </div>
-                <div className="text-xl font-mono-tabular font-bold text-[#f59e0b]" data-testid="result-tickets">
+                <div className="text-sm sm:text-lg font-mono-tabular font-bold text-[#f59e0b]" data-testid="result-tickets">
                   {daily.tickets} / {daily.maxDailyTickets}
                 </div>
                 <div className="text-[10px] text-[#64748b] font-mono-tabular">
@@ -301,9 +303,9 @@ export const Modals: React.FC<ModalsProps> = ({
             </div>
 
             {/* Daily Check-In Reward Card (Revealed after first completed run of the UTC day) */}
-            <div
+            {checkInReady && <div
               data-testid="result-daily-checkin"
-              className="p-3 rounded-lg bg-[#0b1016] border border-[#f59e0b]/60 mb-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5"
+              className="p-2 rounded-lg bg-[#0b1016] border border-[#f59e0b]/60 mb-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5"
             >
               <div>
                 <div className="text-xs font-display font-bold text-[#fbbf24]">
@@ -327,8 +329,10 @@ export const Modals: React.FC<ModalsProps> = ({
                   {tr.dailyCheckInClaimBtn}
                 </button>
               )}
-            </div>
+            </div>}
 
+            <details className="mb-1 text-xs text-[#cbd5e1]">
+              <summary className="cursor-pointer font-semibold py-1">Progress and daily details</summary>
             {/* Level Progress Bar & Unlocks */}
             <div className="p-3 rounded-lg bg-[#0b1016] border border-[#1e293b] mb-3.5">
               <div className="flex items-center justify-between text-xs mb-1">
@@ -396,7 +400,9 @@ export const Modals: React.FC<ModalsProps> = ({
               </>
             )}
 
-            {/* 3-Way Persistence & Reset Breakdown (Saved Permanently vs Resets For Run vs Locked Until 00:00 UTC) */}
+            {/* Optional explanation; core results and controls remain visible first. */}
+            <details className="mb-2 text-xs text-[#cbd5e1]">
+              <summary className="cursor-pointer font-semibold py-1">Progress and reset details</summary>
             <div
               data-testid="result-persistence-breakdown"
               className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3.5 text-left"
@@ -429,8 +435,13 @@ export const Modals: React.FC<ModalsProps> = ({
               </div>
             </div>
 
+            </details>
+            </details>
+            {devTestMode && (
+              <p className="text-xs text-[#cbd5e1] mb-2">Demo runs do not change tickets, tasks, or rewards.</p>
+            )}
             {/* Re-Engagement Line */}
-            <div className="p-2.5 rounded-lg bg-[#161f2c] border border-[#334155] text-xs text-[#fef3c7] mb-4 flex items-center justify-between gap-2">
+            <div className="p-2 rounded-lg bg-[#161f2c] border border-[#334155] text-xs text-[#fef3c7] mb-1 flex items-center justify-between gap-2">
               <span>{tr.comeBackTomorrowMsg(resetCountdown, daily.streak)}</span>
               {daily.pendingBonusTicketsTomorrow > 0 && (
                 <span className="font-mono-tabular text-[#4ade80] font-bold shrink-0">
@@ -439,8 +450,9 @@ export const Modals: React.FC<ModalsProps> = ({
               )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2.5">
+            </div>
+            {/* Keep actions outside the scrolling content so they remain visible. */}
+            <div className="shrink-0 bg-[#131b26] pt-2 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 data-start="true"

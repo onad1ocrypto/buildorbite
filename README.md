@@ -53,9 +53,9 @@ Each player starts with **up to 3 tickets per UTC day**. A standard run costs on
 
 Daily tasks and their rewards are for standard play. Completing all three locks further daily gathering and construction until the UTC reset; combat remains available.
 
-### Playtest Demo
+### Demo mode
 
-Devvit prerelease playtests provide an isolated **Demo / Test Run**. It does not consume tickets or change the normal profile. Tasks do not progress or pay rewards in Demo. Demo fort data is stored separately; **Reset Demo Data** clears that sandbox. The Demo control is not intended for production versions.
+The Reddit app offers an isolated **Demo / Test Run** alongside standard play. It does not consume tickets or change normal progression. Tasks do not progress or pay rewards in Demo. Demo fort data is stored separately on the device; **Reset Demo Data** clears that sandbox.
 
 ## Build and test
 

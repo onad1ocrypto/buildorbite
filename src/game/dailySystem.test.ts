@@ -49,10 +49,11 @@ test('demo/test mode is enabled in Dev and Vercel Preview (?devTest=1, ?demo=1, 
   assert.equal(canShowDevTestControl(false, ''), false);
   assert.equal(canShowDevTestControl(true, 'production'), false);
 
-  // Devvit prerelease playtest allows the manual Test Run button, but does not auto-start it.
+  // All Devvit versions allow explicit Demo selection, but never auto-start it.
   assert.equal(isDevelopmentTestMode(false, '', false, undefined, true), false);
   assert.equal(isDevelopmentTestMode(false, '', true, undefined, true), true);
-  assert.equal(isDevelopmentTestMode(false, '', false, 'production', true), false);
+  assert.equal(isDevelopmentTestMode(false, '', true, 'production', true), true);
+  assert.equal(isDevelopmentTestMode(false, '?demo=1', false, undefined, true), false);
 
   // URL flag activation in dev build and Vercel Preview
   assert.equal(isDevelopmentTestMode(true, '?devTest=1'), true);
