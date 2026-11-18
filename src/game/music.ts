@@ -2,7 +2,7 @@ import type { DayNightPhase } from './types';
 
 const TRACKS: Record<DayNightPhase, string> = {
   day: '/assets/music/day-spooky-dungeon.mp3',
-  night: '/assets/music/night-hallow-quest.mp3',
+  night: '/assets/music/night-spooky-tune.mp3',
 };
 
 /** Music follows the run phase; mute and non-playing screens pause playback. */

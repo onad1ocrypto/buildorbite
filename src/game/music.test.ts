@@ -25,7 +25,7 @@ test('music follows day/night, mute, pause and user interaction retry', async ()
     assert.equal(tracks.length, 1);
     music.sync('night', true, false);
     assert.equal(tracks[0].paused, true);
-    assert.match(tracks[1].src, /night-hallow-quest/);
+    assert.match(tracks[1].src, /night-spooky-tune/);
     music.sync('night', true, true);
     assert.equal(tracks[1].paused, true);
     music.retry();
