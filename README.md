@@ -5,6 +5,10 @@
 <p align="center"><strong>Build by day. Bite back at night.</strong><br />
 A spooky-funny 3D fort-defense game built for Reddit.</p>
 
+<p align="center">
+  <img src="docs/images/build-or-bite-promo.jpg" alt="Promotional illustration of Ranger Rue and the zombie cast" width="900" />
+</p>
+
 ---
 
 ## The game
@@ -16,6 +20,16 @@ Help Ranger Rue gather supplies and turn a forest clearing into a fort. When nig
 - **Survive three nights:** deploy your defenses, use the Lantern Flare, and protect the fort.
 - **Return each day:** keep your fort and progress through daily tasks, XP, cosmetics, and streaks.
 - **Play on desktop or mobile:** keyboard and mouse controls are complemented by touch controls.
+
+## Screenshots
+
+These screenshots show the game in playtest; the illustration above is promotional artwork.
+
+| Main menu | Build your fort | Defend at night |
+| :---: | :---: | :---: |
+| ![Build or Bite main menu](docs/images/main-menu.jpg) | ![Daytime fort and defenses](docs/images/daytime-fort.jpg) | ![Nighttime defense against zombies](docs/images/night-defense.jpg) |
+
+Images in `docs/images/` are not included in the MIT source-code license; see the credits and license information below.
 
 ## How to play
 
