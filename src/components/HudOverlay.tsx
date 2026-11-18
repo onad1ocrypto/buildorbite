@@ -77,6 +77,17 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
 }) => {
   const [showTasksPopover, setShowTasksPopover] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const [showDemoPanel, setShowDemoPanel] = useState(false);
+
+  useEffect(() => {
+    if (!hud.isDevTestMode) {
+      setShowDemoPanel(false);
+      return;
+    }
+    setShowDemoPanel(true);
+    const timer = window.setTimeout(() => setShowDemoPanel(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [hud.isDevTestMode]);
 
   const tasksMenuRef = useRef<HTMLDivElement | null>(null);
   const langMenuRef = useRef<HTMLDivElement | null>(null);
@@ -811,13 +822,32 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
 
       {/* SLIM TOP-CENTER NOTIFICATION / DEMO BANNER / BOSS BARON BLIGHT BANNER */}
       <div className="w-full flex flex-col items-center gap-1 pointer-events-none mt-1 mb-auto">
-        {hud.isDevTestMode && (
+        {hud.isDevTestMode && !showDemoPanel && (
+          <button
+            type="button"
+            data-testid="btn-open-demo-menu"
+            onClick={() => setShowDemoPanel(true)}
+            className="pointer-events-auto rounded-md bg-[#581c87]/80 border border-[#c084fc] px-2 py-0.5 text-[9px] font-bold text-white shadow"
+            aria-label="Open demo controls"
+          >
+            DEMO
+          </button>
+        )}
+        {hud.isDevTestMode && showDemoPanel && (
           <div
             data-testid="dev-test-active-banner"
             className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 px-3 py-1 rounded-lg bg-[#581c87]/95 border border-[#c084fc] text-[10px] font-bold tracking-wide text-white shadow-lg"
             title="Demo / Test Mode: Isolated sandbox — no tickets spent, production save untouched."
           >
             <span>🧪 DEMO / TEST MODE · NO TICKETS SPENT · PRODUCTION SAVE ISOLATED</span>
+            <button
+              type="button"
+              aria-label="Close demo notice"
+              onClick={() => setShowDemoPanel(false)}
+              className="px-1.5 py-0.5 rounded bg-[#3b0764] border border-[#d8b4fe]/60 text-white cursor-pointer"
+            >
+              ✕
+            </button>
             <button
               type="button"
               tabIndex={-1}

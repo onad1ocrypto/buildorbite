@@ -1,6 +1,6 @@
 // Procedural Web Audio synthesizer for Build or Bite
 
-class SoundController {
+export class SoundController {
   private ctx: AudioContext | null = null;
   public muted: boolean = false;
 
@@ -23,6 +23,11 @@ class SoundController {
     return this.muted;
   }
 
+  /** Unlock Web Audio on a real pointer/key gesture, especially on mobile. */
+  public unlock(): void {
+    this.ensureContext();
+  }
+
   public playGatherHit(resourceType: 'wood' | 'stone' | 'food') {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -30,27 +35,49 @@ class SoundController {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     const pitchJitter = 0.94 + Math.random() * 0.12;
+    const duration = resourceType === 'stone' ? 0.1 : 0.19;
 
     if (resourceType === 'wood') {
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(165 * pitchJitter, now);
-      osc.frequency.exponentialRampToValueAtTime(68, now + 0.09);
+      osc.frequency.setValueAtTime(300 * pitchJitter, now);
+      osc.frequency.exponentialRampToValueAtTime(115, now + 0.13);
     } else if (resourceType === 'stone') {
       osc.type = 'square';
       osc.frequency.setValueAtTime(420 * pitchJitter, now);
       osc.frequency.exponentialRampToValueAtTime(180, now + 0.07);
     } else {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(340 * pitchJitter, now);
-      osc.frequency.exponentialRampToValueAtTime(520, now + 0.08);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(520 * pitchJitter, now);
+      osc.frequency.exponentialRampToValueAtTime(310, now + 0.15);
     }
-
-    gain.gain.setValueAtTime(0.14, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    gain.gain.setValueAtTime(resourceType === 'stone' ? 0.14 : 0.24, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.1);
+    osc.stop(now + duration);
+
+    // A short filtered transient makes chopping and harvesting distinct and audible
+    // on phone speakers, without changing the existing stone impact.
+    if (resourceType !== 'stone') {
+      const length = Math.ceil(ctx.sampleRate * 0.13);
+      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+      const samples = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) samples[i] = (Math.random() * 2 - 1);
+      const source = ctx.createBufferSource();
+      const filter = ctx.createBiquadFilter();
+      const noiseGain = ctx.createGain();
+      source.buffer = buffer;
+      filter.type = resourceType === 'wood' ? 'lowpass' : 'bandpass';
+      filter.frequency.value = resourceType === 'wood' ? 1200 : 2200;
+      noiseGain.gain.setValueAtTime(resourceType === 'wood' ? 0.18 : 0.13, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+      source.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      source.start(now);
+      source.stop(now + 0.13);
+    }
   }
 
   public playBuild(isUpgrade = false) {

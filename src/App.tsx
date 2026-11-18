@@ -110,7 +110,10 @@ export default function App() {
   }, [hud.phase, hud.screen, muted]);
 
   useEffect(() => {
-    const retryMusic = () => musicRef.current?.retry();
+    const retryMusic = () => {
+      soundFX.unlock();
+      musicRef.current?.retry();
+    };
     window.addEventListener('pointerdown', retryMusic);
     window.addEventListener('keydown', retryMusic);
     return () => {
