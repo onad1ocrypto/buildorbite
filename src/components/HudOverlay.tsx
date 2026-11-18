@@ -102,6 +102,8 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   if (hud.screen === 'title') return null;
 
   const selectedPad = hud.pads.find((p) => p.id === hud.selectedPadId) ?? null;
+  const buildMenuTargetPad =
+    selectedPad ?? hud.pads.find((pad) => pad.building === null) ?? hud.pads[0] ?? null;
   const selectedFence =
     hud.fenceSegments.find((f) => f.id === hud.selectedFenceId) ?? null;
   const isNight = hud.phase === 'night';
@@ -1309,6 +1311,23 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </button>
 
               <div className="h-4 w-[1px] bg-[#1e293b] hidden sm:block" />
+
+              {/* Always-visible shortcut to the contextual build/upgrade menu */}
+              <button
+                type="button"
+                tabIndex={-1}
+                data-testid="btn-open-build-menu"
+                aria-label={buildMenuTargetPad?.building ? 'Open upgrade menu' : 'Open build menu'}
+                title="Open the build or upgrade menu for a fort pad"
+                disabled={!buildMenuTargetPad}
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  if (buildMenuTargetPad) onSelectPad(buildMenuTargetPad.id);
+                }}
+                className="shrink-0 px-2.5 py-1 rounded-lg border border-[#f59e0b] bg-[#78350f] hover:bg-[#92400e] text-[#fef3c7] text-[10px] font-extrabold tracking-wide cursor-pointer whitespace-nowrap shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {buildMenuTargetPad?.building ? 'UPGRADE' : 'BUILD'}
+              </button>
 
               {/* Compact Build Pads (P1-P8) Strip */}
               <div className="flex items-center gap-1 overflow-x-auto max-w-full">
