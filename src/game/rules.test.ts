@@ -732,7 +732,18 @@ test('Dynamic daytime weather system transitions deterministically and modifies 
   assert.notEqual(dayStep.weather, 'clear');
   assert.equal(dayStep.weatherTimer, WEATHER_CYCLE_DURATION);
   assert.equal(dayStep.cycleCount, 1);
-  assert.notEqual(getNextDayWeather('rain', 2, 1), 'rain');
+  assert.equal(getNextDayWeather('clear', 1, 1), 'rain');
+  assert.equal(getNextDayWeather('rain', 2, 1), 'clear');
+  assert.equal(getNextDayWeather('fog', 2, 1), 'clear');
+  let weather: 'clear' | 'rain' | 'fog' = 'clear';
+  for (let i = 0; i < 20; i++) {
+    weather = getNextDayWeather(weather, 1, i);
+    assert.ok(weather === 'clear' || weather === 'rain');
+  }
+  const rainToClear = stepDayWeather({
+    phase: 'day', currentWeather: 'rain', weatherTimer: 1, dt: 2,
+  });
+  assert.equal(rainToClear.weather, 'clear');
 
   // 2. Resource node regrowth rates scale with weather (rain faster, fog slower, night paused)
   const depletedWood: ResourceNodeEntity = {

@@ -30,7 +30,7 @@ export const LANTERN_FLARE_SLOW_DURATION = 4.5;
 export const LANTERN_FLARE_KNOCKBACK = 4.2;
 export const HERO_CONSTRUCTION_DURATION = 0.65;
 
-export const WEATHER_ORDER: WeatherType[] = ['clear', 'rain', 'fog'];
+export const WEATHER_ORDER: WeatherType[] = ['clear', 'rain'];
 
 export const WEATHER_CATALOG: Record<WeatherType, WeatherSpec> = {
   clear: {
@@ -2094,7 +2094,7 @@ export function getNextDayWeather(
 
 /**
  * Advances the periodic Day weather state machine.
- * During the Day phase, weather shifts every WEATHER_CYCLE_DURATION seconds (e.g. Clear -> Rain -> Fog),
+ * During the Day phase, weather shifts every WEATHER_CYCLE_DURATION seconds (Clear -> Rain -> Clear),
  * altering environmental lighting, fog visibility, and resource node growth rates.
  * During the Night phase, daytime weather effects yield to Blood Moon night rules.
  */

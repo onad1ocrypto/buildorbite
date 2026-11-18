@@ -17,7 +17,7 @@ The intended tone is spooky but funny. The game supports desktop keyboard/mouse 
 - Gather wood, stone, and food from resource nodes.
 - Build, upgrade, repair, or salvage fort structures using the pads and menus.
 - Use **Enter** or **N** to start the night early.
-- Daytime weather cycles through clear, rain, and fog. The weather indicator can also be used to cycle conditions.
+- Daytime weather cycles through clear and rain. The weather indicator can also be used to cycle conditions.
 
 ### Night
 - Undead attack the fort and its structures.
@@ -32,7 +32,7 @@ The intended tone is spooky but funny. The game supports desktop keyboard/mouse 
 - Three-day day/night survival loop.
 - Six building types: Palisade Wall, Watchtower, Spike Trap, Campfire, Catapult, and Guard Tent; each has two upgrade paths.
 - Nine undead archetypes, including Baron Blight, with a boss health display.
-- Dynamic daytime weather: clear, rain, and fog affect the environment and resource gathering/regrowth.
+- Dynamic daytime weather: clear and rain affect the environment and resource gathering/regrowth.
 - Daily tickets, daily tasks, XP/levels, streaks, check-in rewards, and persistent fort progression.
 - Responsive 3D scene, sound effects, and multiple UI languages.
 
