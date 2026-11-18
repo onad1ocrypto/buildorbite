@@ -4,6 +4,7 @@ import { HudOverlay } from './components/HudOverlay';
 import { Modals } from './components/Modals';
 import { TitleScreen } from './components/TitleScreen';
 import { soundFX } from './game/audio';
+import { GameMusic } from './game/music';
 import {
   canShowDevTestControl,
   isDevelopmentTestMode,
@@ -29,6 +30,8 @@ import { BuildingType, HudSnapshot } from './game/types';
 export default function App() {
   const controllerRef = useRef<GameControllerApi | null>(null);
   const autoStartRequestedRef = useRef(false);
+  const musicRef = useRef<GameMusic | null>(null);
+  if (!musicRef.current) musicRef.current = new GameMusic();
   const [muted, setMuted] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [lang, setLang] = useState<LanguageCode>(() => loadLanguageFromStorage());
@@ -101,6 +104,21 @@ export default function App() {
       lastRunSummary: null,
     };
   });
+
+  useEffect(() => {
+    musicRef.current?.sync(hud.phase, hud.screen === 'playing', muted);
+  }, [hud.phase, hud.screen, muted]);
+
+  useEffect(() => {
+    const retryMusic = () => musicRef.current?.retry();
+    window.addEventListener('pointerdown', retryMusic);
+    window.addEventListener('keydown', retryMusic);
+    return () => {
+      window.removeEventListener('pointerdown', retryMusic);
+      window.removeEventListener('keydown', retryMusic);
+      musicRef.current?.stop();
+    };
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

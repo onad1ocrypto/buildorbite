@@ -20,7 +20,7 @@ import {
 } from './types';
 
 export const DAY_DURATION_SECONDS = 65;
-export const WEATHER_CYCLE_DURATION = 20;
+export const WEATHER_CYCLE_DURATION = 45;
 export const MAX_DAYS = 3;
 export const FORT_MAX_HP = 500;
 export const LANTERN_FLARE_COOLDOWN = 8.0;
