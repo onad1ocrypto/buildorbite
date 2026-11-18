@@ -1,5 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import App from '../App';
+import { isDevvitPlaytestVersion } from '../game/devvitEnvironment';
+// Devvit provides this browser export at runtime; conditional package typings resolve to a server stub.
+// @ts-expect-error context exists in the Devvit webview browser runtime.
+import { context as devvitContext } from '@devvit/web/client';
 import { DAILY_STORAGE_KEY, DAILY_STATE_SAVED_EVENT } from '../game/dailySystem';
 import type { DailyPersistenceState } from '../game/types';
 import '../index.css';
@@ -10,6 +14,9 @@ if (!mount) {
 }
 
 document.documentElement.dataset.devvitRuntime = 'true';
+document.documentElement.dataset.devvitPlaytest = String(
+  isDevvitPlaytestVersion(devvitContext?.appVersion)
+);
 const root = createRoot(mount);
 
 let pendingDailyState: DailyPersistenceState | null = null;

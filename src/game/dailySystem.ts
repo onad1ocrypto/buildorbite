@@ -1074,19 +1074,18 @@ export function canShowDevTestControl(
 }
 
 /**
- * Enables the isolated Demo / Test Run mode only in verified Dev or Preview environments
- * via either the visible in-app Demo/Test Run button (`manualTestRunActive = true`)
- * or `?devTest=1` / `?demo=1`.
- * A Production deployment (`canShowDevTestControl === false`) can NEVER activate Demo/Test mode,
- * even if someone passes URL parameters or tampers with browser state.
+ * Enables the isolated Test Run only in local/preview builds or a Devvit prerelease
+ * (identified by its four-part app version). Production app versions can never enable it.
  */
 export function isDevelopmentTestMode(
   isDevBuild: boolean,
   search: string,
   manualTestRunActive = false,
-  vercelEnv?: string
+  vercelEnv?: string,
+  isDevvitPlaytest = false
 ): boolean {
-  if (!canShowDevTestControl(isDevBuild, vercelEnv)) return false;
+  if (vercelEnv === 'production') return false;
+  if (!canShowDevTestControl(isDevBuild, vercelEnv) && !isDevvitPlaytest) return false;
   if (manualTestRunActive) return true;
   const params = new URLSearchParams(search);
   return params.get('devTest') === '1' || params.get('demo') === '1';

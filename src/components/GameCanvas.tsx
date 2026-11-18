@@ -1329,13 +1329,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let nightsSurvivedThisRun = 0;
     const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
     const isDevvitRuntime = document.documentElement.dataset.devvitRuntime === 'true';
-    // Demo / Dev Test switch: activated only in AI Studio Preview / Dev or Vercel Preview
-    // via the visible Demo/Test Run button or ?devTest=1 / ?demo=1. Production never enables this.
+    const isDevvitPlaytest = document.documentElement.dataset.devvitPlaytest === 'true';
+    const canStartDevTestRun =
+      canShowDevTestControl(import.meta.env.DEV, vercelEnv) || isDevvitPlaytest;
+    // The isolated Test Run is available in local/preview builds and Devvit prereleases,
+    // but never in a production Devvit app version.
     let devTestMode = isDevelopmentTestMode(
       import.meta.env.DEV,
       window.location.search,
       false,
-      vercelEnv
+      vercelEnv,
+      isDevvitPlaytest
     );
 
     function isDailyProgressionLockedForGameplay(): boolean {
@@ -1939,7 +1943,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         import.meta.env.DEV,
         window.location.search,
         requestDevTest,
-        vercelEnv
+        vercelEnv,
+        isDevvitPlaytest
       );
 
       if (targetScreen === 'playing' && shouldConsumeTicketForStart(devTestMode)) {
@@ -2144,7 +2149,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        if (isDevvitRuntime || !canShowDevTestControl(import.meta.env.DEV, vercelEnv)) return;
+        if (!canStartDevTestRun) return;
         resetRunState('playing', true);
       },
       clearDemoData: () => {

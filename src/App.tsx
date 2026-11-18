@@ -33,7 +33,9 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [lang, setLang] = useState<LanguageCode>(() => loadLanguageFromStorage());
   const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
-  const showDevTestControl = canShowDevTestControl(import.meta.env.DEV, vercelEnv);
+  const isDevvitPlaytest = document.documentElement.dataset.devvitPlaytest === 'true';
+  const showDevTestControl =
+    canShowDevTestControl(import.meta.env.DEV, vercelEnv) || isDevvitPlaytest;
 
   const handleSelectLanguage = (nextLang: LanguageCode) => {
     setLang(nextLang);
@@ -88,7 +90,13 @@ export default function App() {
       pendingConstruction: null,
       isDevTestMode:
         typeof window !== 'undefined' &&
-        isDevelopmentTestMode(import.meta.env.DEV, window.location.search, false, vercelEnv),
+        isDevelopmentTestMode(
+          import.meta.env.DEV,
+          window.location.search,
+          false,
+          vercelEnv,
+          document.documentElement.dataset.devvitPlaytest === 'true'
+        ),
       daily: initialDaily,
       lastRunSummary: null,
     };
