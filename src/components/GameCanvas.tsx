@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { soundFX } from '../game/audio';
+import { cameraTrackingTarget } from '../game/cameraTracking';
 import { LanguageCode, TRANSLATIONS } from '../game/i18n';
 import {
   createBarkTexture,
@@ -4195,14 +4196,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const shakeX = (Math.random() - 0.5) * 2 * shakeAmt;
       const shakeZ = (Math.random() - 0.5) * 2 * shakeAmt;
 
-      // Subtle pan toward Rue while keeping Fort (0,0) squarely in frame (auto-scaled on mobile portrait)
+      // At close zoom, gradually follow Rue to keep her in view; zooming out restores the fort view.
       const isPortrait = camera.aspect < 1.0;
-      const followRatio = isPortrait ? 0.3 : 0.18;
       const portraitScale = isPortrait
         ? THREE.MathUtils.clamp(1 / Math.pow(camera.aspect, 0.36), 1.0, 1.35)
         : 1.0;
-      const targetLookX = rueX * followRatio + shakeX;
-      const targetLookZ = rueZ * followRatio + shakeZ;
+      const tracking = cameraTrackingTarget(rueX, rueZ, cameraZoom, isPortrait);
+      const targetLookX = tracking.x + shakeX;
+      const targetLookZ = tracking.z + shakeZ;
       const nightZoom = THREE.MathUtils.lerp(1.0, 0.9, nightBlend);
       const distFactor = 24.5 * cameraZoom * nightZoom * portraitScale;
 
