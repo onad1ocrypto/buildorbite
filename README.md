@@ -83,6 +83,10 @@ public/assets/    Original title and character art, fonts, and music
 
 Music licensing details and source links are also recorded in `public/assets/music/CREDITS.md`.
 
+## License
+
+The project source code and documentation are licensed under the [MIT License](LICENSE). This license does not cover the artwork, logo, music, fonts, or other media in `public/assets/`; those assets are subject to their own rights and licenses. See the credits above for music and font licenses. Third-party dependencies and Reddit's developer platform are subject to their respective licenses and terms.
+
 ## Submission status and limitations
 
 A Reddit playtest has been confirmed playable by the developer. App Directory publication, production behavior, and the specific event's eligibility and submission requirements have not yet been verified. Automated tests and builds do not substitute for those checks.
