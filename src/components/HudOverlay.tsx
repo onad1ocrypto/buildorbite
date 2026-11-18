@@ -212,7 +212,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         <div ref={tasksMenuRef} className="relative pointer-events-auto max-w-full">
           <div
             className="flex flex-wrap items-center gap-2 sm:gap-2.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-[#334155] shadow-lg"
-            style={{ backgroundColor: 'rgba(13, 19, 28, 0.90)' }}
+            style={{ backgroundColor: 'rgba(13, 19, 28, 0.76)' }}
           >
             {/* Fort Vitality Bar */}
             <div className="min-w-[96px] sm:min-w-[122px]">
@@ -414,7 +414,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             <div
               data-testid="hud-daily-tasks-panel"
               className="absolute left-0 top-full mt-1.5 z-40 w-[335px] sm:w-[385px] max-h-[82vh] overflow-y-auto rounded-xl border border-[#334155] p-3.5 shadow-2xl"
-              style={{ backgroundColor: 'rgba(13, 19, 28, 0.98)' }}
+              style={{ backgroundColor: 'rgba(13, 19, 28, 0.86)' }}
             >
               {/* Header: Daily Ranger Board + Close */}
               <div className="flex items-start justify-between gap-2 border-b border-[#1e293b] pb-2 mb-2.5">
@@ -618,7 +618,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           {/* Resource Counters */}
           <div
             className="flex items-center gap-2 sm:gap-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-[#334155] shadow-lg"
-            style={{ backgroundColor: 'rgba(13, 19, 28, 0.90)' }}
+            style={{ backgroundColor: 'rgba(13, 19, 28, 0.76)' }}
           >
             {/* Wood */}
             <div className="flex items-center gap-1">
@@ -904,7 +904,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               <div
                 data-testid="pad-build-choice-menu"
                 className="w-full max-w-[760px] rounded-xl border-2 border-[#f59e0b] px-3 py-2 shadow-2xl"
-                style={{ backgroundColor: 'rgba(13, 19, 28, 0.96)' }}
+                style={{ backgroundColor: 'rgba(13, 19, 28, 0.82)' }}
               >
                 {/* Header: Selected Pad Title + Close Button */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 mb-1.5 border-b border-[#1e293b]">
@@ -1223,7 +1223,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             {/* 2. ULTRA-COMPACT FLOATING BOTTOM PILL */}
             <div
               className="w-fit max-w-full rounded-xl border border-[#334155] px-2.5 py-1 shadow-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-2"
-              style={{ backgroundColor: 'rgba(13, 19, 28, 0.92)' }}
+              style={{ backgroundColor: 'rgba(13, 19, 28, 0.78)' }}
             >
               {/* Lantern Flare (Night) */}
               <button

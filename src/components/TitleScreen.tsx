@@ -62,10 +62,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex flex-col justify-between p-4 sm:p-6 md:p-8 pointer-events-none overflow-y-auto"
+      className="title-screen fixed inset-0 z-20 flex flex-col justify-between p-4 sm:p-6 md:p-8 pointer-events-none overflow-y-auto"
       style={{
         background:
-          'radial-gradient(circle at 50% 42%, rgba(8,12,18,0.45) 0%, rgba(8,12,18,0.82) 100%)',
+          `linear-gradient(90deg, rgba(9,8,18,.88), rgba(9,8,18,.55), rgba(9,8,18,.45)), url(${HERO_RUE_PORTRAIT_URL}) center / cover no-repeat`,
       }}
     >
       {/* Top Bar: Compact Player Summary Pill (Left) + Click-to-Open Language Dropdown (Right) */}
@@ -175,7 +175,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         {/* One-line description */}
         <p
           data-testid="title-tagline"
-          className="text-xs sm:text-sm md:text-base text-[#e2dacb] font-medium leading-relaxed mb-4 max-w-md drop-shadow"
+          className="horror-title-text text-xl sm:text-2xl text-[#ff666b] leading-relaxed mb-4 max-w-md drop-shadow"
         >
           {tr.tagline}
         </p>

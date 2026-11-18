@@ -34,3 +34,18 @@
   -webkit-text-stroke: 3px rgba(9, 13, 19, 0.92);
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
 }
+
+@font-face {
+  font-family: 'Creepster';
+  src: url('/assets/fonts/Creepster-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+.title-screen .horror-title-text,
+.title-screen button {
+  font-family: 'Creepster', Georgia, serif;
+  letter-spacing: 0.04em;
+}
+.title-screen .horror-title-text {
+  text-shadow: 0 2px 5px #16040a, 0 0 15px rgba(220, 38, 38, .3);
+}

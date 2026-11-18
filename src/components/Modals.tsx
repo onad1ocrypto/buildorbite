@@ -73,12 +73,12 @@ export const Modals: React.FC<ModalsProps> = ({
       {hud.screen === 'paused' && !showGuide && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(7, 10, 15, 0.84)' }}
+          style={{ backgroundColor: 'rgba(7, 10, 15, 0.55)' }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="pause-modal-title"
         >
-          <div className="w-full max-w-md rounded-xl bg-[#131b26] border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6]">
+          <div className="w-full max-w-md rounded-xl bg-[#131b26]/90 border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6]">
             {/* Header + Click-to-Open Language Dropdown */}
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
@@ -239,12 +239,12 @@ export const Modals: React.FC<ModalsProps> = ({
       {hud.screen === 'gameover' && !showGuide && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center p-4 overflow-y-auto"
-          style={{ backgroundColor: 'rgba(7, 10, 15, 0.88)' }}
+          style={{ backgroundColor: 'rgba(7, 10, 15, 0.58)' }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="gameover-modal-title"
         >
-          <div className="w-full max-w-2xl rounded-xl bg-[#131b26] border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6] my-auto">
+          <div className="w-full max-w-2xl rounded-xl bg-[#131b26]/90 border border-[#334155] p-5 sm:p-6 shadow-2xl text-[#f4efe6] my-auto">
             {/* Result Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
               <div className="flex items-center gap-2">
@@ -509,12 +509,12 @@ export const Modals: React.FC<ModalsProps> = ({
       {showGuide && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(7, 10, 15, 0.9)' }}
+          style={{ backgroundColor: 'rgba(7, 10, 15, 0.58)' }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="guide-modal-title"
         >
-          <div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-xl bg-[#131b26] border border-[#334155] p-6 md:p-7 shadow-2xl text-[#f4efe6]">
+          <div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-xl bg-[#131b26]/90 border border-[#334155] p-6 md:p-7 shadow-2xl text-[#f4efe6]">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1e293b] pb-4 mb-5">
               <div>
                 <h2 id="guide-modal-title" className="text-2xl font-display font-bold text-[#fef3c7]">
