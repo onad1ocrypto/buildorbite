@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@source "./App.tsx";
+@source "./components";
+@source "./game";
+@source "./client";
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
