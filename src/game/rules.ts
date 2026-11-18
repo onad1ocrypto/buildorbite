@@ -546,25 +546,25 @@ export function createInitialFenceSegments(): FenceSegment[] {
   }[] = [
     {
       side: 'north',
-      sideLabel: 'Utara',
+      sideLabel: 'North',
       rotY: 0,
       coordForSlot: (off) => ({ x: off, z: -FENCE_HALF_EXTENT }),
     },
     {
       side: 'east',
-      sideLabel: 'Timur',
+      sideLabel: 'East',
       rotY: Math.PI / 2,
       coordForSlot: (off) => ({ x: FENCE_HALF_EXTENT, z: off }),
     },
     {
       side: 'south',
-      sideLabel: 'Selatan',
+      sideLabel: 'South',
       rotY: 0,
       coordForSlot: (off) => ({ x: off, z: FENCE_HALF_EXTENT }),
     },
     {
       side: 'west',
-      sideLabel: 'Barat',
+      sideLabel: 'West',
       rotY: Math.PI / 2,
       coordForSlot: (off) => ({ x: -FENCE_HALF_EXTENT, z: off }),
     },
@@ -587,8 +587,8 @@ export function createInitialFenceSegments(): FenceSegment[] {
         slotIndex,
         isGate,
         label: isGate
-          ? `Gerbang ${cfg.sideLabel} (${cfg.side.toUpperCase()}-2)`
-          : `Pagar ${cfg.sideLabel} ${s + 1} (${cfg.side.toUpperCase()}-${s + 1})`,
+          ? `${cfg.sideLabel} Gate (${cfg.side.toUpperCase()}-2)`
+          : `${cfg.sideLabel} Fence ${s + 1} (${cfg.side.toUpperCase()}-${s + 1})`,
         x: pos.x,
         z: pos.z,
         rotationY: cfg.rotY,

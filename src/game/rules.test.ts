@@ -46,6 +46,15 @@ import {
 } from './rules';
 import { ResourceNodeEntity, ZombieEntity } from './types';
 
+test('fence names are English for new and restored forts', () => {
+  const fresh = createInitialFenceSegments();
+  assert.equal(fresh[0].label, 'North Fence 1 (NORTH-1)');
+  assert.equal(fresh[1].label, 'North Gate (NORTH-2)');
+  assert.equal(fresh[3].label, 'East Fence 1 (EAST-1)');
+  const restored = restoreFenceSegmentsFromPersistence(serializeFenceSegmentsForPersistence(fresh));
+  assert.deepEqual(restored.map((s) => s.label), fresh.map((s) => s.label));
+});
+
 function makeZombie(overrides: Partial<ZombieEntity>): ZombieEntity {
   return {
     id: 1,
