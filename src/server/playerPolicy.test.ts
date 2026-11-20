@@ -1,3 +1,4 @@
+import { isCurrentDayFortSnapshot } from './playerPolicy';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
@@ -53,4 +54,10 @@ test('run rewards are bounded and a victory requires surviving every night', () 
     nightsSurvived: 2,
   });
   assert.equal(sanitizeRunResult({ score: Number.NaN, victory: false, nightsSurvived: 0 }), null);
+});
+
+test('fort snapshots from an earlier UTC day are rejected after reset', () => {
+  assert.equal(isCurrentDayFortSnapshot('2026-11-19', '2026-11-19'), true);
+  assert.equal(isCurrentDayFortSnapshot('2026-11-18', '2026-11-19'), false);
+  assert.equal(isCurrentDayFortSnapshot(undefined, '2026-11-19'), false);
 });

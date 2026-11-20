@@ -7,6 +7,8 @@ import {
 import {
   BUILDING_CATALOG,
   canAfford,
+  canUpgradeOnDay,
+  getLevel2BuildingUpgradeCost,
   FENCE_BUILD_COST,
   FENCE_UPGRADE_COST,
   FENCE_LEVEL3_UPGRADE_COST,
@@ -155,8 +157,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   const checkInClaimedToday = hud.daily.lastCheckInClaimedDateUTC === todayUTC;
   const checkInReady =
     !checkInClaimedToday &&
-    (hud.daily.checkInEligibleDateUTC === todayUTC ||
-      hud.daily.lastPlayedDateUTC === todayUTC);
+    hud.daily.checkInEligibleDateUTC === todayUTC && !hud.isDevTestMode;
 
   const flareNightLocked = !isNight;
   const flareOnCooldown = isNight && hud.flareCooldown > 0.05;
@@ -927,14 +928,17 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                     const bLoc = tr.buildings[bld.type];
                     const pathA = spec.paths.pathA;
                     const pathB = spec.paths.pathB;
+                    const upgradeDayLocked = !canUpgradeOnDay(bld.level, hud.dayNumber);
+                    const costA = getLevel2BuildingUpgradeCost(bld.type, 'pathA');
+                    const costB = getLevel2BuildingUpgradeCost(bld.type, 'pathB');
                     const canPathA =
                       !isConstructionLocked &&
-                      bld.upgradePath === null &&
-                      canAfford(hud.resources, pathA.cost);
+                      bld.upgradePath === null && !upgradeDayLocked &&
+                      canAfford(hud.resources, costA);
                     const canPathB =
                       !isConstructionLocked &&
-                      bld.upgradePath === null &&
-                      canAfford(hud.resources, pathB.cost);
+                      bld.upgradePath === null && !upgradeDayLocked &&
+                      canAfford(hud.resources, costB);
                     const upgDurationSec = getConstructionDuration({
                       action: 'upgrade_pad',
                       buildingType: bld.type,
@@ -1037,11 +1041,11 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                                 {bLoc.paths.pathA.tagline}
                               </div>
                               <div className="text-[10px] font-mono-tabular font-bold text-[#fbbf24]">
-                                {isConstructionLocked
+                                {upgradeDayLocked ? '🔒 Available Day 2' : isConstructionLocked
                                   ? isNight
                                     ? tr.nightLockedShort
                                     : `🔒 ${tr.lockedShort}`
-                                  : `${pathA.cost.wood}W · ${pathA.cost.stone}S · ${pathA.cost.food}F`}
+                                  : `${costA.wood}W · ${costA.stone}S · ${costA.food}F`}
                               </div>
                             </button>
 
@@ -1073,11 +1077,11 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                                 {bLoc.paths.pathB.tagline}
                               </div>
                               <div className="text-[10px] font-mono-tabular font-bold text-[#38bdf8]">
-                                {isConstructionLocked
+                                {upgradeDayLocked ? '🔒 Available Day 2' : isConstructionLocked
                                   ? isNight
                                     ? tr.nightLockedShort
                                     : `🔒 ${tr.lockedShort}`
-                                  : `${pathB.cost.wood}W · ${pathB.cost.stone}S · ${pathB.cost.food}F`}
+                                  : `${costB.wood}W · ${costB.stone}S · ${costB.food}F`}
                               </div>
                             </button>
                           </div>
@@ -1089,7 +1093,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                             </strong>
                             {bld.level < 3 && (() => {
                               const cost = getLevel3BuildingUpgradeCost(bld.type, bld.upgradePath);
-                              const canUpgrade = !isConstructionLocked && !isConstructing && canAfford(hud.resources, cost);
+                              const canUpgrade = !upgradeDayLocked && !isConstructionLocked && !isConstructing && canAfford(hud.resources, cost);
                               return (
                                 <button
                                   type="button"
@@ -1098,7 +1102,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                                   onClick={() => onUpgradeOnPad(bld.upgradePath!)}
                                   className="block mt-1 px-3 py-1 rounded-lg bg-[#78350f] border border-[#fbbf24] text-[#fef3c7] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  Upgrade to LV 3 · {cost.wood}W {cost.stone}S {cost.food}F · +20% HP & damage · {upgDurationSec}s
+                                  {upgradeDayLocked ? 'Available Day 3 · ' : ''}Upgrade to LV 3 · {cost.wood}W {cost.stone}S {cost.food}F · +20% HP & damage · {upgDurationSec}s
                                 </button>
                               );
                             })()}
@@ -1214,7 +1218,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 </span>
                 {!isConstructionLocked && (
                   <span className="text-[9.5px] text-[#fbbf24] hidden sm:inline">
-                    {builtFenceCount < hud.fenceSegments.length ? '15W·5S' : '20W·15S'}
+                    {builtFenceCount < hud.fenceSegments.length ? `${FENCE_BUILD_COST.wood}W·${FENCE_BUILD_COST.stone}S` : `${FENCE_UPGRADE_COST.wood}W·${FENCE_UPGRADE_COST.stone}S`}
                   </span>
                 )}
               </button>

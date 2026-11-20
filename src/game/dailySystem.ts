@@ -431,10 +431,7 @@ export function migrateDailyState(
 
   const allCompleted = tasks.every((t) => (taskProgress[t.id] ?? 0) >= t.target);
   const allTasksBonusClaimed = Boolean(src.allTasksBonusClaimed || allCompleted);
-  const dailyProgressionLocked =
-    typeof src.dailyProgressionLocked === 'boolean'
-      ? src.dailyProgressionLocked || allCompleted
-      : allCompleted;
+  const dailyProgressionLocked = false; // Daily task rewards do not lock gameplay.
 
   const bonusTasks =
     Array.isArray(src.bonusTasks) && src.bonusTasks.length > 0
@@ -587,7 +584,7 @@ export function saveFortAndResourcesToDailyState(
  * Applies the 00:00 UTC daily reset:
  * - Refills tickets to 3 (capped at 3; unused tickets do NOT carry over, plus any bonus ticket earned from yesterday's 3/3 task completion).
  * - Refreshes the 3 daily tasks, resets taskProgress, and unlocks dailyProgressionLocked.
- * - Preserves the player's saved fort structures, fence segments (restored to full HP), and resource wallet.
+ * - Resets fort, fences and resource wallet while preserving permanent progression.
  * - Resets streak to 0 if the player missed a full UTC day.
  */
 export function checkAndApplyDailyReset(
@@ -626,13 +623,9 @@ export function checkAndApplyDailyReset(
   // Unused tickets do NOT carry over and normal players never exceed MAX_DAILY_TICKETS (3) per UTC day
   const refilledTickets = MAX_DAILY_TICKETS;
 
-  // Restore saved fort & fences to full HP for the new UTC day while keeping all upgrades & wallet intact
-  const restoredPads = serializePadsForPersistence(
-    restorePadsFromPersistence(migrated.savedPads, true)
-  );
-  const restoredFences = serializeFenceSegmentsForPersistence(
-    restoreFenceSegmentsFromPersistence(migrated.savedFenceSegments, true)
-  );
+  // Each UTC day starts with a fresh fort and starting resources.
+  const restoredPads = serializePadsForPersistence(createInitialPads());
+  const restoredFences = serializeFenceSegmentsForPersistence(createInitialFenceSegments());
 
   return {
     ...migrated,
@@ -648,6 +641,7 @@ export function checkAndApplyDailyReset(
     dailyProgressionLocked: false,
     savedPads: restoredPads,
     savedFenceSegments: restoredFences,
+    savedResources: { wood: INITIAL_RESOURCES.wood, stone: INITIAL_RESOURCES.stone, food: INITIAL_RESOURCES.food },
     bonusTasks,
     bonusTaskProgress,
     bonusXpClaimedIds: [],
@@ -819,7 +813,7 @@ export function recordTaskProgress(
       toolTier: nextToolTier,
       taskProgress: nextProgress,
       allTasksBonusClaimed: state.allTasksBonusClaimed || allThreeJustCompleted,
-      dailyProgressionLocked: state.dailyProgressionLocked || allCompleted,
+      dailyProgressionLocked: false,
       pendingBonusTicketsTomorrow,
       bonusTaskProgress: nextBonusProgress,
       bonusXpClaimedIds: Array.from(nextBonusClaimed),
@@ -1104,7 +1098,9 @@ export function shouldLockDailyProgression(
   dailyProgressionLocked: boolean,
   devTestMode: boolean
 ): boolean {
-  return dailyProgressionLocked && !devTestMode;
+  void dailyProgressionLocked;
+  void devTestMode;
+  return false;
 }
 
 export function shouldConsumeTicketForStart(devTestMode: boolean): boolean {
@@ -1119,20 +1115,20 @@ export interface DevTestFortSnapshot {
 
 /**
  * Loads the isolated Demo / Dev Test fort & resource wallet from its dedicated localStorage key,
- * seeding from the player's current fort without ever mutating the production profile.
+ * starting from a fresh fort when no Demo save exists, without changing the normal profile.
  */
 export function loadDevTestFortFromStorage(
   fallbackState: DailyPersistenceState
 ): DevTestFortSnapshot {
+  // Never copy the normal fort into a new or reset Demo sandbox.
+  void fallbackState;
   const defaultSnapshot: DevTestFortSnapshot = {
-    savedPads: serializePadsForPersistence(restorePadsFromPersistence(fallbackState.savedPads, true)),
-    savedFenceSegments: serializeFenceSegmentsForPersistence(
-      restoreFenceSegmentsFromPersistence(fallbackState.savedFenceSegments, true)
-    ),
+    savedPads: serializePadsForPersistence(createInitialPads()),
+    savedFenceSegments: serializeFenceSegmentsForPersistence(createInitialFenceSegments()),
     savedResources: {
-      wood: fallbackState.savedResources?.wood ?? INITIAL_RESOURCES.wood,
-      stone: fallbackState.savedResources?.stone ?? INITIAL_RESOURCES.stone,
-      food: fallbackState.savedResources?.food ?? INITIAL_RESOURCES.food,
+      wood: INITIAL_RESOURCES.wood,
+      stone: INITIAL_RESOURCES.stone,
+      food: INITIAL_RESOURCES.food,
     },
   };
   if (typeof window === 'undefined' || !window.localStorage) {

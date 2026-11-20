@@ -67,3 +67,8 @@ export function sanitizeRunResult(value: unknown): {
     nightsSurvived,
   };
 }
+
+/** Old-day snapshots cannot overwrite a fort reset at UTC midnight. */
+export function isCurrentDayFortSnapshot(snapshotDate: unknown, currentDate: string): boolean {
+  return typeof snapshotDate === 'string' && snapshotDate === currentDate;
+}

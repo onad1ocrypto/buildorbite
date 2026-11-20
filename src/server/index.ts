@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { context, createServer, getServerPort, redis, reddit } from '@devvit/web/server';
 import { Hono } from 'hono';
+import { mergeClientSaveFields } from './profileMerge';
 import {
   checkAndApplyDailyReset,
   claimDailyCheckIn,
@@ -23,7 +24,6 @@ import {
 const app = new Hono();
 const PLAYER_KEY_PREFIX = 'build-or-bite:v1:player';
 const RUN_ID_TTL_MS = 48 * 60 * 60 * 1000;
-const MAX_SAVED_RESOURCE = 9999;
 
 function getUserId(): string | null {
   const userId = context.userId;
@@ -85,47 +85,6 @@ async function loadProfile(userId: string, nowMs: number): Promise<DailyPersiste
   return state;
 }
 
-function mergeClientSaveFields(
-  current: DailyPersistenceState,
-  incoming: unknown,
-  nowMs: number
-): DailyPersistenceState {
-  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
-    throw new Error('Invalid player data.');
-  }
-  const candidate = migrateDailyState(incoming, nowMs);
-  const source = incoming as Record<string, unknown>;
-  const rawResources =
-    source.savedResources && typeof source.savedResources === 'object'
-      ? (source.savedResources as Record<string, unknown>)
-      : {};
-  const boundedResource = (value: unknown, fallback: number): number => {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-    return Math.max(0, Math.min(MAX_SAVED_RESOURCE, Math.round(value)));
-  };
-
-  // Progression, XP, coins, tasks, streaks, unlocks, ticket counts and check-in
-  // claims are never accepted from the browser. Only fort snapshots, bounded
-  // resource values and selections already unlocked on this server are mutable here.
-  return {
-    ...current,
-    savedPads: candidate.savedPads,
-    savedFenceSegments: candidate.savedFenceSegments,
-    savedResources: {
-      wood: boundedResource(rawResources.wood, current.savedResources.wood),
-      stone: boundedResource(rawResources.stone, current.savedResources.stone),
-      food: boundedResource(rawResources.food, current.savedResources.food),
-    },
-    equippedLanternId:
-      typeof source.equippedLanternId === 'string' && current.cosmetics.includes(source.equippedLanternId)
-        ? source.equippedLanternId
-        : current.equippedLanternId,
-    equippedTitle:
-      typeof source.equippedTitle === 'string' && current.unlockedTitles.includes(source.equippedTitle)
-        ? source.equippedTitle
-        : current.equippedTitle,
-  };
-}
 
 function sanitizeProgressPayload(value: unknown): {
   runId: string;

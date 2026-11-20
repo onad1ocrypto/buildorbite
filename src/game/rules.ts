@@ -88,15 +88,15 @@ export const FENCE_SEGMENT_LENGTH = 6.2;
 export const FENCE_LEVEL1_MAX_HP = 240;
 export const FENCE_LEVEL2_MAX_HP = 420;
 export const FENCE_LEVEL3_MAX_HP = 600;
-export const FENCE_LEVEL3_UPGRADE_COST = { wood: 30, stone: 25, food: 0 };
+export const FENCE_LEVEL3_UPGRADE_COST = { wood: 40, stone: 35, food: 0 };
 export const FENCE_BUILD_COST = { wood: 15, stone: 5, food: 0 };
-export const FENCE_UPGRADE_COST = { wood: 20, stone: 15, food: 0 };
+export const FENCE_UPGRADE_COST = { wood: 25, stone: 20, food: 0 };
 export const FENCE_REPAIR_COST = { wood: 8, stone: 4, food: 0 };
 
 export const INITIAL_RESOURCES: Resources = {
-  wood: 165,
-  stone: 95,
-  food: 65,
+  wood: 100,
+  stone: 60,
+  food: 35,
   tickets: 3,
 };
 
@@ -784,7 +784,7 @@ export function advanceFenceSegmentBuild(
  * Direct click / button action on a fence segment (allowed only during Day phase when daily progression is unlocked):
  * - Level 0 -> Builds Level 1 Timber Palisade Fence (15W, 5S)
  * - Damaged Level 1/2 -> Repairs to full HP (8W, 4S)
- * - Full HP Level 1 -> Upgrades to Level 2 Ironbark Spiked Fence (20W, 15S)
+ * - Full HP Level 1 -> Upgrades to Level 2 Ironbark Spiked Fence (25W, 20S)
  */
 export function buildOrUpgradeFenceSegment(
   segment: FenceSegment,
@@ -1112,7 +1112,7 @@ export function upgradeStructureOnPad(
   const spec = BUILDING_CATALOG[pad.building.type];
   const pathSpec = spec.paths[pathId];
   const upgradingToLevel3 = pad.building.level === 2;
-  const upgradeCost = upgradingToLevel3 ? getLevel3BuildingUpgradeCost(pad.building.type, pathId) : pathSpec.cost;
+  const upgradeCost = upgradingToLevel3 ? getLevel3BuildingUpgradeCost(pad.building.type, pathId) : getLevel2BuildingUpgradeCost(pad.building.type, pathId);
   if (!canAfford(resources, upgradeCost)) {
     return {
       updatedPad: pad,
@@ -1413,7 +1413,7 @@ export function startPadConstructionTask(params: {
       };
     }
     const pathSpec = BUILDING_CATALOG[pad.building.type].paths[upgradePath];
-    const upgradeCost = pad.building.level === 2 ? getLevel3BuildingUpgradeCost(pad.building.type, upgradePath) : pathSpec.cost;
+    const upgradeCost = pad.building.level === 2 ? getLevel3BuildingUpgradeCost(pad.building.type, upgradePath) : getLevel2BuildingUpgradeCost(pad.building.type, upgradePath);
     if (!canAfford(resources, upgradeCost)) {
       return {
         started: false,
@@ -1690,9 +1690,18 @@ export function stepConstructionTask(params: {
   };
 }
 
+export function canUpgradeOnDay(currentLevel: number, dayNumber: number): boolean {
+  return currentLevel >= 1 && currentLevel < 3 && dayNumber >= currentLevel + 1;
+}
+
+export function getLevel2BuildingUpgradeCost(type: BuildingType, path: 'pathA' | 'pathB') {
+  const cost = BUILDING_CATALOG[type].paths[path].cost;
+  return { wood: Math.ceil(cost.wood * 1.2), stone: Math.ceil(cost.stone * 1.2), food: Math.ceil(cost.food * 1.2) };
+}
+
 export function getLevel3BuildingUpgradeCost(type: BuildingType, path: 'pathA' | 'pathB') {
   const cost = BUILDING_CATALOG[type].paths[path].cost;
-  return { wood: Math.ceil(cost.wood * 1.25), stone: Math.ceil(cost.stone * 1.25), food: Math.ceil(cost.food * 1.25) };
+  return { wood: Math.ceil(cost.wood * 1.6), stone: Math.ceil(cost.stone * 1.6), food: Math.ceil(cost.food * 1.6) };
 }
 
 export function getEffectiveBuildingStats(

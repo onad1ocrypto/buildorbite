@@ -70,7 +70,7 @@ export const Modals: React.FC<ModalsProps> = ({
   const todayUTC = daily.lastResetDateUTC;
   const checkInClaimedToday = daily.lastCheckInClaimedDateUTC === todayUTC;
   const checkInReady =
-    !checkInClaimedToday &&
+    !hud.isDevTestMode && !checkInClaimedToday &&
     (daily.checkInEligibleDateUTC === todayUTC);
 
   return (
@@ -302,6 +302,9 @@ export const Modals: React.FC<ModalsProps> = ({
               </div>
             </div>
 
+            {hud.statusBanner?.startsWith('Daily Check-In') && (
+              <div role="status" className="text-xs text-amber-300 mb-2">{hud.statusBanner}</div>
+            )}
             {/* Daily Check-In Reward Card (Revealed after first completed run of the UTC day) */}
             {checkInReady && <div
               data-testid="result-daily-checkin"

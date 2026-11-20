@@ -3,8 +3,10 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { soundFX } from '../game/audio';
 import { cameraTrackingTarget } from '../game/cameraTracking';
+import { CORNFIELD } from '../game/worldLayout';
 import { LanguageCode, TRANSLATIONS } from '../game/i18n';
 import {
+  animateCampfireFlames,
   createBarkTexture,
   createBuildingModel,
   createCentralFortModel,
@@ -35,6 +37,7 @@ import {
   canAfford,
   canGatherResourcesInPhase,
   canPerformConstructionInPhase,
+  canUpgradeOnDay,
   canTriggerLanternFlare,
   clampHeroPositionForPhase,
   computeZombieEffectiveSpeed,
@@ -417,7 +420,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     outerTrailTex.repeat.set(1, 3.0);
 
     const innerTrailMat = new THREE.MeshStandardMaterial({
-      color: 0xd6c2a8,
+      color: 0xe0e0d0,
       map: innerApproachTex,
       transparent: true,
       roughness: 0.92,
@@ -427,7 +430,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       depthWrite: false,
     });
     const outerTrailMat = new THREE.MeshStandardMaterial({
-      color: 0xd6c2a8,
+      color: 0xe0e0d0,
       map: outerTrailTex,
       transparent: true,
       roughness: 0.92,
@@ -529,9 +532,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     scene.add(roadStoneInst);
 
     // Pre-define cornfield location (Upper-Right Forest Space) and Resource Node coordinates so props never overlap them
-    const cornCenterX = 18.0;
-    const cornCenterZ = -14.8;
-    const cornRotY = -0.68;
+    const cornCenterX = CORNFIELD.x;
+    const cornCenterZ = CORNFIELD.z;
+    const cornRotY = CORNFIELD.rotation;
     const plannedPadCoords = createInitialPads().map((p) => ({ x: p.x, z: p.z }));
     const resourceNodes: ResourceNodeEntity[] = [
       { id: 101, type: 'wood', name: 'Timber Log Stack', x: -12.4, z: -9.8, amount: 60, maxAmount: 60, hitFlashTimer: 0, respawnTimer: 0 },
@@ -1333,6 +1336,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let activeRunId: string | null = null;
     let serverProgressQueue: Promise<void> = Promise.resolve();
     let serverCompletionQueue: Promise<void> = Promise.resolve();
+    let checkInInFlight = false;
     let lastRunSummary: RunCompletionSummary | null = null;
     let nightsSurvivedThisRun = 0;
     const vercelEnv = import.meta.env.VITE_VERCEL_ENV as string | undefined;
@@ -1419,14 +1423,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         addCallout(`Task Done: ${title}!`, rueX, 2.7, rueZ, '#4ade80', 1.8);
       }
       if (res.allThreeJustCompleted || (!wasLocked && dailyState.dailyProgressionLocked)) {
-        const tr = TRANSLATIONS[langRef.current];
-        if (pendingConstruction) {
-          pendingConstruction = null;
-          heroAnimState = 'idle';
-          document.body.dataset.heroAnim = heroAnimState;
-        }
         persistFortAndWallet();
-        setBanner(tr.dailyLockedBanner, 5.0);
+        setBanner('Daily tasks complete! Keep building and defending.', 5.0);
         addCallout(
           'All 3 Daily Tasks Done! Fort Saved!',
           rueX,
@@ -1564,7 +1562,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           buildingMeshesMap.delete(pad.id);
         }
         if (pad.building) {
-          const bldMesh = createBuildingModel(pad.building.type, pad.building.upgradePath);
+          const bldMesh = createBuildingModel(pad.building.type, pad.building.upgradePath, pad.building.level);
           if (pad.building.level >= 3) {
             const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.24), new THREE.MeshStandardMaterial({ color: 0xffdb63, emissive: 0x9a5800, emissiveIntensity: 0.7 }));
             marker.position.set(0, 3.6, 0);
@@ -2117,12 +2115,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
         if (result.daily) {
-          dailyState = {
+          const sameDay = result.daily.lastResetDateUTC === dailyState.lastResetDateUTC;
+          dailyState = sameDay ? {
             ...result.daily,
             savedPads: dailyState.savedPads,
             savedFenceSegments: dailyState.savedFenceSegments,
             savedResources: dailyState.savedResources,
-          };
+          } : result.daily;
         }
         dailyState = {
           ...dailyState,
@@ -2142,7 +2141,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     async function claimServerCheckIn() {
+      if (checkInInFlight) return;
+      checkInInFlight = true;
+      setBanner('Daily Check-In: verifying reward...', 8.0);
+      syncHud(true);
       try {
+        // The result screen can appear before the server has stored run completion.
+        await serverCompletionQueue;
         const response = await fetch('/api/check-in/claim', {
           method: 'POST',
           credentials: 'same-origin',
@@ -2152,7 +2157,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           daily?: DailyPersistenceState;
         };
         if (!response.ok || result.claimed !== true || !result.daily) {
-          setBanner('Daily Check-In is not available yet.', 3.5);
+          setBanner('Daily Check-In could not be claimed. Please retry.', 5.0);
+          syncHud(true);
           return;
         }
         dailyState = result.daily;
@@ -2165,9 +2171,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
         saveDailyStateToStorage(dailyState);
         soundFX.playBuild(true);
+        setBanner('Daily Check-In claimed: +25 Coins, +30 XP.', 5.0);
         syncHud(true);
       } catch {
-        setBanner('Daily Check-In could not be verified. Please try again.', 4.0);
+        setBanner('Daily Check-In could not be verified. Please try again.', 5.0);
+        syncHud(true);
+      } finally {
+        checkInInFlight = false;
       }
     }
 
@@ -2300,6 +2310,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             : null;
         const targetSeg = selectedSeg ?? findNextFenceSegmentForHero(rueX, rueZ, fenceSegments);
 
+        if (targetSeg && targetSeg.level > 0 && targetSeg.level < 3 && targetSeg.hp >= targetSeg.maxHp && !canUpgradeOnDay(targetSeg.level, dayNumber)) {
+          setBanner(`Fence level ${targetSeg.level + 1} unlocks on Day ${targetSeg.level + 1}.`, 3.5);
+          syncHud(true);
+          return;
+        }
         if (!targetSeg) {
           const tr = TRANSLATIONS[langRef.current];
           setBanner(tr.allFencesMaxBanner, 2.5);
@@ -2420,6 +2435,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (selectedPadId === null) return;
         const targetPad = pads.find((p) => p.id === selectedPadId);
         if (!targetPad || !targetPad.building) return;
+        if (targetPad.building.level < 3 && !canUpgradeOnDay(targetPad.building.level, dayNumber)) {
+          setBanner(`Level ${targetPad.building.level + 1} unlocks on Day ${targetPad.building.level + 1}.`, 3.5);
+          syncHud(true);
+          return;
+        }
 
         const startRes = startPadConstructionTask({
           pad: targetPad,
@@ -3022,6 +3042,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     function stepSimulation(rawDt: number) {
       const dt = Math.min(rawDt, 0.16);
       windTime += dt;
+      for (const pad of pads) {
+        if (pad.building?.type !== 'campfire') continue;
+        const model = buildingMeshesMap.get(pad.id);
+        if (model) animateCampfireFlames(model, pad.building.level, windTime);
+      }
 
       // Update status banner & ghost HP bar
       if (statusBannerTimer > 0) {

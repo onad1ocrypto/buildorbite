@@ -1,3 +1,4 @@
+import { canUpgradeOnDay, getLevel2BuildingUpgradeCost } from './rules';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -902,8 +903,8 @@ test('level three fence upgrades use correct cost, persist and preserve older sa
   const level3 = buildOrUpgradeFenceSegment(level2.updatedSegment, wallet);
   assert.equal(level3.updatedSegment.level, 3);
   assert.equal(level3.updatedSegment.maxHp, 600);
-  assert.equal(level3.updatedResources.wood, 470);
-  assert.equal(level3.updatedResources.stone, 475);
+  assert.equal(level3.updatedResources.wood, 460);
+  assert.equal(level3.updatedResources.stone, 465);
   assert.equal(buildOrUpgradeFenceSegment(level3.updatedSegment, wallet).reason, 'max_level');
   const restored3 = restoreFenceSegmentsFromPersistence(serializeFenceSegmentsForPersistence([level3.updatedSegment]));
   assert.equal(restored3[1].level, 3);
@@ -943,4 +944,13 @@ test('every level three building retains its upgrade path, gets 20% stats and su
       assert.equal(oldSave[0].building?.level, 2);
     }
   }
+});
+
+test('fort upgrades unlock progressively and use higher costs', () => {
+  assert.equal(canUpgradeOnDay(1, 1), false);
+  assert.equal(canUpgradeOnDay(1, 2), true);
+  assert.equal(canUpgradeOnDay(2, 2), false);
+  assert.equal(canUpgradeOnDay(2, 3), true);
+  assert.equal(canUpgradeOnDay(3, 3), false);
+  assert.deepEqual(getLevel2BuildingUpgradeCost('watchtower', 'pathA'), { wood: 36, stone: 36, food: 12 });
 });

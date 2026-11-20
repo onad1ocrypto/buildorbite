@@ -76,8 +76,8 @@ test('demo/test mode is enabled in Dev and Vercel Preview (?devTest=1, ?demo=1, 
   assert.equal(isDevelopmentTestMode(false, '?demo=1', true, ''), false);
 });
 
-test('developer QA mode bypasses only the daily lock and never spends tickets; production rules remain unchanged', () => {
-  assert.equal(shouldLockDailyProgression(true, false), true);
+test('daily tasks do not lock gameplay and Demo never spends tickets', () => {
+  assert.equal(shouldLockDailyProgression(true, false), false);
   assert.equal(shouldLockDailyProgression(true, true), false);
   assert.equal(shouldLockDailyProgression(false, true), false);
   assert.equal(shouldConsumeTicketForStart(false), true);
@@ -297,7 +297,7 @@ test('completing all 3 daily tasks awards bonus coins & XP, locks daily progress
   assert.equal(allThreeJustCompleted, true);
   assert.equal(updatedState.allTasksBonusClaimed, true);
   assert.equal(updatedState.pendingBonusTicketsTomorrow, 0);
-  assert.equal(updatedState.dailyProgressionLocked, true);
+  assert.equal(updatedState.dailyProgressionLocked, false);
 
   // Next UTC day reset refills strictly to 3 base tickets (no rollover/bonus above 3) and unlocks daily progression
   const nextDayState = checkAndApplyDailyReset(updatedState, day2);
@@ -367,7 +367,7 @@ test('normal players can never hold or receive more than 3 tickets per UTC day',
   assert.equal(state.tickets, 0);
 });
 
-test('Persistent fort and resource wallet remain intact across boss victory, daily task lock, and 00:00 UTC reset', () => {
+test('Fort persists within a UTC day and resets alongside the resource wallet at midnight', () => {
   const day1 = Date.UTC(2026, 10, 16, 15, 0, 0);
   const day2 = Date.UTC(2026, 10, 17, 0, 30, 0);
   let state = createDefaultDailyState(day1);
@@ -394,7 +394,7 @@ test('Persistent fort and resource wallet remain intact across boss victory, dai
     consecutiveNightsSurvived: 3,
     runScore: 2200,
   }).updatedState;
-  assert.equal(state.dailyProgressionLocked, true);
+  assert.equal(state.dailyProgressionLocked, false);
 
   state = completeRunProgression(state, {
     score: 2200,
@@ -410,19 +410,19 @@ test('Persistent fort and resource wallet remain intact across boss victory, dai
   assert.equal(state.savedResources.wood, f1.updatedResources.wood);
   assert.equal(state.savedFenceSegments[f1.updatedSegment.id - 1].level, 1);
 
-  // Advance across 00:00 UTC reset -> fort and wallet still persist and restore to full maxHp
+  // Same-day restart retains the fort; the next UTC day resets it and resources.
+  const sameDay = checkAndApplyDailyReset(state, day1 + 60_000);
+  assert.equal(sameDay.savedPads[0].building?.level, 2);
   const nextDayState = checkAndApplyDailyReset(state, day2);
+  const fresh = createDefaultDailyState(day2);
   assert.equal(nextDayState.dailyProgressionLocked, false);
-  assert.equal(nextDayState.savedPads[0].building?.type, 'watchtower');
-  assert.equal(nextDayState.savedPads[0].building?.upgradePath, 'pathB');
-  assert.equal(nextDayState.savedResources.wood, f1.updatedResources.wood);
-
-  const restoredPads = restorePadsFromPersistence(nextDayState.savedPads, true);
-  const restoredFences = restoreFenceSegmentsFromPersistence(nextDayState.savedFenceSegments, true);
-  assert.equal(restoredPads[0].building?.type, 'watchtower');
-  assert.equal(restoredPads[0].building?.hp, restoredPads[0].building?.maxHp);
-  assert.equal(restoredFences[f1.updatedSegment.id - 1].level, 1);
-  assert.equal(restoredFences[f1.updatedSegment.id - 1].hp, restoredFences[f1.updatedSegment.id - 1].maxHp);
+  assert.deepEqual(nextDayState.savedPads, fresh.savedPads);
+  assert.deepEqual(nextDayState.savedFenceSegments, fresh.savedFenceSegments);
+  assert.deepEqual(nextDayState.savedResources, fresh.savedResources);
+  assert.equal(nextDayState.xp, state.xp);
+  assert.equal(nextDayState.coins, state.coins);
+  assert.equal(nextDayState.bestStreak, state.bestStreak);
+  assert.deepEqual(nextDayState.cosmetics, state.cosmetics);
 });
 
 test('Demo / Test mode grants 0 XP, 0 Coins, does not advance tasks or streak, and preserves saved fort', () => {
@@ -671,4 +671,39 @@ test('level three upgrades survive normal save migration', () => {
   assert.equal(migrated.savedPads[0].building?.upgradePath, 'pathB');
   assert.equal(migrated.savedFenceSegments[1].level, 3);
   assert.equal(migrated.savedFenceSegments[1].maxHp, 600);
+});
+
+
+test('reset Demo starts fresh even when the normal fort is fully upgraded', () => {
+  const store = new Map<string, string>();
+  const previous = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {
+    localStorage: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+    },
+  };
+  try {
+    const state = createDefaultDailyState(Date.UTC(2026, 10, 19));
+    const wallet = { wood: 1000, stone: 1000, food: 1000, tickets: 3 };
+    const pads = createInitialPads();
+    const built = buildStructureOnPad(pads[0], wallet, 'watchtower', 'day');
+    const upgraded = upgradeStructureOnPad(built.updatedPad, wallet, 'pathA', 'day');
+    pads[0] = upgradeStructureOnPad(upgraded.updatedPad, wallet, 'pathA', 'day').updatedPad;
+    const fences = createInitialFenceSegments();
+    state.savedPads = saveFortAndResourcesToDailyState(state, pads, fences, wallet).savedPads;
+    state.savedResources = { wood: 999, stone: 999, food: 999 };
+    store.set(DAILY_STORAGE_KEY, JSON.stringify(state));
+    saveDevTestFortToStorage(pads, fences, wallet);
+    assert.equal(loadDevTestFortFromStorage(state).savedPads[0].building?.level, 3);
+    clearDevTestFortFromStorage();
+    const freshDemo = loadDevTestFortFromStorage(state);
+    assert.equal(freshDemo.savedPads[0].building, null);
+    assert.deepEqual(freshDemo.savedResources, createDefaultDailyState(Date.UTC(2026, 10, 19)).savedResources);
+    assert.deepEqual(JSON.parse(store.get(DAILY_STORAGE_KEY)!), state);
+  } finally {
+    if (previous === undefined) delete (globalThis as { window?: unknown }).window;
+    else (globalThis as { window?: unknown }).window = previous;
+  }
 });

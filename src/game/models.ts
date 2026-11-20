@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
   BuildingType,
   FenceSegment,
@@ -47,7 +48,7 @@ export function createGrassTerrainTexture(
   const ctx = canvas.getContext('2d')!;
 
   // Base warm olive-meadow turf undertone (distinct from cool dark evergreen tree leaves)
-  ctx.fillStyle = isOuterForest ? '#384d1b' : '#4d6b22';
+  ctx.fillStyle = isOuterForest ? '#385626' : '#527c32';
   ctx.fillRect(0, 0, 256, 256);
 
   // Dappled warm moss, golden turf & loamy soil patches
@@ -124,9 +125,9 @@ export function createDirtRoadTexture(maxAnisotropy: number): THREE.CanvasTextur
     // Slight wagon wheel rut darkening around x=78 and x=178
     const rutDist = Math.min(Math.abs(x - 78), Math.abs(x - 178));
     const rutShade = rutDist < 18 ? -12 : 0;
-    const r = 104 + rutShade;
-    const g = 81 + rutShade;
-    const b = 58 + rutShade;
+    const r = 146 + rutShade;
+    const g = 137 + rutShade;
+    const b = 119 + rutShade;
     ctx.fillStyle = `rgba(${r},${g},${b},${(alpha * 0.96).toFixed(2)})`;
     ctx.fillRect(x, 0, 1, 256);
   }
@@ -139,14 +140,14 @@ export function createDirtRoadTexture(maxAnisotropy: number): THREE.CanvasTextur
     const tone = i % 5;
     ctx.fillStyle =
       tone === 0
-        ? 'rgba(72, 54, 38, 0.65)'
+        ? 'rgba(92, 87, 77, 0.65)'
         : tone === 1
-        ? 'rgba(132, 112, 92, 0.55)'
+        ? 'rgba(160, 151, 134, 0.55)'
         : tone === 2
         ? 'rgba(148, 138, 126, 0.6)'
         : tone === 3
-        ? 'rgba(88, 68, 48, 0.55)'
-        : 'rgba(58, 44, 30, 0.5)';
+        ? 'rgba(112, 106, 94, 0.55)'
+        : 'rgba(81, 77, 69, 0.5)';
     ctx.beginPath();
     ctx.arc(px, py, rad, 0, Math.PI * 2);
     ctx.fill();
@@ -407,9 +408,9 @@ export function createStripedPajamaTexture(maxAnisotropy: number): THREE.CanvasT
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
-  // Vertical cream-and-slate-blue stripes matching Old Grumble's canonical pajama reference art
+  // Vertical cream-and-purple stripes preserve Old Grumble's pajamas
   for (let x = 0; x < 64; x += 8) {
-    ctx.fillStyle = (x / 8) % 2 === 0 ? '#d8d2c5' : '#3b596b';
+    ctx.fillStyle = (x / 8) % 2 === 0 ? '#f2e7d7' : '#7e4db2';
     ctx.fillRect(x, 0, 8, 64);
   }
   const tex = new THREE.CanvasTexture(canvas);
@@ -550,19 +551,19 @@ export function createRangerRueModel(): RueRig {
   });
 
   // 2. Sculpted Ranger Coat Skirt, Tunic Torso, Shoulder Pauldrons & Flowing Scarf
-  const coatHem = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.54, 0.36, 16), outfitBlueMat);
+  const coatHem = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.50, 0.36, 20), outfitBlueMat);
   coatHem.position.y = 0.54;
   coatHem.castShadow = true;
 
   const coatYellowTrim = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.53, 0.56, 0.07, 16),
+    new THREE.CylinderGeometry(0.49, 0.51, 0.07, 20),
     outfitYellowMat
   );
   coatYellowTrim.position.y = 0.37;
 
   // Sculpted upper torso (wider chest, tapered waist)
-  const vestTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.41, 0.54, 16), outfitOrangeMat);
-  vestTorso.scale.set(1.08, 1.0, 0.88);
+  const vestTorso = new THREE.Mesh(new THREE.SphereGeometry(0.47, 20, 16), outfitOrangeMat);
+  vestTorso.scale.set(1.04, 0.76, 0.80);
   vestTorso.position.y = 0.84;
   vestTorso.castShadow = true;
 
@@ -592,7 +593,7 @@ export function createRangerRueModel(): RueRig {
   });
 
   // Yellow Collar Scarf + Twin Fluttering Scarf Tails at the Back
-  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.085, 10, 18), outfitYellowMat);
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.065, 10, 18), outfitYellowMat);
   collar.rotation.x = Math.PI / 2;
   collar.scale.set(1.05, 0.95, 1.0);
   collar.position.y = 1.13;
@@ -664,10 +665,10 @@ export function createRangerRueModel(): RueRig {
 
   // 5. Sculpted Head, Facial Features, Ginger Hair & Sharp Vivid Crimson-Scarlet Ranger Hat
   const headGroup = new THREE.Group();
-  headGroup.position.set(0, 1.35, 0);
+  headGroup.position.set(0, 1.42, 0);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 18, 16), skinMat);
-  head.scale.set(1.0, 1.02, 0.96);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 20), skinMat);
+  head.scale.set(0.95, 1.08, 0.94);
   head.castShadow = true;
   headGroup.add(head);
 
@@ -678,38 +679,46 @@ export function createRangerRueModel(): RueRig {
     ear.position.set(ex, 0.0, 0.02);
     headGroup.add(ear);
   });
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.12, 8), skinMat);
-  nose.rotation.x = Math.PI / 2 - 0.15;
-  nose.position.set(0, -0.02, 0.39);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.048, 12, 10), skinMat);
+  nose.scale.set(0.86, 0.80, 1.1);
+  nose.position.set(0, -0.035, 0.36);
   headGroup.add(nose);
 
   // Expressive Eyes with White Catchlight Sparkles + Cheerful Smile
   const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const irisBrownMat = new THREE.MeshBasicMaterial({ color: 0x1e120d });
-  const eyeGeo = new THREE.SphereGeometry(0.105, 12, 10);
-  const pupilGeo = new THREE.SphereGeometry(0.062, 10, 10);
-  const catchlightGeo = new THREE.SphereGeometry(0.022, 6, 6);
+  const eyeGeo = new THREE.SphereGeometry(0.085, 12, 10);
+  const pupilGeo = new THREE.SphereGeometry(0.047, 10, 10);
+  const catchlightGeo = new THREE.SphereGeometry(0.014, 6, 6);
 
   const leftEye = new THREE.Mesh(eyeGeo, eyeWhiteMat);
-  leftEye.position.set(-0.14, 0.04, 0.31);
+  leftEye.scale.set(0.9, 1.12, 0.46);
+  leftEye.position.set(-0.135, 0.045, 0.32);
   const rightEye = new THREE.Mesh(eyeGeo, eyeWhiteMat);
-  rightEye.position.set(0.14, 0.04, 0.31);
+  rightEye.scale.set(0.9, 1.12, 0.46);
+  rightEye.position.set(0.135, 0.045, 0.32);
 
   const leftPupil = new THREE.Mesh(pupilGeo, irisBrownMat);
-  leftPupil.position.set(-0.14, 0.04, 0.375);
+  leftPupil.scale.set(0.85, 1.1, 0.45);
+  leftPupil.position.set(-0.135, 0.04, 0.356);
   const rightPupil = new THREE.Mesh(pupilGeo, irisBrownMat);
-  rightPupil.position.set(0.14, 0.04, 0.375);
+  rightPupil.scale.set(0.85, 1.1, 0.45);
+  rightPupil.position.set(0.135, 0.04, 0.356);
 
   const leftSparkle = new THREE.Mesh(catchlightGeo, eyeWhiteMat);
-  leftSparkle.position.set(-0.115, 0.068, 0.425);
+  leftSparkle.position.set(-0.119, 0.062, 0.379);
   const rightSparkle = new THREE.Mesh(catchlightGeo, eyeWhiteMat);
-  rightSparkle.position.set(0.165, 0.068, 0.425);
+  rightSparkle.position.set(0.151, 0.062, 0.379);
 
-  const smileMouth = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.04, 0.04),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  const smileCurve = new THREE.QuadraticBezierCurve3(
+    new THREE.Vector3(-0.07, -0.135, 0.335),
+    new THREE.Vector3(0, -0.20, 0.35),
+    new THREE.Vector3(0.07, -0.135, 0.335)
   );
-  smileMouth.position.set(0, -0.14, 0.35);
+  const smileMouth = new THREE.Mesh(
+    new THREE.TubeGeometry(smileCurve, 12, 0.012, 6, false),
+    new THREE.MeshStandardMaterial({ color: 0x7c4034, roughness: 0.8 })
+  );
 
   // Eyebrows
   const browGeo = new THREE.BoxGeometry(0.15, 0.045, 0.05);
@@ -721,7 +730,7 @@ export function createRangerRueModel(): RueRig {
   rightBrow.rotation.z = -0.1;
 
   // Ginger-Red Hair Locks framing temples, cheeks, and back
-  const hairSpikeGeo = new THREE.ConeGeometry(0.14, 0.32, 7);
+  const hairSpikeGeo = new THREE.SphereGeometry(0.14, 10, 8);
   const hairOffsets: [number, number, number, number, number][] = [
     [-0.34, 0.06, 0.12, 0.2, 0.62],
     [-0.36, -0.07, 0.02, 0.1, 0.82],
@@ -736,18 +745,19 @@ export function createRangerRueModel(): RueRig {
   hairOffsets.forEach(([hx, hy, hz, rx, rz]) => {
     const spike = new THREE.Mesh(hairSpikeGeo, gingerHairMat);
     spike.position.set(hx, hy, hz);
+    spike.scale.set(0.72, 1.22, 0.64);
     spike.rotation.set(rx, 0, rz);
     headGroup.add(spike);
   });
 
   // VIVID SHARP RED RANGER HAT ("ubah warna topi merah tajam"):
   // Wide Vivid Scarlet Brim + Sleek Black Outer Trim Ring + Black Hatband + Tall Vivid Red Montana-Peak Crown
-  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.80, 0.065, 24), hatRedMat);
+  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.68, 0.065, 24), hatRedMat);
   hatBrim.position.y = 0.25;
   hatBrim.castShadow = true;
 
   const hatBrimOuterTrim = new THREE.Mesh(
-    new THREE.TorusGeometry(0.79, 0.032, 10, 28),
+    new THREE.TorusGeometry(0.67, 0.028, 10, 28),
     hatBlackMat
   );
   hatBrimOuterTrim.rotation.x = Math.PI / 2;
@@ -816,6 +826,7 @@ export function createRangerRueModel(): RueRig {
   leftCuff.position.set(0, -0.3, 0.2);
   leftCuff.rotation.x = -Math.PI / 5;
   const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 10), bootBrownMat);
+  leftHand.scale.set(0.9, 1.12, 0.88);
   leftHand.position.set(0, -0.36, 0.25);
 
   const hammerShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.052, 0.78, 10), darkBandMat);
@@ -852,6 +863,7 @@ export function createRangerRueModel(): RueRig {
   rightCuff.position.set(0, -0.26, 0.29);
   rightCuff.rotation.x = -Math.PI / 3.2;
   const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 10), bootBrownMat);
+  rightHand.scale.set(0.9, 1.12, 0.88);
   rightHand.position.set(0, -0.31, 0.35);
 
   const lanternGroup = new THREE.Group();
@@ -961,7 +973,7 @@ export function createCentralFortModel(): THREE.Group {
     metalness: 0.1,
   });
   const shutterMat = new THREE.MeshStandardMaterial({
-    color: 0x1e4d3b,
+    color: 0x355a79,
     roughness: 0.72,
     metalness: 0.12,
   });
@@ -1208,7 +1220,7 @@ export function createPlacementPadMesh(ring: 'inner' | 'outer'): THREE.Group {
     flatShading: true,
   });
   const woodDeckMat = new THREE.MeshStandardMaterial({
-    color: 0x6b4226,
+    color: 0x8799a4,
     roughness: 0.8,
     metalness: 0.08,
     flatShading: true,
@@ -1234,13 +1246,13 @@ export function createPlacementPadMesh(ring: 'inner' | 'outer'): THREE.Group {
   baseCurb.receiveShadow = true;
   group.add(baseCurb);
 
-  // Recessed timber decking platform
+  // Recessed blue-grey stone building platform
   const woodDeck = new THREE.Mesh(new THREE.CylinderGeometry(1.26, 1.3, 0.08, 8), woodDeckMat);
   woodDeck.position.y = 0.15;
   woodDeck.receiveShadow = true;
   group.add(woodDeck);
 
-  // Plank joinery seams across the deck
+  // Stone joints across the platform
   const plankBeamGeo = new THREE.BoxGeometry(2.15, 0.03, 0.09);
   for (let i = -2; i <= 2; i++) {
     const seam = new THREE.Mesh(plankBeamGeo, stoneMat);
@@ -1379,13 +1391,13 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
     flatShading: true,
   });
   const woodMat = new THREE.MeshStandardMaterial({
-    color: segment.level >= 2 ? 0x6e3219 : 0x8b542f,
+    color: segment.level >= 2 ? 0xa45b30 : 0xb97a42,
     roughness: 0.78,
     metalness: 0.08,
     flatShading: true,
   });
   const barkMat = new THREE.MeshStandardMaterial({
-    color: 0x4a2c16,
+    color: 0x71452a,
     roughness: 0.88,
     metalness: 0.08,
     flatShading: true,
@@ -1627,15 +1639,29 @@ export function createFenceSegmentModel(segment: FenceSegment): THREE.Group {
   return group;
 }
 
+/** A steady first-level fire; upgrades make the individual tongues sway visibly. */
+export function animateCampfireFlames(building: THREE.Group, level: number, time: number): void {
+  const flames = building.getObjectByName('campfire-flames');
+  if (!flames) return;
+  const base = level >= 3 ? 1.16 : level >= 2 ? 1 : 0.84;
+  flames.scale.setScalar(base);
+  flames.children.forEach((tongue, index) => {
+    const wave = level >= 2 ? Math.sin(time * 2.2 + index * 1.3) : 0;
+    tongue.scale.y = 1 + wave * (level >= 3 ? 0.22 : 0.16);
+    tongue.rotation.z = wave * 0.13;
+  });
+}
+
 export function createBuildingModel(
   type: BuildingType,
-  upgradePath: UpgradePathId
+  upgradePath: UpgradePathId,
+  level = 1
 ): THREE.Group {
   const group = new THREE.Group();
   group.add(createContactShadow(1.48));
 
   const woodMat = new THREE.MeshStandardMaterial({
-    color: upgradePath === 'pathA' ? 0x7c2d12 : upgradePath === 'pathB' ? 0x3f6212 : 0x8b542f,
+    color: upgradePath === 'pathA' ? 0x7c2d12 : upgradePath === 'pathB' ? 0x76513e : 0x8b542f,
     roughness: 0.78,
     metalness: 0.1,
     flatShading: true,
@@ -1677,7 +1703,7 @@ export function createBuildingModel(
     flatShading: true,
   });
   const greenMat = new THREE.MeshStandardMaterial({
-    color: upgradePath === 'pathA' ? 0x991b1b : upgradePath === 'pathB' ? 0x0f766e : 0x1e4d3b,
+    color: upgradePath === 'pathA' ? 0x991b1b : upgradePath === 'pathB' ? 0x3b7698 : 0x355a79,
     roughness: 0.72,
     metalness: 0.1,
     flatShading: true,
@@ -1976,34 +2002,25 @@ export function createBuildingModel(
       group.add(log);
     }
 
-    // Multi-layered outer & inner flames
-    const outerFlameMat = new THREE.MeshStandardMaterial({
-      color: 0xffedd5,
-      emissive: upgradePath === 'pathB' ? 0xea580c : 0xf59e0b,
-      emissiveIntensity: 2.8,
-      roughness: 0.18,
-      flatShading: true,
-    });
-    const innerFlameMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: 0xfef08a,
-      emissiveIntensity: 3.4,
-      roughness: 0.1,
-      flatShading: true,
-    });
-    const flameMain = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.05, 7), outerFlameMat);
-    flameMain.position.y = 0.68;
-    const flameCore = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.72, 6), innerFlameMat);
-    flameCore.position.y = 0.62;
-    group.add(flameMain, flameCore);
-    for (let f = 0; f < 3; f++) {
-      const fa = (f * Math.PI * 2) / 3 + 0.4;
-      const tongue = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 5), outerFlameMat);
-      tongue.position.set(Math.cos(fa) * 0.26, 0.52, Math.sin(fa) * 0.26);
-      tongue.rotation.z = -Math.cos(fa) * 0.22;
-      tongue.rotation.x = Math.sin(fa) * 0.22;
-      group.add(tongue);
+    // Saturated, unlit orange and yellow tongues stay visible in both day and night.
+    // Several tongues surround the pot so they are not hidden behind it.
+    const outerFlameMat = new THREE.MeshBasicMaterial({ color: 0xff5a16 });
+    const innerFlameMat = new THREE.MeshBasicMaterial({ color: 0xffcf35 });
+    const flames = new THREE.Group();
+    flames.name = 'campfire-flames';
+    for (let f = 0; f < 6; f++) {
+      const angle = (f * Math.PI * 2) / 6;
+      const holder = new THREE.Group();
+      holder.position.set(Math.cos(angle) * 0.42, 0.24, Math.sin(angle) * 0.42);
+      const outer = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.1, 7), outerFlameMat);
+      outer.position.y = 0.55;
+      const inner = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.7, 7), innerFlameMat);
+      inner.position.y = 0.35;
+      holder.add(outer, inner);
+      flames.add(holder);
     }
+    group.add(flames);
+    animateCampfireFlames(group, level, 0);
 
     // Wrought-iron cooking tripod & suspended stew cauldron over the fire
     const tripodPoleGeo = new THREE.CylinderGeometry(0.035, 0.045, 2.25, 6);
@@ -2274,6 +2291,19 @@ export function createBuildingModel(
   return group;
 }
 
+// Reuse the few shared rounded body shapes across the horde to avoid rebuilding
+// the same geometry for every spawned zombie. Props and materials remain per type.
+const zombieBodyGeometry = new Map<string, RoundedBoxGeometry>();
+function zombieRoundedBox(width: number, height: number, depth: number, radius: number): RoundedBoxGeometry {
+  const key = `${width}:${height}:${depth}:${radius}`;
+  let geometry = zombieBodyGeometry.get(key);
+  if (!geometry) {
+    geometry = new RoundedBoxGeometry(width, height, depth, 2, radius);
+    zombieBodyGeometry.set(key, geometry);
+  }
+  return geometry;
+}
+
 export function createZombieModel(
   type: ZombieArchetype,
   pajamaTex: THREE.CanvasTexture
@@ -2302,12 +2332,12 @@ export function createZombieModel(
 
   // Canonical skin colors matched to the 7 attached reference PNGs
   const zombieSkinColors: Record<ZombieArchetype, number> = {
-    shamble: 0x7c9a63, // Mossy olive-sage (zombie-shamble.png)
-    grinner: 0x689f82, // Pale blue-green undead (zombie-the-grinner.png)
-    grumble: 0x7a9960, // Olive-green (zombie-old-grumble.png)
-    gawp: 0x789c60, // Olive-sage (zombie-gawp.png)
-    brine: 0x738c54, // Bog olive-green (zombie-brine.png)
-    baron: 0x748c52, // Warlord undead olive (zombie-baron-blight.png)
+    shamble: 0xa5bbb0, // Mossy olive-sage (zombie-shamble.png)
+    grinner: 0x82afb9, // Pale blue-green undead (zombie-the-grinner.png)
+    grumble: 0xb5c2ad, // Olive-green (zombie-old-grumble.png)
+    gawp: 0xacc3b9, // Olive-sage (zombie-gawp.png)
+    brine: 0x8cabb7, // Bog olive-green (zombie-brine.png)
+    baron: 0xa9b3b6, // Warlord undead olive (zombie-baron-blight.png)
     swift_stumbler: 0xfdba74,
     armored_undead: 0x64748b,
     bone_howler: 0x5eead4,
@@ -2317,38 +2347,38 @@ export function createZombieModel(
     color: zombieSkinColors[type],
     roughness: type === 'brine' ? 0.35 : 0.72,
     metalness: type === 'brine' ? 0.2 : 0.06,
-    flatShading: true,
+    flatShading: false,
   });
 
-  // Canonical outfit/coat colors matched to reference PNGs
+  // Bright contrasting clothing, while keeping each zombie's signature shape and props.
   const coatMat =
     type === 'grumble'
       ? new THREE.MeshStandardMaterial({
           color: 0xffffff,
           map: pajamaTex,
           roughness: 0.82,
-          flatShading: true,
+          flatShading: false,
         })
       : new THREE.MeshStandardMaterial({
           color:
             type === 'shamble'
-              ? 0x5c432d // Muddy tattered brown tunic
+              ? 0xd53738 // Red tunic
               : type === 'grinner'
-              ? 0x1f474d // Dark slate-teal Victorian tailcoat
+              ? 0x9153c4 // Purple Victorian tailcoat
               : type === 'gawp'
-              ? 0x784932 // Patched rust-brown & olive rag shirt
+              ? 0xe27628 // Orange rag shirt
               : type === 'brine'
-              ? 0x264732 // Dark swamp-green bog shirt
+              ? 0x3b81cb // Blue bog shirt
               : type === 'baron'
               ? 0x2d3748 // Dark gunmetal plate armor
               : type === 'armored_undead'
               ? 0x1e293b
               : type === 'swift_stumbler'
-              ? 0xc2410c
-              : 0x0f766e,
+              ? 0xe66c20
+              : 0xa25ccb,
           roughness: type === 'baron' || type === 'armored_undead' ? 0.42 : 0.78,
           metalness: type === 'baron' || type === 'armored_undead' ? 0.6 : 0.12,
-          flatShading: true,
+          flatShading: false,
         });
 
   const pantsMat =
@@ -2357,21 +2387,21 @@ export function createZombieModel(
       : new THREE.MeshStandardMaterial({
           color:
             type === 'shamble'
-              ? 0x4a5538
+              ? 0x6b5a4b
               : type === 'grinner'
-              ? 0x3b4a42
+              ? 0x4a5361
               : type === 'gawp'
-              ? 0x2f472e
+              ? 0x5d4b40
               : type === 'brine'
               ? 0x4d3826
               : 0x1e293b,
           roughness: 0.85,
-          flatShading: true,
+          flatShading: false,
         });
 
   // 1. Legs & Boots/Feet
   const isLanky = type === 'grinner';
-  const legGeo = new THREE.BoxGeometry(isLanky ? 0.18 : 0.22, isLanky ? 0.54 : 0.45, 0.22);
+  const legGeo = zombieRoundedBox(isLanky ? 0.18 : 0.22, isLanky ? 0.54 : 0.45, 0.22, 0.075);
   const leftLeg = new THREE.Mesh(legGeo, pantsMat);
   leftLeg.position.set(-0.16, 0.24, 0);
   const rightLeg = new THREE.Mesh(legGeo, pantsMat);
@@ -2382,7 +2412,8 @@ export function createZombieModel(
   const torsoWidth =
     type === 'baron' ? 0.76 : type === 'brine' ? 0.68 : type === 'grinner' ? 0.46 : 0.58;
   const torsoHeight = type === 'grinner' ? 0.78 : type === 'baron' ? 0.78 : 0.68;
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(torsoWidth, torsoHeight, 0.38), coatMat);
+  const torso = new THREE.Mesh(zombieRoundedBox(torsoWidth, torsoHeight, 0.38, 0.12), coatMat);
+  torso.name = 'zombie-torso';
   torso.position.y = 0.76;
   if (type === 'shamble' || type === 'brine') {
     torso.rotation.x = 0.18;
@@ -2399,7 +2430,7 @@ export function createZombieModel(
   const headZOffset =
     type === 'swift_stumbler' ? 0.12 : type === 'shamble' || type === 'brine' ? 0.08 : 0;
   const head = new THREE.Mesh(
-    new THREE.BoxGeometry(type === 'grinner' ? 0.44 : 0.5, 0.5, 0.48),
+    zombieRoundedBox(type === 'grinner' ? 0.44 : 0.5, 0.5, 0.48, 0.13),
     skinMat
   );
   head.position.set(0, headY, headZOffset);
@@ -2423,21 +2454,25 @@ export function createZombieModel(
   const darkMouthMat = new THREE.MeshBasicMaterial({ color: 0x1e1312 });
 
   const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eyeYellowMat);
-  leftEye.position.set(-0.13, headY + 0.04, 0.23 + headZOffset);
+  leftEye.scale.set(0.94, 1.08, 0.53);
+  leftEye.position.set(-0.13, headY + 0.04, 0.24 + headZOffset);
   const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), eyeYellowMat);
-  rightEye.position.set(0.13, headY + 0.03, 0.23 + headZOffset);
+  rightEye.scale.set(0.94, 1.08, 0.53);
+  rightEye.position.set(0.13, headY + 0.03, 0.24 + headZOffset);
   group.add(leftEye, rightEye);
 
   if (type !== 'baron' && type !== 'grinner') {
     const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.042, 6, 6), pupilMat);
-    leftPupil.position.set(-0.13, headY + 0.04, 0.31 + headZOffset);
+    leftPupil.scale.z = 0.55;
+    leftPupil.position.set(-0.13, headY + 0.04, 0.286 + headZOffset);
     const rightPupil = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), pupilMat);
-    rightPupil.position.set(0.13, headY + 0.03, 0.3 + headZOffset);
+    rightPupil.scale.z = 0.55;
+    rightPupil.position.set(0.13, headY + 0.03, 0.282 + headZOffset);
     group.add(leftPupil, rightPupil);
   }
 
   // 5. Arms & Archetype-Specific Canonical Props from the 7 Reference Images
-  const armGeo = new THREE.BoxGeometry(0.18, 0.18, 0.56);
+  const armGeo = zombieRoundedBox(0.18, 0.18, 0.56, 0.075);
   const leftArm = new THREE.Mesh(armGeo, type === 'grinner' || type === 'grumble' ? coatMat : skinMat);
   leftArm.position.set(-0.38, 0.92, 0.22);
   const rightArm = new THREE.Mesh(armGeo, type === 'grinner' || type === 'grumble' ? coatMat : skinMat);
@@ -2476,7 +2511,7 @@ export function createZombieModel(
     mug.rotation.z = 0.35;
 
     // Moss clumps on head & shoulder + small twig sticking out of shoulder
-    const mossMat = new THREE.MeshStandardMaterial({ color: 0x4d7c2b, roughness: 0.9 });
+    const mossMat = new THREE.MeshStandardMaterial({ color: 0x738f9b, roughness: 0.9 });
     const headMoss = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.34), mossMat);
     headMoss.position.set(0.04, headY + 0.26, headZOffset);
     const shoulderTwig = new THREE.Mesh(
@@ -2655,7 +2690,7 @@ export function createZombieModel(
 
     // Leafy green hair tufts + goofy buck-toothed grin
     const hairMat = new THREE.MeshStandardMaterial({
-      color: 0x2d4f32,
+      color: 0x4b5c6d,
       roughness: 0.85,
       flatShading: true,
     });
@@ -2731,7 +2766,7 @@ export function createZombieModel(
     // Wet seaweed hair cap
     const kelpCap = new THREE.Mesh(
       new THREE.BoxGeometry(0.54, 0.14, 0.52),
-      new THREE.MeshStandardMaterial({ color: 0x365928, roughness: 0.8, flatShading: true })
+      new THREE.MeshStandardMaterial({ color: 0x566b79, roughness: 0.8, flatShading: true })
     );
     kelpCap.position.set(0, headY + 0.24, headZOffset);
 
@@ -3174,12 +3209,14 @@ export function createResourceNodeModel(type: ResourceType): THREE.Group {
   if (type === 'wood') {
     // Unmistakable Woodcutter's Stacked Timber Pile + Chopping Stump with Embedded Axe (no pine tree camouflage)
     const barkMat = new THREE.MeshStandardMaterial({
-      color: 0x7c4a26,
+      color: 0xb66b31,
+      emissive: 0x71300c,
+      emissiveIntensity: 0.16,
       roughness: 0.88,
       envMapIntensity: 0.18,
     });
     const heartwoodMat = new THREE.MeshStandardMaterial({
-      color: 0xfde68a,
+      color: 0xffc65b,
       emissive: 0xd97706,
       emissiveIntensity: 0.16,
       roughness: 0.62,
@@ -3210,6 +3247,15 @@ export function createResourceNodeModel(type: ResourceType): THREE.Group {
       capFront.rotation.z = 0.18;
       capFront.position.set(lx - Math.sin(0.18) * 0.68, ly, lz + Math.cos(0.18) * 0.68);
       group.add(capFront);
+      // Concentric rings make the exposed end read as cut timber.
+      for (const radius of [0.07, 0.13]) {
+        const grain = new THREE.Mesh(
+          new THREE.TorusGeometry(radius, 0.012, 4, 16),
+          new THREE.MeshBasicMaterial({ color: 0x70401f })
+        );
+        grain.position.set(lx - Math.sin(0.18) * 0.7, ly, lz + Math.cos(0.18) * 0.7);
+        group.add(grain);
+      }
 
       const capBack = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.04, 8), heartwoodMat);
       capBack.rotation.x = Math.PI / 2;
@@ -3220,6 +3266,7 @@ export function createResourceNodeModel(type: ResourceType): THREE.Group {
 
     // Thick chopping stump + embedded woodcutter axe
     const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.6, 0.66, 9), barkMat);
+    stump.name = 'wood-stump';
     stump.position.set(-0.56, 0.33, -0.34);
     stump.castShadow = true;
     const stumpTop = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.05, 9), heartwoodMat);
@@ -3236,112 +3283,73 @@ export function createResourceNodeModel(type: ResourceType): THREE.Group {
     axeBlade.rotation.z = -0.36;
     group.add(stump, stumpTop, axeHandle, axeBlade);
   } else if (type === 'stone') {
-    const rockMat = new THREE.MeshStandardMaterial({
-      color: 0x64748b,
-      roughness: 0.84,
-      metalness: 0.14,
-      envMapIntensity: 0.24,
-      flatShading: true,
+    // Dark charcoal-brown rocks with a lighter warm-gray companion for separation.
+    const mainMat = new THREE.MeshStandardMaterial({ color: 0x62564f, emissive: 0x34251f, emissiveIntensity: 0.16, roughness: 0.95, flatShading: true });
+    const sideMat = new THREE.MeshStandardMaterial({ color: 0x373738, emissive: 0x2b2320, emissiveIntensity: 0.16, roughness: 0.95, flatShading: true });
+    const rocks: [number, number, number, number, number, number][] = [
+      [-0.22, 0.48, 0, 0.64, 0.58, 0.53],
+      [0.5, 0.32, 0.19, 0.43, 0.37, 0.4],
+      [0.12, 0.27, -0.48, 0.38, 0.31, 0.36],
+    ];
+    rocks.forEach(([x, y, z, sx, sy, sz], index) => {
+      const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), index === 1 ? sideMat : mainMat);
+      rock.name = 'stone-rock';
+      rock.position.set(x, y, z);
+      rock.rotation.set(0.12 * index, 0.4 * index, 0.16 * index);
+      rock.scale.set(sx, sy, sz);
+      rock.castShadow = true;
+      group.add(rock);
     });
-    const darkRockMat = new THREE.MeshStandardMaterial({
-      color: 0x475569,
-      roughness: 0.9,
-      metalness: 0.1,
-      envMapIntensity: 0.18,
-      flatShading: true,
-    });
-    const quartzMat = new THREE.MeshStandardMaterial({
-      color: 0xbae6fd,
-      emissive: 0x38bdf8,
-      emissiveIntensity: 0.25,
-      roughness: 0.25,
-      metalness: 0.2,
-    });
-    const r1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.72, 0), rockMat);
-    r1.position.set(-0.15, 0.46, 0);
-    r1.scale.set(1.18, 0.88, 1.05);
-    r1.castShadow = true;
-    const r2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.52, 0), darkRockMat);
-    r2.position.set(0.48, 0.34, 0.28);
-    r2.castShadow = true;
-    const r3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4, 0), rockMat);
-    r3.position.set(0.18, 0.28, -0.44);
-    r3.castShadow = true;
-    const shard1 = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.56, 5), quartzMat);
-    shard1.position.set(-0.18, 0.98, 0.08);
-    shard1.rotation.z = 0.22;
-    const shard2 = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.42, 5), quartzMat);
-    shard2.position.set(0.16, 0.78, -0.15);
-    shard2.rotation.z = -0.28;
-    group.add(r1, r2, r3, shard1, shard2);
   } else {
-    // Food: Unmistakable Golden Corn & Crimson Apple Harvest Stand (high contrast against green turf)
-    const crateWoodMat = new THREE.MeshStandardMaterial({
-      color: 0x92400e,
-      roughness: 0.85,
-      envMapIntensity: 0.16,
-    });
-    const goldenCornMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15,
-      emissive: 0xca8a04,
-      emissiveIntensity: 0.28,
-      roughness: 0.45,
-    });
-    const huskMat = new THREE.MeshStandardMaterial({
-      color: 0x65a30d,
-      roughness: 0.72,
-    });
-    const appleMat = new THREE.MeshStandardMaterial({
-      color: 0xef4444,
-      emissive: 0xb91c1c,
-      emissiveIntensity: 0.3,
-      roughness: 0.32,
-    });
-
-    // Rustic wooden harvest crate filled with bright red apples
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.52, 0.74), crateWoodMat);
-    crate.position.set(-0.18, 0.28, 0.16);
-    crate.rotation.y = 0.25;
-    crate.castShadow = true;
-    group.add(crate);
-
-    const appleCoords: [number, number, number][] = [
-      [-0.36, 0.62, 0.04],
-      [-0.14, 0.65, 0.24],
-      [0.06, 0.61, 0.08],
-      [-0.24, 0.74, 0.14],
-      [-0.04, 0.73, 0.22],
-      [-0.32, 0.61, 0.32],
-    ];
-    appleCoords.forEach(([ax, ay, az]) => {
-      const apple = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), appleMat);
-      apple.position.set(ax, ay, az);
-      apple.castShadow = true;
+    // A low open crate with three distinct red apples and two yellow ears of corn.
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0xb07039, roughness: 0.88 });
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xe1a052, roughness: 0.82 });
+    const appleMat = new THREE.MeshStandardMaterial({ color: 0xff1910, emissive: 0xd2170b, emissiveIntensity: 0.4, roughness: 0.5 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x56774a, roughness: 0.8 });
+    const cornMat = new THREE.MeshStandardMaterial({ color: 0xffdb08, emissive: 0xd99400, emissiveIntensity: 0.4, roughness: 0.65 });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.37, 0.76), crateMat);
+    box.name = 'food-crate';
+    box.position.y = 0.2;
+    box.castShadow = true;
+    group.add(box);
+    for (const z of [-0.39, 0.39]) {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.09, 0.08), rimMat);
+      edge.position.set(0, 0.4, z);
+      group.add(edge);
+    }
+    for (const x of [-0.54, 0.54]) {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.09, 0.78), rimMat);
+      edge.position.set(x, 0.4, 0);
+      group.add(edge);
+    }
+    for (const [x, z] of [[-0.3, 0.1], [0, 0.16], [-0.16, -0.18]]) {
+      const apple = new THREE.Group();
+      apple.name = 'food-apple';
+      apple.position.set(x, 0.52, z);
+      const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), appleMat);
+      fruit.scale.set(1, 0.9, 1);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.025, 0.1, 5), crateMat);
+      stem.position.y = 0.21;
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), leafMat);
+      leaf.scale.set(1, 0.25, 0.55);
+      leaf.position.set(0.08, 0.2, 0);
+      apple.add(fruit, stem, leaf);
       group.add(apple);
-    });
-
-    // Tall bright golden Corn Stalks & Golden Ears of Corn standing beside the crate
-    const cobCoords: [number, number, number, number][] = [
-      [0.44, 0.64, -0.18, 0.12],
-      [0.62, 0.56, 0.14, -0.18],
-      [0.24, 0.72, -0.34, 0.06],
-    ];
-    cobCoords.forEach(([cx, cy, cz, tilt]) => {
-      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.35, 6), huskMat);
-      stalk.position.set(cx, 0.68, cz);
-      stalk.rotation.z = tilt;
-      stalk.castShadow = true;
-
-      const cob = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.48, 8), goldenCornMat);
-      cob.position.set(cx + tilt * 0.25, cy + 0.15, cz + 0.08);
-      cob.rotation.z = tilt - 0.35;
-      cob.castShadow = true;
-
-      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.52, 4), huskMat);
-      leaf.position.set(cx - 0.12, cy + 0.08, cz);
-      leaf.rotation.z = 0.75;
-      group.add(stalk, cob, leaf);
-    });
+    }
+    const cobGeometry = new THREE.SphereGeometry(1, 12, 10);
+    for (const [x, z, tilt] of [[0.25, -0.13, -0.28], [0.32, 0.13, 0.22]]) {
+      const cob = new THREE.Group();
+      cob.name = 'food-corn';
+      cob.position.set(x, 0.53, z);
+      cob.rotation.z = tilt;
+      const ear = new THREE.Mesh(cobGeometry, cornMat);
+      ear.scale.set(0.12, 0.27, 0.12);
+      const husk = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.35, 6), leafMat);
+      husk.position.set(-0.1, -0.12, 0);
+      husk.rotation.z = -0.36;
+      cob.add(ear, husk);
+      group.add(cob);
+    }
   }
 
   return group;
