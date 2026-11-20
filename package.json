@@ -42,5 +42,13 @@
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "@devvit/cli": {
+      "isomorphic-git": "1.38.6"
+    },
+    "external-editor": {
+      "tmp": "0.2.7"
+    }
+  }
 }
